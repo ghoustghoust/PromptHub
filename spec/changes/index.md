@@ -7,7 +7,7 @@ file manually. Run the generator after adding, moving, or archiving a change.
 
 | State | Count |
 | --- | ---: |
-| Active | 37 |
+| Active | 39 |
 | Completed | 14 |
 | Archived | 235 |
 | Legacy | 1 |
@@ -18,6 +18,7 @@ file manually. Run the generator after adding, moving, or archiving a change.
 
 | Change | Recorded status | Path |
 | --- | --- | --- |
+| `component-understanding-kb` | in progress | [spec/changes/active/component-understanding-kb/](active/component-understanding-kb/) |
 | `foundation-integrity-redesign` | in progress | [spec/changes/active/foundation-integrity-redesign/](active/foundation-integrity-redesign/) |
 | `legacy-upgrade-recovery-audit` | in progress | [spec/changes/active/legacy-upgrade-recovery-audit/](active/legacy-upgrade-recovery-audit/) |
 | `mcp-version-history-and-projection-safety` | in progress | [spec/changes/active/mcp-version-history-and-projection-safety/](active/mcp-version-history-and-projection-safety/) |
@@ -47,6 +48,7 @@ file manually. Run the generator after adding, moving, or archiving a change.
 | `desktop-upgrade-snapshot-lock-recovery` | release-pending | [spec/changes/active/desktop-upgrade-snapshot-lock-recovery/](active/desktop-upgrade-snapshot-lock-recovery/) |
 | `grok-build-platform-support` | review-pending | [spec/changes/active/grok-build-platform-support/](active/grok-build-platform-support/) |
 | `pi-agent-separation` | release-pending | [spec/changes/active/pi-agent-separation/](active/pi-agent-separation/) |
+| `prompt-orchestrator-assistant` | review-pending | [spec/changes/active/prompt-orchestrator-assistant/](active/prompt-orchestrator-assistant/) |
 | `skills-issue-211-git-http-fallback` | review-pending | [spec/changes/active/skills-issue-211-git-http-fallback/](active/skills-issue-211-git-http-fallback/) |
 | `skills-my-skills-tag-search` | review-pending | [spec/changes/active/skills-my-skills-tag-search/](active/skills-my-skills-tag-search/) |
 | `skills-tag-list-glance-display` | review-pending | [spec/changes/active/skills-tag-list-glance-display/](active/skills-tag-list-glance-display/) |

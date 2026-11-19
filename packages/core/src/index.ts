@@ -13,6 +13,8 @@ export * from "./ai-client";
 export * from "./ai-config";
 export * from "./prompt-orchestrator";
 export * from "./prompt-alignment";
+export * from "./prompt-moss-layout";
+export * from "./prompt-moss-layout-assist";
 export * from "./prompt-orchestrator-llm";
 export * from "./prompt-skill-generator";
 export * from "./image-generation-workbench";

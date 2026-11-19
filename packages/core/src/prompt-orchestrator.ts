@@ -1,5 +1,8 @@
 import { PromptVocabDB } from "@prompthub/db";
 import type {
+  PromptMossCaptionRefinement,
+  PromptMossLayoutDraft,
+  PromptMossLayoutReverse,
   PromptModelDirective,
   PromptOrchestrationInput,
   PromptOrchestrationMode,
@@ -14,6 +17,7 @@ import {
   buildCompositionMessages,
   buildFallbackComposition,
   buildFixedFields,
+  finalizeMossLayoutComposition,
   mergeFixedFields,
   parsePromptComposition,
   validateTaskComposition,
@@ -26,6 +30,11 @@ import {
   mossBudgetWarnings,
 } from "./prompt-token-budget";
 import type { PromptComposition } from "./prompt-orchestrator-composition";
+import { mossLayoutValidationError } from "./prompt-moss-layout";
+import {
+  refineMossLayoutCaptions,
+  reverseMossLayoutFromImages,
+} from "./prompt-moss-layout-assist";
 
 const MODES: ReadonlySet<string> = new Set([
   "expand",
@@ -251,6 +260,28 @@ function validateOutputFormat(input: PromptOrchestrationInput): void {
       );
     }
   }
+  if (input.layout !== undefined) {
+    const layoutError = mossLayoutValidationError(input.layout);
+    if (layoutError) {
+      throw new PromptOrchestratorError("INVALID_INPUT", layoutError);
+    }
+    if (input.skill !== "moss" || format !== "layout") {
+      throw new PromptOrchestratorError(
+        "INVALID_INPUT",
+        "Native layout drafts require the MOSS rule card and outputFormat=layout",
+      );
+    }
+    if (
+      input.canvas &&
+      (input.canvas.width !== input.layout.canvas.width ||
+        input.canvas.height !== input.layout.canvas.height)
+    ) {
+      throw new PromptOrchestratorError(
+        "INVALID_INPUT",
+        "canvas and layout.canvas dimensions must match exactly",
+      );
+    }
+  }
 }
 
 function validateOptions(input: PromptOrchestrationInput): void {
@@ -437,6 +468,11 @@ export class PromptOrchestrator {
     if (input.skill === "moss" && input.outputFormat !== "layout") {
       warnings.push(...mossBudgetWarnings(metrics.completePromptTokens));
     }
+    if (input.layout) {
+      warnings.push(
+        `MOSS Layout was compiled for exactly ${input.layout.canvas.width}x${input.layout.canvas.height}; use the same output dimensions and disable any second prompt-enhancement pass downstream.`,
+      );
+    }
     if (input.mode === "video-beat") {
       warnings.push(
         "Beat-sync is experimental and is not guaranteed by the official MiniMax-H3 guide; validate cut timing and action accents before production use.",
@@ -471,12 +507,20 @@ export class PromptOrchestrator {
       });
       const parsed = parsePromptComposition(content, mode, input.includePayload);
       validateTaskComposition(input, parsed);
+      const finalized = finalizeMossLayoutComposition(input, parsed);
       const composition = mergeFixedFields(
-        parsed,
+        finalized,
         fixedFields,
         selection.terms,
       );
       const tokenMetrics = await this.tokenMetrics(composition, selection.terms);
+      const warnings = this.warnings(input, selection.warnings, tokenMetrics);
+      const pendingCaptions = composition.layout?.pendingCaptions ?? [];
+      if (pendingCaptions.length > 0) {
+        warnings.push(
+          `Layout boxes ${pendingCaptions.map((index) => index + 1).join(", ")} still have no visual description; fill them in or run "补齐逐框描述" before generating.`,
+        );
+      }
       return {
         mode,
         skill: input.skill ?? "moodyMoss",
@@ -485,7 +529,7 @@ export class PromptOrchestrator {
         ...composition,
         selectedTerms: selection.terms,
         modelDirectives: directives,
-        warnings: this.warnings(input, selection.warnings, tokenMetrics),
+        warnings,
         tokenMetrics,
         status: "complete",
         alignment: buildPromptAlignment(input.prompt ?? "", composition.completePrompt),
@@ -530,5 +574,41 @@ export class PromptOrchestrator {
         ),
       };
     }
+  }
+
+  /** Fills empty per-box descriptions and polishes the ones the user already wrote. */
+  async refineLayoutCaptions(input: {
+    draft: PromptMossLayoutDraft;
+    intent?: string;
+  }): Promise<PromptMossCaptionRefinement> {
+    const validationError = mossLayoutValidationError(input.draft);
+    if (validationError) throw new Error(validationError);
+    return refineMossLayoutCaptions({
+      draft: input.draft,
+      intent: input.intent,
+      llm: this.options.llm,
+    });
+  }
+
+  /** Reverses a poster or graphic into editable normalized layout boxes. */
+  async reverseLayoutFromImage(input: {
+    images: string[];
+    canvas: PromptMossLayoutDraft["canvas"];
+    intent?: string;
+  }): Promise<PromptMossLayoutReverse> {
+    if (
+      !Number.isInteger(input.canvas.width) ||
+      !Number.isInteger(input.canvas.height) ||
+      input.canvas.width <= 0 ||
+      input.canvas.height <= 0
+    ) {
+      throw new Error("Layout canvas dimensions must be positive integers");
+    }
+    return reverseMossLayoutFromImages({
+      images: input.images,
+      canvas: input.canvas,
+      intent: input.intent,
+      llm: this.options.llm,
+    });
   }
 }

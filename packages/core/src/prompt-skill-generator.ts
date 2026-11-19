@@ -291,12 +291,16 @@ export class PromptSkillGenerator {
       "The host inserts exact reference content after your response. Do not repeat references or turn them into creative suggestions.",
       "Follow the supplied rule card and keep suggestions compatible with it.",
       formatRule,
+      input.layout
+        ? "The current example includes a native normalized MOSS canvas. Teach a reusable workflow that preserves draw order, exact text and normalized geometry while refining only summary and per-box captions. Do not treat the current boxes as a mandatory template for future users; the host compiles final pixels and JSON deterministically."
+        : "Do not invent a native canvas workflow when no editable layout draft is supplied.",
     ].join("\n");
     const user = JSON.stringify({
       intent: input.prompt,
       ruleCard: input.skill ?? "moodyMoss",
       series: input.series ?? null,
       outputFormat,
+      layoutDraft: input.layout ?? null,
       references,
     });
     const content = await this.options.llm.complete({

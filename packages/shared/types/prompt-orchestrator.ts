@@ -2,6 +2,10 @@ import type {
   PromptModelProfileKind,
   PromptTermValidationStatus,
 } from "./prompt-vocab";
+import type {
+  PromptMossLayoutDraft,
+  PromptMossLayoutResult,
+} from "./prompt-moss-layout";
 
 export type PromptOrchestrationMode =
   | "expand"
@@ -69,6 +73,8 @@ export interface PromptOrchestrationInput {
   series?: string;
   outputFormat?: PromptOrchestrationOutputFormat;
   canvas?: PromptOrchestrationCanvas;
+  /** Native editable MOSS layout; normalized boxes are compiled deterministically. */
+  layout?: PromptMossLayoutDraft;
   loraIds?: string[];
   categories?: string[];
   selectedTermIds?: string[];
@@ -151,6 +157,21 @@ export interface DesktopPromptSkillGenerationRequest
   extends DesktopPromptOrchestrationRequest {
   /** Optional slug; the generator normalizes model-derived names when omitted. */
   skillName?: string;
+}
+
+export interface DesktopPromptLayoutCaptionRequest {
+  draft: PromptMossLayoutDraft;
+  /** Overall scene intent used to fill empty per-box descriptions. */
+  intent?: string;
+  /** Existing PromptHub chat model config id; omitted uses mainText/default. */
+  llmModelId?: string;
+}
+
+export interface DesktopPromptLayoutReverseRequest {
+  images: string[];
+  canvas: { width: number; height: number };
+  intent?: string;
+  llmModelId?: string;
 }
 
 export type PromptSkillReferenceKind =
@@ -253,6 +274,8 @@ export interface PromptOrchestrationResult {
   payload?: unknown;
   /** Sentence-level pairing between the user's input and the final prompt. */
   alignment?: PromptAlignment;
+  /** Present when the native MOSS layout canvas produced the final JSON. */
+  layout?: PromptMossLayoutResult;
 }
 
 export function isVideoOrchestrationMode(

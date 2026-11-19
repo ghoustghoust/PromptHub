@@ -4,10 +4,12 @@ import type {
   PromptOrchestrationField,
   PromptOrchestrationInput,
   PromptOrchestrationMode,
+  PromptMossLayoutResult,
   PromptSelectedTerm,
 } from "@prompthub/shared/types";
 import { isVideoOrchestrationMode } from "@prompthub/shared/types";
 import { getPromptRuleCard } from "./prompt-orchestrator-rule-cards";
+import { compileMossLayout, serializeMossLayout } from "./prompt-moss-layout";
 
 export interface PromptCompositionMessages {
   system: string;
@@ -19,6 +21,9 @@ export interface PromptComposition {
   completePrompt: string;
   fields: PromptOrchestrationField[];
   payload?: unknown;
+  /** Refined descriptions in draw order; the host owns all geometry. */
+  layoutCaptions?: string[];
+  layout?: PromptMossLayoutResult;
 }
 
 const MODE_INSTRUCTIONS: Record<PromptOrchestrationMode, string> = {
@@ -76,6 +81,9 @@ function taskOutputContract(input: PromptOrchestrationInput): string {
   if (input.mode === "video-short-drama") {
     return "The completePrompt must be a multi-section reusable agent system prompt with explicit role, inputs, workflow, continuity, output and validation rules. A single video prompt is invalid.";
   }
+  if (input.layout) {
+    return `Native MOSS canvas mode: completePrompt must be only the refined overall summary.caption, not JSON. Also return layoutCaptions as an array of exactly ${input.layout.boxes.length} refined visual descriptions in the user's draw order. Do not return coordinates, change box order or labels, or rewrite exact text-box content; PromptHub deterministically compiles the final Layout JSON.`;
+  }
   if (input.skill === "moss" && input.outputFormat === "layout") {
     return "The completePrompt must be one valid Layout JSON line with summary, items, bbox_coord_space and bbox_format, not prose.";
   }
@@ -97,7 +105,8 @@ Schema:
       "termId": "optional vocabulary id"
     }
   ],
-  "payload": "required only in json mode; any valid JSON value"
+  "payload": "required only in json mode; any valid JSON value",
+  "layoutCaptions": ["required only for native MOSS canvas mode; one refined caption per box"]
 }
 Layer contract:
 - fixed: explicitly requested by the user, including locked terms and model triggers. Never remove or rewrite their meaning.
@@ -172,12 +181,26 @@ function parseField(value: unknown, index: number): PromptOrchestrationField {
   return field;
 }
 
+function parseLayoutCaptions(value: unknown): string[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > 32) {
+    throw new Error("LLM composition layoutCaptions must be an array of at most 32 items");
+  }
+  return value.map((caption, index) => {
+    if (typeof caption !== "string" || !caption.trim()) {
+      throw new Error(`LLM composition layoutCaptions[${index}] must be a non-empty string`);
+    }
+    return caption.trim();
+  });
+}
+
 export function parsePromptComposition(
   content: string,
   mode: PromptOrchestrationMode,
   includePayload = false,
 ): PromptComposition {
   const record = parseJson(content);
+  const layoutCaptions = parseLayoutCaptions(record.layoutCaptions);
   if (!Array.isArray(record.fields)) {
     throw new Error("LLM composition fields must be an array");
   }
@@ -192,6 +215,7 @@ export function parsePromptComposition(
     completePrompt: requiredString(record, "completePrompt"),
     fields: record.fields.map(parseField),
     ...(mode === "json" || includePayload ? { payload: record.payload } : {}),
+    ...(layoutCaptions ? { layoutCaptions } : {}),
   };
 }
 
@@ -220,6 +244,12 @@ export function validateTaskComposition(
     }
     return;
   }
+  if (input.layout) {
+    if (composition.layoutCaptions?.length !== input.layout.boxes.length) {
+      throw new Error("MOSS canvas output must contain exactly one refined caption per box");
+    }
+    return;
+  }
   if (input.skill === "moss" && input.outputFormat === "layout") {
     const layout = parseJson(output);
     if (!isRecord(layout.summary) || !Array.isArray(layout.items) ||
@@ -227,6 +257,30 @@ export function validateTaskComposition(
       throw new Error("MOSS Layout does not match the required summary/items/bbox contract");
     }
   }
+}
+
+export function finalizeMossLayoutComposition(
+  input: PromptOrchestrationInput,
+  composition: PromptComposition,
+): PromptComposition {
+  if (!input.layout) return composition;
+  const initialLayout = compileMossLayout(
+    input.layout,
+    input.prompt ?? "",
+    input.layout.boxes.map((box) => box.caption),
+  );
+  const completeLayout = compileMossLayout(
+    input.layout,
+    composition.completePrompt,
+    composition.layoutCaptions,
+  );
+  return {
+    initialPrompt: serializeMossLayout(initialLayout),
+    completePrompt: serializeMossLayout(completeLayout),
+    fields: composition.fields,
+    ...(composition.payload !== undefined ? { payload: composition.payload } : {}),
+    layout: completeLayout,
+  };
 }
 
 function systemPromptLayerSection(input: PromptOrchestrationInput): string {
@@ -269,6 +323,7 @@ export function buildCompositionMessages(
     series: input.series ?? null,
     outputFormat: input.outputFormat ?? null,
     canvas: input.canvas ?? null,
+    layout: input.layout ?? null,
     referenceImageCount: input.imageUrls?.length ?? 0,
     guidanceMode: input.guidanceMode ?? "agent-led",
     includePayload: input.includePayload === true || mode === "json",
@@ -335,6 +390,15 @@ export function buildFixedFields(
   if (input.canvas) {
     add("canvas", `${input.canvas.width}x${input.canvas.height}`);
   }
+  input.layout?.boxes.forEach((box, index) => {
+    add(`layoutBox ${index + 1}`, JSON.stringify({
+      label: box.label,
+      caption: box.caption,
+      ...(box.label === "text" ? { text: box.text } : {}),
+      ...(box.character === true ? { character: true } : {}),
+      normalizedYxyx: box.bbox,
+    }));
+  });
   selectedTerms
     .filter((term) => term.selectionReason === "explicit")
     .forEach((term) =>
@@ -431,9 +495,11 @@ export function buildFallbackComposition(
     rationale: "Vocabulary suggestion retained by the deterministic fallback.",
     termId: term.id,
   }));
-  return {
-    initialPrompt,
-    completePrompt,
-    fields: dedupeFields([...fixedFields, ...suggestionFields]),
-  };
+  const fields = dedupeFields([...fixedFields, ...suggestionFields]);
+  if (input.layout) {
+    const layout = compileMossLayout(input.layout, input.prompt ?? "");
+    const serialized = serializeMossLayout(layout);
+    return { initialPrompt: serialized, completePrompt: serialized, fields, layout };
+  }
+  return { initialPrompt, completePrompt, fields };
 }

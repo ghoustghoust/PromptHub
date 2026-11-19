@@ -16,7 +16,10 @@ import type {
   SkillSafetyPolicySelection,
   SkillSafetyPolicyValue,
 } from "../../services/skill-safety-policy";
-import type { AIProtocol } from "@prompthub/shared/types";
+import type {
+  AIProtocol,
+  LocalLlamaModelConnection,
+} from "@prompthub/shared/types";
 
 export const SUPPORTED_LANGUAGES = [
   "zh",
@@ -371,6 +374,9 @@ export interface SettingsState {
     modelId: string | null,
   ) => void;
   setModelRouteDefault: (route: AIModelRoute, modelId: string | null) => void;
+  connectLocalLlamaModel: (
+    connection: LocalLlamaModelConnection,
+  ) => Promise<void>;
   setCreationMode: (mode: CreationMode) => void;
   setTranslationMode: (mode: TranslationMode) => void;
   setImageReverseAttachReferenceByDefault: (enabled: boolean) => void;

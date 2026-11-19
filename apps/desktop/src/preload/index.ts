@@ -19,9 +19,11 @@ import { cloudApi } from "./api/cloud";
 import { folderApi } from "./api/folder";
 import { generationApi } from "./api/generation";
 import { ioApi } from "./api/io";
+import { localLlamaApi } from "./api/local-llama";
 import { mcpApi } from "./api/mcp";
 import { pluginApi } from "./api/plugin";
 import { promptApi } from "./api/prompt";
+import { promptOrchestratorApi } from "./api/prompt-orchestrator";
 import { promptWorkspaceRecoveryApi } from "./api/prompt-workspace-recovery";
 import { rulesApi } from "./api/rules";
 import { settingsApi } from "./api/settings";
@@ -107,6 +109,7 @@ const api = {
   maximize: () => ipcRenderer.send("window:maximize"),
   close: () => ipcRenderer.send("window:close"),
   prompt: promptApi,
+  promptOrchestrator: promptOrchestratorApi,
   promptWorkspaceRecovery: promptWorkspaceRecoveryApi,
   agent: agentApi,
 
@@ -137,6 +140,7 @@ const api = {
   upgradeBackup: upgradeBackupApi,
   io: ioApi,
   ai: aiApi,
+  localLlama: localLlamaApi,
   cli: cliApi,
   cloud: cloudApi,
   mcp: mcpApi,
@@ -358,6 +362,8 @@ contextBridge.exposeInMainWorld("electron", {
   // Images
   // 图片
   selectImage: () => ipcRenderer.invoke("dialog:selectImage"),
+  readClipboardImage: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.IMAGE_READ_CLIPBOARD),
   saveImage: (paths: string[]) => ipcRenderer.invoke("image:save", paths),
   saveImageBuffer: (buffer: ArrayBuffer) =>
     ipcRenderer.invoke("image:save-buffer", Buffer.from(buffer)),
@@ -707,6 +713,11 @@ declare global {
         install: (method?: CliInstallMethod) => Promise<CliInstallResult>;
       };
       selectImage?: () => Promise<string[]>;
+      readClipboardImage?: () => Promise<{
+        fileName: string;
+        mimeType: string;
+        base64: string;
+      } | null>;
       saveImage?: (paths: string[]) => Promise<string[]>;
       saveBase64Image?: (base64: string) => Promise<string | null>;
       saveImageBuffer?: (buffer: ArrayBuffer) => Promise<string | null>;

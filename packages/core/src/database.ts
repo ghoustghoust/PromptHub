@@ -81,4 +81,5 @@ export {
   FolderDB,
   PromptRelationDB,
   PromptOutputFormatDB,
+  PromptVocabDB,
 } from "@prompthub/db";

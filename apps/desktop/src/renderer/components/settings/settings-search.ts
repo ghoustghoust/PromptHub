@@ -68,6 +68,7 @@ const NOTIFICATION_KEYS = [
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   security: ["settings.setMaster"],
   ai: ["settings.apiKey", "settings.model"],
+  localModel: ["localModel.statusSection", "localModel.parametersSection"],
 };
 
 function isVisibleKey(key: string, webRuntime: boolean): boolean {

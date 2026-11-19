@@ -32,12 +32,17 @@ export type SortOrder = "desc" | "asc";
 // View mode
 // 视图模式
 export type ListViewMode = "card" | "list" | "gallery" | "kanban";
-export type ViewMode = ListViewMode | "graph" | "generation";
+export type ViewMode = ListViewMode | "graph" | "generation" | "orchestrator";
 export type GalleryImageSize = "small" | "medium" | "large";
 export type KanbanColumns = 2 | 3 | 4;
 
 function isViewMode(value: unknown): value is ViewMode {
-  return isListViewMode(value) || value === "graph" || value === "generation";
+  return (
+    isListViewMode(value) ||
+    value === "graph" ||
+    value === "generation" ||
+    value === "orchestrator"
+  );
 }
 
 function isListViewMode(value: unknown): value is ListViewMode {

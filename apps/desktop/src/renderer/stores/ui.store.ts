@@ -16,6 +16,7 @@ export type SettingsSectionId =
   | "network"
   | "skill"
   | "ai"
+  | "localModel"
   | "language"
   | "shortcuts"
   | "about"

@@ -5,6 +5,7 @@ import {
   HashIcon,
   ImageIcon,
   LayoutGridIcon,
+  LayersIcon,
   MessageSquareTextIcon,
   PlusIcon,
   SettingsIcon,
@@ -28,7 +29,8 @@ function isPromptFilterActive(
     controller.currentPage === "home" &&
     controller.promptTypeFilter === filter &&
     controller.promptViewMode !== "graph" &&
-    controller.promptViewMode !== "generation"
+    controller.promptViewMode !== "generation" &&
+    controller.promptViewMode !== "orchestrator"
   );
 }
 
@@ -189,6 +191,16 @@ function SidebarPromptStaticNavigation({
         }
         collapsed={controller.isCollapsed}
         onClick={controller.openRelationshipGraph}
+      />
+      <SidebarNavigationItem
+        icon={<LayersIcon className="w-5 h-5" />}
+        label={controller.t("orchestrator.title")}
+        active={
+          controller.promptViewMode === "orchestrator" &&
+          controller.currentPage === "home"
+        }
+        collapsed={controller.isCollapsed}
+        onClick={controller.openOrchestratorWorkbench}
       />
       <SidebarNavigationItem
         icon={<SparklesIcon className="w-5 h-5" />}

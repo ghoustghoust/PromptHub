@@ -1,6 +1,7 @@
 import { GENERATION_SCHEMA } from "./generation-schema";
 import { PROMPT_TEST_HISTORY_SCHEMA } from "./prompt-test-history";
 import { PLUGIN_SCHEMA } from "./plugin";
+import { PROMPT_VOCAB_SCHEMA } from "./prompt-vocab-schema";
 import { RULE_SCHEMA } from "./rule-schema";
 /**
  * 数据库表结构定义
@@ -215,6 +216,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
 
 ${GENERATION_SCHEMA}
 ${PROMPT_TEST_HISTORY_SCHEMA}
+${PROMPT_VOCAB_SCHEMA}
 
 CREATE TABLE IF NOT EXISTS agent_provider_profiles (
   id TEXT PRIMARY KEY,
@@ -421,6 +423,14 @@ CREATE INDEX IF NOT EXISTS idx_prompts_folder_favorite ON prompts(folder_id, is_
 CREATE INDEX IF NOT EXISTS idx_prompts_folder_updated ON prompts(folder_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_prompts_parent ON prompts(parent_id);
 CREATE INDEX IF NOT EXISTS idx_prompts_sort_order ON prompts(sort_order);
+
+-- 提示词结构化词库 (prompt-vocab)
+CREATE INDEX IF NOT EXISTS idx_prompt_terms_category ON prompt_terms(category);
+CREATE INDEX IF NOT EXISTS idx_prompt_terms_category_series ON prompt_terms(category, series);
+CREATE INDEX IF NOT EXISTS idx_term_relations_term ON term_relations(term_id, relation_type);
+CREATE INDEX IF NOT EXISTS idx_term_relations_related ON term_relations(related_id, relation_type);
+CREATE INDEX IF NOT EXISTS idx_validation_records_term ON validation_records(term_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_source_assets_kind ON source_assets(kind);
 
 -- 全文搜索 (FTS5)
 CREATE VIRTUAL TABLE IF NOT EXISTS prompts_fts USING fts5(

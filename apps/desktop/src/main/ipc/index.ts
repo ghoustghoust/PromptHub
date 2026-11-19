@@ -48,6 +48,8 @@ import { registerPluginIPC } from "./plugin.ipc";
 import { IPC_CHANNELS } from "@prompthub/shared/constants/ipc-channels";
 import { registerCloudIPC } from "./cloud.ipc";
 import { registerGenerationIPC } from "./generation.ipc";
+import { registerPromptOrchestratorIPC } from "./prompt-orchestrator.ipc";
+import { registerLocalLlamaIPC } from "./local-llama.ipc";
 import { SkillInstaller } from "../services/skill-installer";
 import { launchAgentPlatform } from "../services/agent-launch-service";
 import { createAgentProviderSourceService } from "../services/agent-provider-source-service";
@@ -77,6 +79,10 @@ const REBINDABLE_DB_CHANNELS = [
   IPC_CHANNELS.PROMPT_COPY,
   IPC_CHANNELS.PROMPT_INSERT_DIRECT,
   IPC_CHANNELS.PROMPT_SYNC_WORKSPACE,
+  IPC_CHANNELS.PROMPT_ORCHESTRATOR_RUN,
+  IPC_CHANNELS.PROMPT_ORCHESTRATOR_GENERATE_SKILL,
+  IPC_CHANNELS.PROMPT_ORCHESTRATOR_SERIES,
+  IPC_CHANNELS.PROMPT_ORCHESTRATOR_VOCABULARY_SEARCH,
   IPC_CHANNELS.PROMPT_MIGRATE_IDB_BATCH,
   IPC_CHANNELS.PROMPT_MOVE,
   IPC_CHANNELS.PROMPT_RELATION_CREATE,
@@ -590,6 +596,10 @@ function registerAllIpcGroups(
     registerAgentAppearanceIPC();
   });
   registerIpcGroup("generation", () => registerGenerationIPC(db));
+  registerIpcGroup("prompt-orchestrator", () =>
+    registerPromptOrchestratorIPC(db),
+  );
+  registerIpcGroup("local-llama", () => registerLocalLlamaIPC());
 }
 
 export function registerAllIPC(

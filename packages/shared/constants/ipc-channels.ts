@@ -29,6 +29,10 @@ export const IPC_CHANNELS = {
   PROMPT_INSERT_DIRECT: "prompt:insertDirect",
   PROMPT_RESTORE_GRAPH: "prompt:restoreGraph",
   PROMPT_SYNC_WORKSPACE: "prompt:syncWorkspace",
+  PROMPT_ORCHESTRATOR_RUN: "prompt:orchestrator:run",
+  PROMPT_ORCHESTRATOR_GENERATE_SKILL: "prompt:orchestrator:generateSkill",
+  PROMPT_ORCHESTRATOR_SERIES: "prompt:orchestrator:series",
+  PROMPT_ORCHESTRATOR_VOCABULARY_SEARCH: "prompt:orchestrator:vocabulary:search",
   /**
    * Atomic batch migration from legacy IndexedDB data.
    * All inserts are wrapped in a single SQLite transaction.
@@ -85,6 +89,14 @@ export const IPC_CHANNELS = {
     "settings:rendererPersistence:idbStatus",
   SETTINGS_RENDERER_PERSISTENCE_IDB_DONE:
     "settings:rendererPersistence:idbDone",
+  LOCAL_LLAMA_CONFIG_GET: "localLlama:config:get",
+  LOCAL_LLAMA_CONFIG_SAVE: "localLlama:config:save",
+  LOCAL_LLAMA_STATUS: "localLlama:status",
+  LOCAL_LLAMA_START: "localLlama:start",
+  LOCAL_LLAMA_STOP: "localLlama:stop",
+  LOCAL_LLAMA_RESTART: "localLlama:restart",
+  LOCAL_LLAMA_SELECT_FILE: "localLlama:selectFile",
+  LOCAL_LLAMA_READ_LOG: "localLlama:readLog",
 
   // PromptHub Cloud account and Store
   CLOUD_AUTH_GET_STATE: "cloud:auth:getState",
@@ -429,6 +441,7 @@ export const IPC_CHANNELS = {
 
   // Image
   DIALOG_SELECT_IMAGE: "dialog:selectImage",
+  IMAGE_READ_CLIPBOARD: "image:readClipboard",
   IMAGE_SAVE: "image:save",
   IMAGE_OPEN: "image:open",
   IMAGE_SAVE_BUFFER: "image:save-buffer",

@@ -33,6 +33,11 @@ const ImageGenerationWorkbench = lazy(() =>
     default: module.ImageGenerationWorkbench,
   })),
 );
+const PromptOrchestratorWorkbench = lazy(() =>
+  import("./PromptOrchestratorWorkbench").then((module) => ({
+    default: module.PromptOrchestratorWorkbench,
+  })),
+);
 
 const loadingFallback = (
   <div className="flex-1 flex items-center justify-center">
@@ -103,6 +108,16 @@ export function PromptViewContainers({
       <div className="absolute inset-0 flex flex-col">
         <Suspense fallback={loadingFallback}>
           <ImageGenerationWorkbench />
+        </Suspense>
+      </div>
+    );
+  }
+
+  if (viewMode === "orchestrator") {
+    return (
+      <div className="absolute inset-0 flex flex-col">
+        <Suspense fallback={loadingFallback}>
+          <PromptOrchestratorWorkbench />
         </Suspense>
       </div>
     );

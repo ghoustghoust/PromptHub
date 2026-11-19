@@ -31,7 +31,8 @@ type AIActionKey =
   | "deleteAiModels"
   | "setDefaultAiModel"
   | "setScenarioModelDefault"
-  | "setModelRouteDefault";
+  | "setModelRouteDefault"
+  | "connectLocalLlamaModel";
 
 function createAiConnectionActions(context: SettingsActionContext) {
   const { commitAISettings } = context;
@@ -392,6 +393,93 @@ function createAiDefaultActions(context: SettingsActionContext) {
   };
 }
 
+export const LOCAL_LLAMA_PROVIDER_ID = "provider_local_llama_cpp";
+export const LOCAL_LLAMA_MODEL_ID = "model_local_llama_cpp";
+
+function createLocalLlamaConnectionAction(context: SettingsActionContext) {
+  const { get, persistSettingsToMain, setTouched } = context;
+  return {
+    connectLocalLlamaModel: async (connection) => {
+      const state = get();
+      const previous = state.aiModels.find(
+        (model) => model.id === LOCAL_LLAMA_MODEL_ID,
+      );
+      const provider: AIProviderConfig = {
+        id: LOCAL_LLAMA_PROVIDER_ID,
+        name: "Local llama.cpp",
+        provider: "llama",
+        apiProtocol: "openai",
+        apiKey: "",
+        apiUrl: connection.apiUrl,
+        lastVerifiedAt: connection.verifiedAt,
+      };
+      const model: SettingsState["aiModels"][number] = {
+        ...previous,
+        id: LOCAL_LLAMA_MODEL_ID,
+        type: "chat",
+        name: connection.name,
+        providerId: provider.id,
+        provider: provider.provider,
+        apiProtocol: "openai",
+        apiKey: "",
+        apiUrl: connection.apiUrl,
+        model: connection.model,
+        isDefault: true,
+        lastVerifiedAt: connection.verifiedAt,
+        capabilities: {
+          ...previous?.capabilities,
+          chat: true,
+          vision: connection.vision,
+          imageGeneration: false,
+        },
+        chatParams: previous?.chatParams ?? {
+          temperature: 0.7,
+          maxTokens: 2048,
+          topP: 0.9,
+          topK: 40,
+          stream: false,
+          enableThinking: false,
+        },
+      };
+      const modelRouteDefaults = { ...state.modelRouteDefaults };
+      const scenarioModelDefaults = { ...state.scenarioModelDefaults };
+      if (modelRouteDefaults.visionText === model.id)
+        delete modelRouteDefaults.visionText;
+      if (scenarioModelDefaults.imageReverse === model.id)
+        delete scenarioModelDefaults.imageReverse;
+      modelRouteDefaults.mainText = model.id;
+      modelRouteDefaults.fastText = model.id;
+      if (connection.vision) {
+        modelRouteDefaults.visionText = model.id;
+        scenarioModelDefaults.imageReverse = model.id;
+      }
+      const partial: Partial<SettingsState> = {
+        aiProviders: [
+          ...state.aiProviders.filter((item) => item.id !== provider.id),
+          provider,
+        ],
+        aiModels: [
+          ...state.aiModels
+            .filter((item) => item.id !== model.id)
+            .map((item) =>
+              (item.type ?? "chat") === "chat"
+                ? { ...item, isDefault: false }
+                : item,
+            ),
+          model,
+        ],
+        modelRouteDefaults,
+        scenarioModelDefaults,
+      };
+      applyChatModelToLegacyDefaults(partial, model);
+      await persistSettingsToMain(
+        buildAISettingsSyncPayload({ ...state, ...partial }),
+      );
+      setTouched(partial);
+    },
+  } satisfies SettingsActionGroup<"connectLocalLlamaModel">;
+}
+
 export function createAISettingsActions(
   context: SettingsActionContext,
 ): SettingsActionGroup<AIActionKey> {
@@ -401,5 +489,6 @@ export function createAISettingsActions(
     createAiProviderActions(context),
     createAiModelActions(context),
     createAiDefaultActions(context),
+    createLocalLlamaConnectionAction(context),
   );
 }

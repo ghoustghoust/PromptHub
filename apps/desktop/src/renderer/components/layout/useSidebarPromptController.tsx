@@ -186,11 +186,18 @@ function useSidebarPromptNavigation(
     prompt.setPromptViewMode("generation");
     if (currentPage !== "home") onNavigate("home");
   }, [currentPage, folders, onNavigate, prompt]);
+  const openOrchestratorWorkbench = useCallback(() => {
+    folders.selectFolder(null);
+    prompt.setWorkbenchSidebarExpanded(false);
+    prompt.setPromptViewMode("orchestrator");
+    if (currentPage !== "home") onNavigate("home");
+  }, [currentPage, folders, onNavigate, prompt]);
   return {
     openPromptTypeFilter,
     openPromptFolder,
     openRelationshipGraph,
     openGenerationWorkbench,
+    openOrchestratorWorkbench,
   };
 }
 

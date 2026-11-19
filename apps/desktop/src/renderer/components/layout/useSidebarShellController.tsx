@@ -217,7 +217,8 @@ export function useSidebarShellController(
   );
   const confirmLeaveDirtySkillEditor = useConfirmLeaveDirtySkillEditor();
   const workbenchActive =
-    ui.appModule === "prompt" && promptViewMode === "generation";
+    ui.appModule === "prompt" &&
+    (promptViewMode === "generation" || promptViewMode === "orchestrator");
   const isCollapsed = workbenchActive
     ? !ui.isWorkbenchSidebarExpanded
     : ui.isCollapsed;

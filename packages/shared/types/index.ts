@@ -19,3 +19,6 @@ export * from "./agent-definition";
 export * from "./agent-extension";
 export * from "./provider-preset";
 export * from "./image-generation";
+export * from "./prompt-vocab";
+export * from "./prompt-orchestrator";
+export * from "./local-model";

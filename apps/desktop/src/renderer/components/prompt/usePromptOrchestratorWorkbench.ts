@@ -1,0 +1,444 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type {
+  PromptGuidanceMode,
+  PromptOrchestrationInput,
+  PromptOrchestrationMode,
+  PromptOrchestrationOutputFormat,
+  PromptOrchestrationResult,
+  PromptOrchestrationSkill,
+  PromptSkillDraft,
+  PromptVideoOrchestrationInput,
+  PromptVocabularySearchItem,
+} from "@prompthub/shared/types";
+import { supportsReferenceImages } from "@prompthub/shared/types";
+import { useSettingsStore } from "../../stores/settings.store";
+import { usePromptStore } from "../../stores/prompt.store";
+import {
+  defaultModeForSkill,
+  defaultOutputFormat,
+  isVideoTask,
+  referenceImageLimit,
+} from "./prompt-orchestrator-catalog";
+
+export interface OrchestratorReferenceImage {
+  id: string;
+  fileName: string;
+  dataUrl: string;
+}
+
+function splitIds(value: string): string[] {
+  return [...new Set(value.split(",").map((item) => item.trim()).filter(Boolean))];
+}
+
+function validCanvas(width: string, height: string): boolean {
+  return [Number(width), Number(height)].every(
+    (value) => Number.isInteger(value) && value > 0 && value % 16 === 0,
+  );
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("Unable to read image"));
+    reader.readAsDataURL(file);
+  });
+}
+
+export function usePromptOrchestratorWorkbench() {
+  const { t } = useTranslation();
+  const aiModels = useSettingsStore((state) => state.aiModels);
+  const routeDefaults = useSettingsStore((state) => state.modelRouteDefaults);
+  const createPrompt = usePromptStore((state) => state.createPrompt);
+  const updatePrompt = usePromptStore((state) => state.updatePrompt);
+  const libraryPrompts = usePromptStore((state) => state.prompts);
+  const getPromptDetail = usePromptStore((state) => state.getPromptDetail);
+  const [prompt, setPrompt] = useState("");
+  const [mode, setMode] = useState<PromptOrchestrationMode>("expand");
+  const [skill, setSkill] = useState<PromptOrchestrationSkill>("moodyMoss");
+  const [guidanceMode, setGuidanceMode] = useState<PromptGuidanceMode>("agent-led");
+  const [outputFormat, setOutputFormat] = useState<PromptOrchestrationOutputFormat>("caption");
+  const [includePayload, setIncludePayload] = useState(false);
+  const [series, setSeries] = useState("");
+  const [seriesOptions, setSeriesOptions] = useState<string[]>([]);
+  const [llmModelId, setLlmModelId] = useState("");
+  const [modelId, setModelId] = useState("");
+  const [loraIds, setLoraIds] = useState("");
+  const [editInstruction, setEditInstruction] = useState("");
+  const [subject, setSubject] = useState("");
+  const [setting, setSetting] = useState("");
+  const [seed, setSeed] = useState("");
+  const [width, setWidth] = useState("1024");
+  const [height, setHeight] = useState("1024");
+  const [video, setVideo] = useState<PromptVideoOrchestrationInput>({
+    durationSeconds: 8,
+    shotCount: 1,
+  });
+  const [referenceImages, setReferenceImages] = useState<OrchestratorReferenceImage[]>([]);
+  const [selectedTermIds, setSelectedTermIds] = useState<string[]>([]);
+  const [lockedTermIds, setLockedTermIds] = useState<string[]>([]);
+  const [prefabTerms, setPrefabTerms] = useState<PromptVocabularySearchItem[]>([]);
+  const [vocabularyTokenBudget, setVocabularyTokenBudget] = useState(900);
+  const [rightPanel, setRightPanel] = useState<"result" | "prefab">("result");
+  const [result, setResult] = useState<PromptOrchestrationResult | null>(null);
+  const [systemLayer, setSystemLayer] = useState("");
+  const [systemLayerSource, setSystemLayerSource] = useState<string | undefined>();
+  const [savedPromptId, setSavedPromptId] = useState<string | null>(null);
+  const [isSavingToLibrary, setIsSavingToLibrary] = useState(false);
+  const [skillName, setSkillName] = useState("");
+  const [skillDraft, setSkillDraft] = useState<PromptSkillDraft | null>(null);
+  const [savedSkillId, setSavedSkillId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [isRunning, setIsRunning] = useState(false);
+  const [isGeneratingSkill, setIsGeneratingSkill] = useState(false);
+  const [isSavingSkill, setIsSavingSkill] = useState(false);
+  const requestId = useRef(0);
+  const skillRequestId = useRef(0);
+
+  const chatModels = useMemo(
+    () => aiModels.filter(
+      (model) =>
+        (model.type ?? "chat") === "chat" &&
+        model.capabilities?.chat !== false &&
+        (model.apiProtocol ?? "openai") === "openai",
+    ),
+    [aiModels],
+  );
+
+  useEffect(() => {
+    let active = true;
+    void window.api.promptOrchestrator.listSeries().then((reply) => {
+      if (!active) return;
+      if (reply.ok === true) setSeriesOptions(reply.data);
+      else setError(reply.error.message);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (chatModels.some((model) => model.id === llmModelId)) return;
+    const routedId = routeDefaults.mainText ?? routeDefaults.fastText;
+    const next =
+      chatModels.find((model) => model.id === routedId) ??
+      chatModels.find((model) => model.isDefault) ??
+      chatModels[0];
+    setLlmModelId(next?.id ?? "");
+  }, [chatModels, llmModelId, routeDefaults]);
+
+  function changeMode(next: PromptOrchestrationMode): void {
+    setMode(next);
+    setResult(null);
+    if (isVideoTask(next)) {
+      setVideo((current) => ({
+        ...current,
+        shotCount: next === "video-long" ? Math.max(current.shotCount ?? 1, 6) : current.shotCount ?? 1,
+      }));
+    }
+    setOutputFormat(defaultOutputFormat(next, skill));
+  }
+
+  function changeSkill(next: PromptOrchestrationSkill): void {
+    const nextMode = defaultModeForSkill(next);
+    setSkill(next);
+    setMode(nextMode);
+    setResult(null);
+    setOutputFormat(defaultOutputFormat(nextMode, next));
+    if (next === "minimaxH3") {
+      setGuidanceMode("agent-led");
+      setRightPanel("result");
+    }
+  }
+
+  function changeGuidance(next: PromptGuidanceMode): void {
+    setGuidanceMode(next);
+    setRightPanel(next === "human-led" ? "prefab" : "result");
+  }
+
+  function updateSystemLayer(text: string): void {
+    setSystemLayer(text);
+    setSystemLayerSource(undefined);
+  }
+
+  function applyLibraryLayer(text: string, title: string): void {
+    setSystemLayer(text);
+    setSystemLayerSource(title);
+  }
+
+  async function applyLibraryPrompt(id: string): Promise<void> {
+    if (!id) return;
+    setError("");
+    const detail = await getPromptDetail(id);
+    const text = detail?.systemPrompt?.trim();
+    if (!text) {
+      setError(t("orchestrator.systemLayerMissing"));
+      return;
+    }
+    applyLibraryLayer(text, detail.title);
+  }
+
+  function updateVideo<K extends keyof PromptVideoOrchestrationInput>(
+    key: K,
+    value: PromptVideoOrchestrationInput[K],
+  ): void {
+    setVideo((current) => ({ ...current, [key]: value }));
+  }
+
+  function addPrefabTerm(term: PromptVocabularySearchItem): void {
+    if (selectedTermIds.includes(term.id)) return;
+    setSelectedTermIds((current) => [...current, term.id]);
+    setLockedTermIds((current) => [...current, term.id]);
+    setPrefabTerms((current) => [...current, term]);
+  }
+
+  function removePrefabTerm(id: string): void {
+    setSelectedTermIds((current) => current.filter((item) => item !== id));
+    setLockedTermIds((current) => current.filter((item) => item !== id));
+    setPrefabTerms((current) => current.filter((item) => item.id !== id));
+  }
+
+  function addReferenceImages(images: Array<{ fileName: string; dataUrl: string }>): void {
+    const limit = referenceImageLimit(mode);
+    setReferenceImages((current) => [
+      ...current,
+      ...images.slice(0, Math.max(0, limit - current.length)).map((image) => ({
+        ...image,
+        id: crypto.randomUUID(),
+      })),
+    ]);
+  }
+
+  async function acceptReferenceFiles(files: File[]): Promise<void> {
+    setError("");
+    const remaining = Math.max(0, referenceImageLimit(mode) - referenceImages.length);
+    if (remaining === 0) {
+      setError(t("orchestrator.imageLimitReached"));
+      return;
+    }
+    try {
+      const selected = files.slice(0, remaining);
+      if (selected.some((file) => file.size > 10 * 1024 * 1024)) {
+        throw new Error(t("orchestrator.imageTooLarge"));
+      }
+      const images = await Promise.all(selected.map(async (file) => ({
+        fileName: file.name || `pasted-image-${Date.now()}.png`,
+        dataUrl: await fileToDataUrl(file),
+      })));
+      addReferenceImages(images);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  async function pasteReferenceImage(): Promise<void> {
+    setError("");
+    try {
+      const readClipboard = window.electron?.readClipboardImage;
+      if (!readClipboard) throw new Error(t("orchestrator.imageBridgeUnavailable"));
+      const image = await readClipboard();
+      if (!image) throw new Error(t("orchestrator.clipboardImageUnavailable"));
+      addReferenceImages([{
+        fileName: image.fileName,
+        dataUrl: `data:${image.mimeType};base64,${image.base64}`,
+      }]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  const canRun = (() => {
+    if (!llmModelId || isRunning || isGeneratingSkill) return false;
+    if (outputFormat === "layout" && skill !== "k2" && !validCanvas(width, height)) return false;
+    if (guidanceMode === "human-led" && !isVideoTask(mode)) {
+      return Boolean(prompt.trim() && selectedTermIds.length > 0);
+    }
+    if (mode === "random") return Boolean(subject.trim() && setting.trim());
+    if (mode === "reverse") return Boolean(prompt.trim() || referenceImages.length > 0);
+    if (mode === "video-frames") return Boolean(prompt.trim() || referenceImages.length > 0);
+    if (mode === "video-multi-reference") {
+      return Boolean(prompt.trim() || referenceImages.length > 0 || video.referencePlan?.trim());
+    }
+    if (mode === "video-long") return Boolean(prompt.trim() || referenceImages.length > 0);
+    if (mode === "video-beat") return Boolean(prompt.trim() && video.beatTimestamps?.trim());
+    if (isVideoTask(mode)) return Boolean(prompt.trim());
+    if (!prompt.trim()) return false;
+    if (mode === "edit" && !editInstruction.trim()) return false;
+    return true;
+  })();
+
+  function buildInput(): PromptOrchestrationInput {
+    return {
+      prompt: prompt.trim() || undefined,
+      mode,
+      skill,
+      guidanceMode,
+      ...(systemLayer.trim()
+        ? {
+            systemPromptLayer: systemLayer.trim(),
+            ...(systemLayerSource ? { systemPromptLayerSource: systemLayerSource } : {}),
+          }
+        : {}),
+      series: series || undefined,
+      outputFormat,
+      includePayload,
+      ...(outputFormat === "layout" && skill !== "k2"
+        ? { canvas: { width: Number(width), height: Number(height) } }
+        : {}),
+      modelId: modelId.trim() || undefined,
+      loraIds: splitIds(loraIds),
+      selectedTermIds,
+      lockedTermIds,
+      vocabularyTokenBudget,
+      ...(mode === "edit" && editInstruction.trim()
+        ? { editInstruction: editInstruction.trim() }
+        : {}),
+      ...(mode === "random"
+        ? {
+            random: {
+              subject: subject.trim(),
+              setting: setting.trim(),
+              ...(seed.trim() ? { seed: seed.trim() } : {}),
+            },
+          }
+        : {}),
+      ...(supportsReferenceImages(mode)
+        ? { imageUrls: referenceImages.map((image) => image.dataUrl) }
+        : {}),
+      ...(isVideoTask(mode) ? { video } : {}),
+    };
+  }
+
+  async function run(): Promise<void> {
+    if (!canRun) return;
+    const id = ++requestId.current;
+    setIsRunning(true);
+    setError("");
+    try {
+      const reply = await window.api.promptOrchestrator.run({
+        input: buildInput(),
+        llmModelId,
+      });
+      if (id !== requestId.current) return;
+      if (reply.ok === true) {
+        setResult(reply.data);
+        setSavedPromptId(null);
+        setRightPanel("result");
+      } else {
+        setError(reply.error.message);
+      }
+    } catch (cause) {
+      if (id === requestId.current) setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      if (id === requestId.current) setIsRunning(false);
+    }
+  }
+
+  async function generateSkill(): Promise<void> {
+    if (!prompt.trim() || !llmModelId || isVideoTask(mode) || isRunning || isGeneratingSkill) return;
+    const id = ++skillRequestId.current;
+    setIsGeneratingSkill(true);
+    setError("");
+    setSavedSkillId(null);
+    try {
+      const reply = await window.api.promptOrchestrator.generateSkill({
+        input: buildInput(),
+        llmModelId,
+        skillName: skillName.trim() || undefined,
+      });
+      if (id !== skillRequestId.current) return;
+      if (reply.ok === true) setSkillDraft(reply.data);
+      else setError(reply.error.message);
+    } catch (cause) {
+      if (id === skillRequestId.current) setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      if (id === skillRequestId.current) setIsGeneratingSkill(false);
+    }
+  }
+
+  async function saveSkill(): Promise<string | null> {
+    if (!skillDraft || savedSkillId || isSavingSkill) return savedSkillId;
+    setIsSavingSkill(true);
+    setError("");
+    try {
+      const created = await window.api.skill.create({
+        name: skillDraft.name,
+        description: skillDraft.description,
+        instructions: skillDraft.content,
+        content: skillDraft.content,
+        protocol_type: "skill",
+        is_favorite: false,
+        tags: ["prompt-orchestration", skillDraft.ruleCard],
+        version: "1.0.0",
+        author: "PromptHub",
+      });
+      if (!created || typeof created.id !== "string") {
+        throw new Error(t("orchestrator.skillSaveFailed"));
+      }
+      setSavedSkillId(created.id);
+      return created.id;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+      return null;
+    } finally {
+      setIsSavingSkill(false);
+    }
+  }
+
+  async function saveResultToLibrary(favorite: boolean): Promise<string | null> {
+    if (!result || savedPromptId || isSavingToLibrary) return savedPromptId;
+    setIsSavingToLibrary(true);
+    setError("");
+    try {
+      const titleSource = (prompt.trim() || result.initialPrompt)
+        .replace(/\s+/g, " ")
+        .slice(0, 28);
+      const created = await createPrompt({
+        title: titleSource || t("orchestrator.savedPromptDefaultTitle"),
+        description: t("orchestrator.savedPromptDescription", {
+          skill: result.skill,
+          mode: t(`orchestrator.modes.${result.mode}`),
+        }),
+        userPrompt: result.completePrompt,
+        ...(systemLayer.trim() ? { systemPrompt: systemLayer.trim() } : {}),
+        tags: [result.skill, result.mode],
+        folderId: null,
+        source: "prompt-orchestrator",
+      });
+      if (favorite) {
+        await updatePrompt(created.id, { isFavorite: true });
+      }
+      setSavedPromptId(created.id);
+      return created.id;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+      return null;
+    } finally {
+      setIsSavingToLibrary(false);
+    }
+  }
+
+  return {
+    prompt, setPrompt, mode, setMode: changeMode, skill, setSkill: changeSkill,
+    guidanceMode, setGuidanceMode: changeGuidance,
+    outputFormat, setOutputFormat, includePayload, setIncludePayload,
+    series, setSeries, seriesOptions, llmModelId, setLlmModelId, chatModels,
+    modelId, setModelId, loraIds, setLoraIds,
+    editInstruction, setEditInstruction, subject, setSubject, setting, setSetting,
+    seed, setSeed, width, setWidth, height, setHeight,
+    video, updateVideo, referenceImages, setReferenceImages,
+    selectedTermIds, lockedTermIds, prefabTerms, addPrefabTerm, removePrefabTerm,
+    vocabularyTokenBudget, setVocabularyTokenBudget,
+    rightPanel, setRightPanel, result, error, isRunning, canRun, run,
+    acceptReferenceFiles, pasteReferenceImage,
+    skillName, setSkillName, skillDraft, savedSkillId, isGeneratingSkill,
+    isSavingSkill, canGenerateSkill: Boolean(
+      prompt.trim() && llmModelId && !isVideoTask(mode) && !isRunning && !isGeneratingSkill,
+    ),
+    generateSkill, saveSkill,
+    systemLayer, updateSystemLayer, applyLibraryLayer, systemLayerSource,
+    libraryPrompts, applyLibraryPrompt,
+    savedPromptId, isSavingToLibrary, saveResultToLibrary,
+  };
+}

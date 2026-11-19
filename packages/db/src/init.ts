@@ -4,6 +4,7 @@ import {
   migrateAntigravityCliIdentity,
 } from "./antigravity-cli-identity-migration";
 import { migratePromptTestHistory } from "./prompt-test-history";
+import { migratePromptVocabSchema } from "./prompt-vocab-schema";
 import { migrateRuleOwnership } from "./rule-schema";
 import Database from "./adapter";
 import path from "path";
@@ -1069,6 +1070,7 @@ export function initDatabase(
       migrateRuleOwnership(db!);
       migrateGenerationMetadata(db!);
       migratePromptTestHistory(db!);
+      migratePromptVocabSchema(db!);
       db!.exec(SCHEMA_INDEXES);
       hooks?.beforeMigrationCommit?.();
       recordCurrentDatabaseMigration(db!, Date.now() - migrationStartedAt);

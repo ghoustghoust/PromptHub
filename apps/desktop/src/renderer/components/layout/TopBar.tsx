@@ -177,7 +177,9 @@ export function TopBar({
   const isSkillView = appModule === "skill";
   const isPromptView = appModule === "prompt";
   const isAgentsView = appModule === "agents";
-  const isGenerationWorkbench = isPromptView && promptViewMode === "generation";
+  const isGenerationWorkbench =
+    isPromptView &&
+    (promptViewMode === "generation" || promptViewMode === "orchestrator");
   const isSecondarySidebarCollapsed = isGenerationWorkbench
     ? !isWorkbenchSidebarExpanded
     : isSidebarCollapsed;

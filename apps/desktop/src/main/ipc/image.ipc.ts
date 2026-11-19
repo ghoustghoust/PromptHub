@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, dialog, shell } from "electron";
+import { BrowserWindow, clipboard, ipcMain, dialog, shell } from "electron";
 import type { IpcMainInvokeEvent, OpenDialogOptions } from "electron";
 import * as http from "http";
 import * as https from "https";
@@ -386,6 +386,41 @@ function showSenderOwnedOpenDialog(
     : dialog.showOpenDialog(options);
 }
 
+interface SelectedImagePayload {
+  fileName: string;
+  mimeType: string;
+  base64: string;
+}
+
+function mimeTypeForExtension(extension: string): string {
+  if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg";
+  if (extension === ".webp") return "image/webp";
+  if (extension === ".gif") return "image/gif";
+  return "image/png";
+}
+
+async function readImagePayload(filePath: string): Promise<SelectedImagePayload> {
+  const extension = path.extname(filePath).toLowerCase();
+  if (!IMAGE_EXTENSIONS.has(extension)) throw new Error("Unsupported image type");
+  const buffer = await fs.readFile(filePath);
+  assertBufferWithinMediaLimit(buffer);
+  return {
+    fileName: path.basename(filePath),
+    mimeType: mimeTypeForExtension(extension),
+    base64: buffer.toString("base64"),
+  };
+}
+
+function clipboardFilePath(): string | null {
+  if (process.platform === "win32") {
+    const raw = clipboard.readBuffer("FileNameW").toString("utf16le");
+    const candidate = raw.split("\0")[0]?.trim();
+    if (candidate && path.isAbsolute(candidate)) return candidate;
+  }
+  const text = clipboard.readText().trim();
+  return text && path.isAbsolute(text) ? text : null;
+}
+
 export function registerImageIPC(): void {
   // Select images
   ipcMain.handle(IPC_CHANNELS.DIALOG_SELECT_IMAGE, async (event) => {
@@ -404,6 +439,26 @@ export function registerImageIPC(): void {
     }
     lastSelectedImagePaths = new Set();
     return [];
+  });
+
+  ipcMain.handle(IPC_CHANNELS.IMAGE_READ_CLIPBOARD, async () => {
+    const image = clipboard.readImage();
+    if (!image.isEmpty()) {
+      const buffer = image.toPNG();
+      assertBufferWithinMediaLimit(buffer);
+      return {
+        fileName: `clipboard-${Date.now()}.png`,
+        mimeType: "image/png",
+        base64: buffer.toString("base64"),
+      } satisfies SelectedImagePayload;
+    }
+    const filePath = clipboardFilePath();
+    if (!filePath) return null;
+    try {
+      return await readImagePayload(filePath);
+    } catch {
+      return null;
+    }
   });
 
   // Save images to app data directory

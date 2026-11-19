@@ -87,6 +87,11 @@ export {
 } from "./prompt-version-consistency";
 export { PromptRelationDB } from "./prompt-relation";
 export { PromptOutputFormatDB } from "./prompt-output-format";
+export { PromptVocabDB } from "./prompt-vocab";
+export {
+  PROMPT_VOCAB_SCHEMA,
+  migratePromptVocabSchema,
+} from "./prompt-vocab-schema";
 export { FolderDB } from "./folder";
 export { SkillDB } from "./skill";
 export { SkillMetadataDB } from "./skill-metadata";

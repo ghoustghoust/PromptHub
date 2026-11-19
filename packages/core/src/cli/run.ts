@@ -6,6 +6,7 @@ import { configureRuntimePaths, resetRuntimePaths } from "../runtime-paths";
 import { CoreMcpError } from "../mcp-library";
 import { coreCliSkillService, type CliSkillService } from "./skill";
 import { handleAIConfigCommand } from "./ai-config-command";
+import { handleOrchestrateCommand } from "./orchestrate-command";
 import { handleAgentCommand } from "./agent-command";
 import { handlePluginCommand } from "./plugin-command";
 import { handlePromptCommand } from "./prompt-command";
@@ -247,6 +248,10 @@ async function runCliOperation(
         configured.output,
         databaseHooks,
       );
+    }
+    if (resource === "orchestrate") {
+      await handleOrchestrateCommand(commandArgs, context, databaseHooks);
+      return EXIT_CODES.OK;
     }
 
     throw new CliError(

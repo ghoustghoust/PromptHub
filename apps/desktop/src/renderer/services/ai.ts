@@ -560,6 +560,15 @@ export async function compareAIModels(
 // ============ 图像生成功能 ============
 // ============ Image Generation Functionality ============
 
+function isLoopbackApiUrl(apiUrl: string): boolean {
+  try {
+    const hostname = new URL(apiUrl).hostname.toLowerCase();
+    return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "[::1]";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * 调用图像生成模型
  * 支持多种供应商：OpenAI, FLUX, Ideogram, Recraft, Stability AI, Replicate 等
@@ -585,7 +594,7 @@ export async function generateImage(
     ...options,
   };
 
-  if (!apiKey) {
+  if (!apiKey && !isLoopbackApiUrl(apiUrl)) {
     throw new Error("API Key is not configured");
   }
 

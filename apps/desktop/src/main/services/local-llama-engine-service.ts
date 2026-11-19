@@ -1,5 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { createWriteStream, type WriteStream } from "node:fs";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import {
   DEFAULT_LOCAL_LLAMA_CONFIG,
@@ -73,10 +75,11 @@ export function normalizeLocalLlamaConfig(
       512,
       262144,
     ),
-    gpuLayers: readInteger(value.gpuLayers, defaults.gpuLayers, "GPU layers", 0, 999),
+    gpuLayers: readInteger(value.gpuLayers, defaults.gpuLayers, "GPU layers", -1, 999),
     parallel: readInteger(value.parallel, defaults.parallel, "Parallel slots", 1, 16),
     flashAttention: readBoolean(value.flashAttention, defaults.flashAttention),
     kvCacheType: kvCacheType as LocalLlamaKvCacheType,
+    kvUnified: readBoolean(value.kvUnified, defaults.kvUnified),
     mtpEnabled: readBoolean(value.mtpEnabled, defaults.mtpEnabled),
     mtpDraftMax: readInteger(
       value.mtpDraftMax,
@@ -102,7 +105,7 @@ export function buildLocalLlamaArgs(config: LocalLlamaEngineConfig): string[] {
     "--model", config.modelPath,
     "--alias", LOCAL_MODEL_ALIAS,
     "--ctx-size", String(config.contextSize),
-    "--n-gpu-layers", String(config.gpuLayers),
+    ...(config.gpuLayers >= 0 ? ["--n-gpu-layers", String(config.gpuLayers)] : []),
     "--parallel", String(config.parallel),
     "--flash-attn", config.flashAttention ? "on" : "off",
     "--cache-type-k", config.kvCacheType,
@@ -115,6 +118,8 @@ export function buildLocalLlamaArgs(config: LocalLlamaEngineConfig): string[] {
       "--image-max-tokens", String(config.imageMaxTokens),
     );
   }
+  // --parallel 1 makes llama.cpp drop the unified KV buffer unless it is requested explicitly.
+  if (config.kvUnified) args.push("--kv-unified");
   if (config.mtpEnabled) {
     args.push(
       "--spec-type", "draft-mtp",
@@ -143,6 +148,40 @@ function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+/** Total GPU memory in use across the machine, or null when it cannot be read. */
+function readGpuUsedMb(): Promise<number | null> {
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn(
+        "nvidia-smi",
+        ["--query-gpu=memory.used", "--format=csv,noheader,nounits"],
+        { windowsHide: true, stdio: ["ignore", "pipe", "ignore"] },
+      );
+    } catch {
+      resolve(null);
+      return;
+    }
+    let buffer = "";
+    const timer = setTimeout(() => {
+      child.kill();
+      resolve(null);
+    }, 4000);
+    child.stdout.on("data", (chunk: Buffer) => {
+      buffer += chunk.toString("utf8");
+    });
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolve(null);
+    });
+    child.on("exit", () => {
+      clearTimeout(timer);
+      const value = Number(buffer.split(/\r?\n/)[0]?.trim());
+      resolve(Number.isFinite(value) ? value : null);
+    });
+  });
+}
+
 export class LocalLlamaEngineService {
   private child: ChildProcessWithoutNullStreams | null = null;
   private phase: LocalLlamaEnginePhase = "stopped";
@@ -150,6 +189,9 @@ export class LocalLlamaEngineService {
   private models: string[] = [];
   private message = "";
   private recentOutput = "";
+  private onGpu: boolean | null = null;
+  private gpuUsedMb: number | null = null;
+  private logStream: WriteStream | null = null;
   private startPromise: Promise<LocalLlamaEngineStatus> | null = null;
   private stopPromise: Promise<LocalLlamaEngineStatus> | null = null;
 
@@ -198,6 +240,8 @@ export class LocalLlamaEngineService {
       endpoint: localLlamaEndpoint(config.port),
       models: [...this.models],
       vision: Boolean(config.mmprojPath),
+      onGpu: this.onGpu,
+      gpuUsedMb: this.gpuUsedMb,
       message: this.message,
       updatedAt: new Date().toISOString(),
     };
@@ -284,6 +328,8 @@ export class LocalLlamaEngineService {
     this.models = [];
     this.recentOutput = "";
     await fs.mkdir(path.dirname(this.logPath()), { recursive: true });
+    this.openLogStream();
+    const gpuBefore = await readGpuUsedMb();
 
     const child = spawn(config.executablePath, buildLocalLlamaArgs(config), {
       cwd: path.dirname(config.executablePath),
@@ -292,11 +338,21 @@ export class LocalLlamaEngineService {
       stdio: ["pipe", "pipe", "pipe"],
     });
     this.child = child;
+    // Model loading is CPU/disk heavy on a single desktop; keep the UI responsive.
+    try {
+      if (child.pid) {
+        os.setPriority(child.pid, os.constants.priority.PRIORITY_BELOW_NORMAL);
+      }
+    } catch {
+      // Priority is advisory only.
+    }
     let startupFailure = "";
     const appendOutput = (chunk: Buffer) => {
       const text = chunk.toString("utf8");
+      // Keep only the tail in memory. Writing every chunk with fs.appendFile
+      // queues thousands of open/write/close operations and blocks the main process.
       this.recentOutput = `${this.recentOutput}${text}`.slice(-6000);
-      void fs.appendFile(this.logPath(), text, "utf8").catch(() => undefined);
+      this.logStream?.write(text);
     };
     child.stdout.on("data", appendOutput);
     child.stderr.on("data", appendOutput);
@@ -306,6 +362,7 @@ export class LocalLlamaEngineService {
       this.phase = "error";
     });
     child.on("exit", (code, signal) => {
+      this.closeLogStream();
       startupFailure ||= `llama-server exited (${code ?? signal ?? "unknown"})`;
       if (this.child === child) this.child = null;
       if (this.phase !== "stopping" && this.phase !== "error") {
@@ -324,13 +381,18 @@ export class LocalLlamaEngineService {
       const deadline = Date.now() + START_TIMEOUT_MS;
       while (Date.now() < deadline) {
         if (this.child !== child || startupFailure) {
-          throw new Error(startupFailure || this.message || this.recentOutput.slice(-1200) || "llama-server exited");
+          const tail = this.recentOutput.slice(-1200).trim();
+          throw new Error(tail ? `${startupFailure || "llama-server exited"}\n${tail}` : (startupFailure || "llama-server exited"));
         }
         try {
           this.models = await this.probe(config);
           this.phase = "running";
           this.managed = true;
           this.message = "";
+          const gpuAfter = await readGpuUsedMb();
+          this.gpuUsedMb = gpuAfter;
+          this.onGpu =
+            gpuBefore !== null && gpuAfter !== null ? gpuAfter - gpuBefore >= 1024 : null;
           return this.snapshot(config);
         } catch {
           await delay(500);
@@ -341,6 +403,9 @@ export class LocalLlamaEngineService {
       this.phase = "error";
       this.managed = true;
       this.message = errorMessage(error);
+      this.onGpu = null;
+      this.gpuUsedMb = null;
+      this.closeLogStream();
       await this.terminate(child);
       throw new Error(this.message);
     }
@@ -373,12 +438,33 @@ export class LocalLlamaEngineService {
     this.managed = false;
     this.models = [];
     this.message = "";
+    this.onGpu = null;
+    this.gpuUsedMb = null;
+    this.closeLogStream();
     return this.snapshot(config);
   }
 
   async restart(): Promise<LocalLlamaEngineStatus> {
     await this.stop();
     return this.start();
+  }
+
+  private openLogStream(): void {
+    this.closeLogStream();
+    try {
+      this.logStream = createWriteStream(this.logPath(), { flags: "a" });
+      this.logStream.on("error", () => {
+        this.logStream = null;
+      });
+    } catch {
+      this.logStream = null;
+    }
+  }
+
+  private closeLogStream(): void {
+    const stream = this.logStream;
+    this.logStream = null;
+    stream?.end();
   }
 
   private async terminate(child: ChildProcessWithoutNullStreams): Promise<void> {
@@ -393,6 +479,7 @@ export class LocalLlamaEngineService {
   }
 
   shutdown(): void {
+    this.closeLogStream();
     if (this.child && this.child.exitCode === null && this.child.signalCode === null) {
       this.child.kill();
     }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FilePlus2Icon,
   LoaderCircleIcon,
@@ -67,8 +67,41 @@ function LocalEngineQuickControl({ onConnected }: { onConnected: () => void }) {
     (state) => state.requestSettingsSection,
   );
   const running = engine.status?.phase === "running";
+  const [paramsOpen, setParamsOpen] = useState(false);
+  const [contextSize, setContextSize] = useState("");
+  const [imageTokens, setImageTokens] = useState("");
+  const [gpuLayers, setGpuLayers] = useState("");
+  const [mtpEnabled, setMtpEnabled] = useState(false);
+  const [kvUnified, setKvUnified] = useState(true);
+
+  useEffect(() => {
+    if (!engine.config) return;
+    setContextSize(String(engine.config.contextSize));
+    setImageTokens(String(engine.config.imageMaxTokens));
+    setGpuLayers(String(engine.config.gpuLayers));
+    setMtpEnabled(engine.config.mtpEnabled);
+    setKvUnified(engine.config.kvUnified);
+  }, [engine.config]);
+
   const start = async () => {
     if (await engine.start()) onConnected();
+  };
+
+  const applyParams = async () => {
+    const ctx = Number(contextSize);
+    const image = Number(imageTokens);
+    const layers = Number(gpuLayers);
+    if (!Number.isInteger(ctx) || ctx < 512 || !Number.isInteger(image) || image < 0) return;
+    if (!Number.isInteger(layers) || layers < -1 || layers > 999) return;
+    if (await engine.saveAndRestart({
+      contextSize: ctx,
+      imageMaxTokens: image,
+      gpuLayers: layers,
+      mtpEnabled,
+      kvUnified,
+    })) {
+      onConnected();
+    }
   };
   return (
     <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3" data-testid="orchestrator-local-engine">
@@ -96,6 +129,91 @@ function LocalEngineQuickControl({ onConnected }: { onConnected: () => void }) {
         </div>
       </div>
       {engine.error && <p className="text-xs text-destructive">{engine.error}</p>}
+      {running && engine.status?.onGpu === false && (
+        <p className="text-[11px] text-destructive" data-testid="orchestrator-engine-cpu-fallback">
+          {t("orchestrator.localEngine.cpuFallback")}
+        </p>
+      )}
+      <button
+        type="button"
+        className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+        onClick={() => setParamsOpen((open) => !open)}
+        data-testid="orchestrator-engine-params-toggle"
+      >
+        {t("orchestrator.localEngine.params")}
+        {engine.config
+          ? ` · ${engine.config.contextSize} ctx / ${engine.config.imageMaxTokens} img`
+          : ""}
+      </button>
+      {paramsOpen && (
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <Input
+              label={t("orchestrator.localEngine.context")}
+              type="number"
+              min={512}
+              step={512}
+              value={contextSize}
+              onChange={(event) => setContextSize(event.target.value)}
+              variant="outlined"
+              data-testid="orchestrator-engine-context"
+            />
+            <Input
+              label={t("orchestrator.localEngine.imageTokens")}
+              type="number"
+              min={0}
+              step={256}
+              value={imageTokens}
+              onChange={(event) => setImageTokens(event.target.value)}
+              variant="outlined"
+              data-testid="orchestrator-engine-image-tokens"
+            />
+            <Input
+              label={t("orchestrator.localEngine.gpuLayers")}
+              type="number"
+              min={-1}
+              value={gpuLayers}
+              onChange={(event) => setGpuLayers(event.target.value)}
+              variant="outlined"
+              data-testid="orchestrator-engine-gpu-layers"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <label className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={mtpEnabled}
+                onChange={(event) => setMtpEnabled(event.target.checked)}
+                data-testid="orchestrator-engine-mtp"
+              />
+              {t("orchestrator.localEngine.mtp")}
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={kvUnified}
+                onChange={(event) => setKvUnified(event.target.checked)}
+                data-testid="orchestrator-engine-kv-unified"
+              />
+              {t("orchestrator.localEngine.kvUnified")}
+            </label>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => void applyParams()}
+              disabled={engine.busy}
+              data-testid="orchestrator-engine-apply"
+            >
+              {t("orchestrator.localEngine.applyRestart")}
+            </Button>
+            <span className="text-[11px] text-muted-foreground">
+              {t("orchestrator.localEngine.restartHint")}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

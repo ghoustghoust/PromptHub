@@ -6,10 +6,13 @@ export interface LocalLlamaEngineConfig {
   mmprojPath: string;
   port: number;
   contextSize: number;
+  /** -1 lets llama.cpp fit the layers to free VRAM and keep headroom for the desktop. */
   gpuLayers: number;
   parallel: number;
   flashAttention: boolean;
   kvCacheType: LocalLlamaKvCacheType;
+  /** Unified KV buffer across slots; llama.cpp turns it off when --parallel is pinned to 1. */
+  kvUnified: boolean;
   mtpEnabled: boolean;
   mtpDraftMax: number;
   imageMaxTokens: number;
@@ -29,6 +32,10 @@ export interface LocalLlamaEngineStatus {
   endpoint: string;
   models: string[];
   vision: boolean;
+  /** false means the model stayed on CPU, which costs an order of magnitude in speed. */
+  onGpu: boolean | null;
+  /** Total GPU memory in use when the engine became ready; null when unavailable. */
+  gpuUsedMb: number | null;
   message: string;
   updatedAt: string;
 }
@@ -51,6 +58,7 @@ export const DEFAULT_LOCAL_LLAMA_CONFIG: LocalLlamaEngineConfig = {
   parallel: 1,
   flashAttention: true,
   kvCacheType: "q8_0",
+  kvUnified: true,
   mtpEnabled: false,
   mtpDraftMax: 2,
   imageMaxTokens: 2048,

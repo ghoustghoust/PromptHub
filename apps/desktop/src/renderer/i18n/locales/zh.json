@@ -4857,7 +4857,9 @@
     "kvCacheType": "KV 缓存类型",
     "mtpDraftMax": "MTP 草稿 Token 数",
     "flashAttention": "启用 Flash Attention",
-    "mtpEnabled": "启用 MTP 投机解码（需 MTP 模型）",
+    "kvUnified": "统一 KV 缓存（--kv-unified）",
+      "gpuLayersHint": "GPU 层数填 -1 表示自动：按空闲显存决定层数，为桌面和窗口留出余量。实测 8 GB 卡上 99 层约 48 tok/s 但只剩 183 MB，自动约 21 tok/s 可保留 1.2 GB。",
+      "mtpEnabled": "启用 MTP 投机解码（需 MTP 模型）",
     "mtpHint": "MTP 与 mmproj 的组合需按当前引擎版本验证；首次反推测试建议先关闭 MTP。",
     "save": "保存设置",
     "openAiSettings": "调整请求与采样参数",
@@ -4872,6 +4874,17 @@
     }
   },
   "orchestrator": {
+    "localEngine": {
+      "params": "本地引擎参数",
+      "context": "上下文",
+      "imageTokens": "图像 Token",
+      "gpuLayers": "GPU 层数（-1 自动）",
+      "mtp": "MTP 投机解码",
+      "kvUnified": "统一 KV 缓存",
+      "applyRestart": "应用并重启",
+      "restartHint": "重启后生效；显存不足时会退化到 CPU，速度掉一个数量级。",
+      "cpuFallback": "已降级到 CPU：显存不足，模型没有完整加载到 GPU，速度会慢十几倍。"
+    },
     "title": "提示词编排助手",
     "subtitle": "使用结构化词库与原生规则卡片，生成可直接用于目标模型的提示词。",
     "inputLabel": "创作意图或原始提示词",

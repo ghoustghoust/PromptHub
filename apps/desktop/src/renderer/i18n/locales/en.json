@@ -4859,7 +4859,9 @@
     "kvCacheType": "KV cache type",
     "mtpDraftMax": "MTP draft tokens",
     "flashAttention": "Enable Flash Attention",
-    "mtpEnabled": "Enable MTP speculative decoding (requires an MTP model)",
+    "kvUnified": "Unified KV cache (--kv-unified)",
+      "gpuLayersHint": "Use -1 for automatic: llama.cpp fits layers to free VRAM and leaves headroom for the desktop. On an 8 GB card, 99 layers gave ~48 tok/s with 183 MB left; automatic gave ~21 tok/s with 1.2 GB left.",
+      "mtpEnabled": "Enable MTP speculative decoding (requires an MTP model)",
     "mtpHint": "MTP with mmproj must be verified for the current engine build. Disable MTP for the first reverse-image test.",
     "save": "Save settings",
     "openAiSettings": "Adjust request & sampling parameters",
@@ -4874,6 +4876,17 @@
     }
   },
   "orchestrator": {
+    "localEngine": {
+      "params": "Engine parameters",
+      "context": "Context",
+      "imageTokens": "Image tokens",
+      "gpuLayers": "GPU layers (-1 auto)",
+      "mtp": "MTP speculative decoding",
+      "kvUnified": "Unified KV cache",
+      "applyRestart": "Apply and restart",
+      "restartHint": "Takes effect after restart. If VRAM runs out the engine falls back to CPU and gets an order of magnitude slower.",
+      "cpuFallback": "Fell back to CPU: not enough VRAM, so the model is not fully on the GPU and runs many times slower."
+    },
     "title": "Prompt Orchestrator",
     "subtitle": "Build model-ready prompts with structured vocabulary and native rule cards.",
     "inputLabel": "Intent or source prompt",

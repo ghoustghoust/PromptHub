@@ -174,7 +174,7 @@ export function LocalModelSettings() {
         <div className="grid grid-cols-2 gap-4 p-4 md:grid-cols-3">
           <Input label={t("localModel.port")} type="number" value={config.port} onChange={(event) => update("port", Number(event.target.value))} disabled={managedActive} variant="outlined" />
           <Input label={t("localModel.contextSize")} type="number" value={config.contextSize} onChange={(event) => update("contextSize", Number(event.target.value))} disabled={managedActive} variant="outlined" />
-          <Input label={t("localModel.gpuLayers")} type="number" value={config.gpuLayers} onChange={(event) => update("gpuLayers", Number(event.target.value))} disabled={managedActive} variant="outlined" />
+          <Input label={t("localModel.gpuLayers")} type="number" min={-1} value={config.gpuLayers} onChange={(event) => update("gpuLayers", Number(event.target.value))} disabled={managedActive} variant="outlined" />
           <Input label={t("localModel.parallel")} type="number" min={1} max={16} value={config.parallel} onChange={(event) => update("parallel", Number(event.target.value))} disabled={managedActive} variant="outlined" />
           <Input label={t("localModel.imageMaxTokens")} type="number" value={config.imageMaxTokens} onChange={(event) => update("imageMaxTokens", Number(event.target.value))} disabled={managedActive} variant="outlined" />
           <div>
@@ -186,7 +186,9 @@ export function LocalModelSettings() {
         <div className="flex flex-wrap gap-5 border-t border-border/60 px-4 py-3 text-sm">
           <label className="flex items-center gap-2"><input type="checkbox" checked={config.flashAttention} onChange={(event) => update("flashAttention", event.target.checked)} disabled={managedActive} />{t("localModel.flashAttention")}</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={config.mtpEnabled} onChange={(event) => update("mtpEnabled", event.target.checked)} disabled={managedActive} />{t("localModel.mtpEnabled")}</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={config.kvUnified} onChange={(event) => update("kvUnified", event.target.checked)} disabled={managedActive} />{t("localModel.kvUnified")}</label>
         </div>
+        <p className="px-4 text-xs text-muted-foreground">{t("localModel.gpuLayersHint")}</p>
         <p className="px-4 pb-4 text-xs text-muted-foreground">{t("localModel.mtpHint")}</p>
       </SettingSection>
 

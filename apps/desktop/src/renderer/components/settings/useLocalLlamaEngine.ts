@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { LocalLlamaEngineStatus } from "@prompthub/shared/types";
+import type { LocalLlamaEngineConfig, LocalLlamaEngineStatus } from "@prompthub/shared/types";
 import { useSettingsStore } from "../../stores/settings.store";
 
 function messageOf(error: unknown): string {
@@ -11,12 +11,31 @@ export function useLocalLlamaEngine() {
     (state) => state.connectLocalLlamaModel,
   );
   const [status, setStatus] = useState<LocalLlamaEngineStatus | null>(null);
+  const [config, setConfig] = useState<LocalLlamaEngineConfig | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const refreshing = useRef(false);
+  /** Polling during start/stop only adds IPC churn while the engine is loading. */
+  const busyRef = useRef(false);
+
+  const loadConfig = useCallback(async () => {
+    if (!window.api.localLlama) return null;
+    try {
+      const next = await window.api.localLlama.getConfig();
+      setConfig(next);
+      return next;
+    } catch (cause) {
+      setError(messageOf(cause));
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadConfig();
+  }, [loadConfig]);
 
   const refresh = useCallback(async () => {
-    if (refreshing.current || !window.api.localLlama) return;
+    if (refreshing.current || busyRef.current || !window.api.localLlama) return;
     refreshing.current = true;
     try {
       setStatus(await window.api.localLlama.getStatus());
@@ -65,6 +84,7 @@ export function useLocalLlamaEngine() {
     async (operation: "start" | "stop" | "restart") => {
       if (busy) return null;
       setBusy(true);
+      busyRef.current = true;
       setError("");
       try {
         const next = await window.api.localLlama[operation]();
@@ -73,10 +93,12 @@ export function useLocalLlamaEngine() {
         return next;
       } catch (cause) {
         const message = messageOf(cause);
+        busyRef.current = false;
         await refresh();
         setError(message);
         return null;
       } finally {
+        busyRef.current = false;
         setBusy(false);
       }
     },
@@ -87,5 +109,46 @@ export function useLocalLlamaEngine() {
   const stop = useCallback(() => run("stop"), [run]);
   const restart = useCallback(() => run("restart"), [run]);
 
-  return { status, busy, error, setError, refresh, connect, start, stop, restart };
+  /** Saves engine parameters and restarts so the new context budget takes effect. */
+  const saveAndRestart = useCallback(
+    async (patch: Partial<LocalLlamaEngineConfig>) => {
+      if (busy) return null;
+      setBusy(true);
+      busyRef.current = true;
+      setError("");
+      try {
+        const current = config ?? (await window.api.localLlama.getConfig());
+        const saved = await window.api.localLlama.saveConfig({ ...current, ...patch });
+        setConfig(saved);
+        const next = await window.api.localLlama.restart();
+        setStatus(next);
+        if (!(await connect(next))) return null;
+        return next;
+      } catch (cause) {
+        setError(messageOf(cause));
+        busyRef.current = false;
+        await refresh();
+        return null;
+      } finally {
+        busyRef.current = false;
+        setBusy(false);
+      }
+    },
+    [busy, config, connect, refresh],
+  );
+
+  return {
+    status,
+    config,
+    busy,
+    error,
+    setError,
+    refresh,
+    loadConfig,
+    connect,
+    start,
+    stop,
+    restart,
+    saveAndRestart,
+  };
 }

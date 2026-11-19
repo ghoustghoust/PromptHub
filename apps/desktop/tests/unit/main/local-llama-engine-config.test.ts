@@ -26,7 +26,23 @@ describe("local llama engine config", () => {
     expect(args).toContain("127.0.0.1");
     expect(args).toContain("G:\\models\\vision.gguf");
     expect(args).toContain("draft-mtp");
+    expect(args).toContain("--kv-unified");
     expect(args).not.toContain("&&");
+  });
+
+  it("omits the unified KV flag when the user turns it off", () => {
+    const args = buildLocalLlamaArgs(
+      normalizeLocalLlamaConfig({ ...DEFAULT_LOCAL_LLAMA_CONFIG, kvUnified: false }),
+    );
+    expect(args).not.toContain("--kv-unified");
+  });
+
+  it("lets llama.cpp fit GPU layers when the value is -1", () => {
+    const args = buildLocalLlamaArgs(
+      normalizeLocalLlamaConfig({ ...DEFAULT_LOCAL_LLAMA_CONFIG, gpuLayers: -1 }),
+    );
+    expect(args).not.toContain("--n-gpu-layers");
+    expect(() => normalizeLocalLlamaConfig({ gpuLayers: -2 })).toThrow(/GPU layers/);
   });
 
   it("rejects invalid ports and unsupported cache types", () => {

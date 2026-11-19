@@ -22,6 +22,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { PromptReferenceImageInput } from "./PromptReferenceImageInput";
 import { PromptVideoFields } from "./PromptVideoFields";
 import { PromptVocabularyPrefabPanel } from "./PromptVocabularyPrefabPanel";
+import { PromptMossLayoutCanvas } from "./PromptMossLayoutCanvas";
 import {
   taskModesForSkill,
   isVideoTask,
@@ -110,6 +111,7 @@ export function PromptOrchestratorWorkbench() {
   }));
   const videoTask = isVideoTask(state.mode);
   const humanLed = state.guidanceMode === "human-led" && !videoTask;
+  const mossLayoutMode = state.skill === "moss" && state.outputFormat === "layout";
   const copy = async (value: string) => {
     try {
       await navigator.clipboard.writeText(value);
@@ -258,12 +260,6 @@ export function PromptOrchestratorWorkbench() {
             />
             <span>{t("orchestrator.includePayload")}</span>
           </label>
-          {state.outputFormat === "layout" && state.skill !== "k2" && (
-            <div className="grid grid-cols-2 gap-3">
-              <Input label={t("orchestrator.width")} type="number" value={state.width} onChange={(event) => state.setWidth(event.target.value)} variant="outlined" />
-              <Input label={t("orchestrator.height")} type="number" value={state.height} onChange={(event) => state.setHeight(event.target.value)} variant="outlined" />
-            </div>
-          )}
           <details className="rounded-lg border border-border/70 p-3">
             <summary className="cursor-pointer text-xs font-medium">{t("orchestrator.advanced")}</summary>
             <div className="mt-3 space-y-3">
@@ -290,8 +286,18 @@ export function PromptOrchestratorWorkbench() {
                 placeholder={t("orchestrator.inputPlaceholder")}
                 value={state.prompt}
                 onChange={(event) => state.setPrompt(event.target.value)}
-                rows={videoTask ? 6 : 10}
+                rows={mossLayoutMode ? 4 : videoTask ? 6 : 10}
               />
+              {mossLayoutMode && (
+                <PromptMossLayoutCanvas
+                  editor={state.mossLayout}
+                  onRefineCaptions={() => void state.refineLayoutCaptions()}
+                  onReverseFromImage={(file) => void state.reverseLayoutFromImage(file)}
+                  isAssisting={state.isAssistingLayout}
+                  assistNote={state.layoutAssistNote}
+                  assistDisabled={!state.llmModelId}
+                />
+              )}
               {state.mode === "edit" && (
                 <Textarea label={t("orchestrator.editInstruction")} value={state.editInstruction} onChange={(event) => state.setEditInstruction(event.target.value)} rows={3} />
               )}
@@ -322,34 +328,51 @@ export function PromptOrchestratorWorkbench() {
               />
             )}
           </div>
-          <div className="sticky bottom-0 -mx-4 mt-4 flex gap-2 border-t border-border bg-background px-4 py-3">
-            <Button
-              className="flex-1"
-              disabled={!state.canRun}
-              onClick={() => void state.run()}
-            >
-              {state.isRunning ? (
-                <LoaderCircleIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <SparklesIcon className="h-4 w-4" aria-hidden="true" />
-              )}
-              {state.isRunning ? t("orchestrator.running") : t("orchestrator.run")}
-            </Button>
-            {!videoTask && (
+          <div className="sticky bottom-0 -mx-4 mt-4 border-t border-border bg-background px-4 py-3">
+            <div className="flex flex-wrap gap-2">
               <Button
-                variant="secondary"
-                disabled={!state.canGenerateSkill}
-                onClick={() => void state.generateSkill()}
+                className="min-w-[132px] flex-1 whitespace-nowrap"
+                disabled={!state.canRun}
+                title={state.canRun ? undefined : state.runBlockers.join(" · ")}
+                onClick={() => void state.run()}
               >
-                {state.isGeneratingSkill ? (
+                {state.isRunning ? (
                   <LoaderCircleIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
                 ) : (
-                  <FilePlus2Icon className="h-4 w-4" aria-hidden="true" />
+                  <SparklesIcon className="h-4 w-4" aria-hidden="true" />
                 )}
-                {state.isGeneratingSkill
-                  ? t("orchestrator.generatingSkill")
-                  : t("orchestrator.generateSkill")}
+                {state.isRunning ? t("orchestrator.running") : t("orchestrator.run")}
               </Button>
+              {!videoTask && (
+                <Button
+                  variant="secondary"
+                  className="min-w-[132px] whitespace-nowrap"
+                  disabled={!state.canGenerateSkill}
+                  onClick={() => void state.generateSkill()}
+                >
+                  {state.isGeneratingSkill ? (
+                    <LoaderCircleIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <FilePlus2Icon className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  {state.isGeneratingSkill
+                    ? t("orchestrator.generatingSkill")
+                    : t("orchestrator.generateSkill")}
+                </Button>
+              )}
+            </div>
+            {!state.canRun && state.runBlockers.length > 0 && (
+              <div
+                className="mt-2 space-y-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs"
+                data-testid="orchestrator-run-blockers"
+              >
+                <p className="font-medium">{t("orchestrator.blocker.title")}</p>
+                <ul className="list-inside list-disc text-muted-foreground">
+                  {state.runBlockers.slice(0, 6).map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
           {state.error && (

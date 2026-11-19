@@ -1,8 +1,12 @@
 import { ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "@prompthub/shared/constants/ipc-channels";
 import type {
+  DesktopPromptLayoutCaptionRequest,
+  DesktopPromptLayoutReverseRequest,
   DesktopPromptOrchestrationRequest,
   DesktopPromptSkillGenerationRequest,
+  PromptMossCaptionRefinement,
+  PromptMossLayoutReverse,
   PromptOrchestrationResult,
   PromptOrchestratorIPCReply,
   PromptSkillDraft,
@@ -29,4 +33,14 @@ export const promptOrchestratorApi = {
       IPC_CHANNELS.PROMPT_ORCHESTRATOR_VOCABULARY_SEARCH,
       input,
     ) as Promise<PromptOrchestratorIPCReply<PromptVocabularySearchItem[]>>,
+  refineLayoutCaptions: (request: DesktopPromptLayoutCaptionRequest) =>
+    ipcRenderer.invoke(
+      IPC_CHANNELS.PROMPT_ORCHESTRATOR_LAYOUT_CAPTIONS,
+      request,
+    ) as Promise<PromptOrchestratorIPCReply<PromptMossCaptionRefinement>>,
+  reverseLayout: (request: DesktopPromptLayoutReverseRequest) =>
+    ipcRenderer.invoke(
+      IPC_CHANNELS.PROMPT_ORCHESTRATOR_LAYOUT_REVERSE,
+      request,
+    ) as Promise<PromptOrchestratorIPCReply<PromptMossLayoutReverse>>,
 };

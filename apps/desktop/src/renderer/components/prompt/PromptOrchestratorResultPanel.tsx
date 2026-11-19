@@ -15,6 +15,7 @@ import { Button } from "../ui/Button";
 import { Textarea } from "../ui/Textarea";
 import { PromptComparisonView } from "./PromptComparisonView";
 import { PromptSkillDraftPanel } from "./PromptSkillDraftPanel";
+import { PromptMossLayoutResultView } from "./PromptMossLayoutResultView";
 
 type ResultTab = "complete" | "initial" | "fields" | "skill";
 
@@ -175,11 +176,15 @@ export function PromptOrchestratorResultPanel({
                     : t("orchestrator.saveToPromptLibrary")}
               </Button>
             </div>
-            <PromptComparisonView
-              source={sourcePrompt}
-              generated={result.completePrompt}
-              alignment={result.alignment}
-            />
+            {result.layout ? (
+              <PromptMossLayoutResultView result={result} />
+            ) : (
+              <PromptComparisonView
+                source={sourcePrompt}
+                generated={result.completePrompt}
+                alignment={result.alignment}
+              />
+            )}
             {result.payload !== undefined && (
               <section className="space-y-2">
                 <h4 className="text-xs font-semibold text-muted-foreground">

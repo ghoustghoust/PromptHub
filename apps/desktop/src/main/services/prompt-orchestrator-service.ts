@@ -10,12 +10,18 @@ import type Database from "@prompthub/db/adapter";
 import type {
   DesktopPromptOrchestrationRequest,
   DesktopPromptSkillGenerationRequest,
+  PromptMossCaptionRefinement,
+  PromptMossLayoutDraft,
+  PromptMossLayoutReverse,
   PromptOrchestrationInput,
   PromptOrchestrationResult,
   PromptSkillDraft,
   PromptVocabularySearchInput,
   PromptVocabularySearchItem,
 } from "@prompthub/shared/types";
+
+const MAX_REVERSE_IMAGES = 4;
+const MAX_IMAGE_CHARS = 16_000_000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -69,6 +75,10 @@ function parseSkillRequest(
     ...request,
     ...(typeof skillName === "string" ? { skillName } : {}),
   };
+}
+
+function optionalModelId(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
 }
 
 function selectModel(
@@ -131,6 +141,62 @@ export class DesktopPromptOrchestratorService {
       llm: this.createLlm(request.llmModelId),
     });
     return generator.generate(request.input, request.skillName);
+  }
+
+  async refineLayoutCaptions(value: unknown): Promise<PromptMossCaptionRefinement> {
+    if (!isRecord(value) || !isRecord(value.draft)) {
+      throw new Error("Layout caption input must contain a draft object");
+    }
+    const orchestrator = new PromptOrchestrator({
+      vocabulary: this.vocabulary,
+      llm: this.createLlm(optionalModelId(value.llmModelId)),
+    });
+    return orchestrator.refineLayoutCaptions({
+      draft: value.draft as unknown as PromptMossLayoutDraft,
+      ...(typeof value.intent === "string" ? { intent: value.intent } : {}),
+    });
+  }
+
+  async reverseLayout(value: unknown): Promise<PromptMossLayoutReverse> {
+    if (!isRecord(value) || !isRecord(value.canvas)) {
+      throw new Error("Layout reverse input must contain a canvas");
+    }
+    const width = value.canvas.width;
+    const height = value.canvas.height;
+    if (
+      typeof width !== "number" ||
+      typeof height !== "number" ||
+      !Number.isInteger(width) ||
+      !Number.isInteger(height) ||
+      width <= 0 ||
+      height <= 0
+    ) {
+      throw new Error("Layout reverse canvas must use positive integer width and height");
+    }
+    if (!Array.isArray(value.images)) {
+      throw new Error("Layout reverse images must be an array");
+    }
+    const images = value.images.filter(
+      (image): image is string => typeof image === "string" && image.length > 0,
+    );
+    if (images.length === 0) {
+      throw new Error("Select at least one reference image to reverse");
+    }
+    if (images.length > MAX_REVERSE_IMAGES) {
+      throw new Error(`Layout reverse accepts at most ${MAX_REVERSE_IMAGES} images`);
+    }
+    if (images.some((image) => image.length > MAX_IMAGE_CHARS)) {
+      throw new Error("Reference image is too large to reverse");
+    }
+    const orchestrator = new PromptOrchestrator({
+      vocabulary: this.vocabulary,
+      llm: this.createLlm(optionalModelId(value.llmModelId)),
+    });
+    return orchestrator.reverseLayoutFromImage({
+      images,
+      canvas: { width, height },
+      ...(typeof value.intent === "string" ? { intent: value.intent } : {}),
+    });
   }
 
   private createLlm(llmModelId?: string): OpenAiCompatiblePromptLlm {

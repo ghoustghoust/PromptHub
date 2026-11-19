@@ -20,6 +20,7 @@ import {
   isVideoTask,
   referenceImageLimit,
 } from "./prompt-orchestrator-catalog";
+import { useMossLayoutEditor } from "./useMossLayoutEditor";
 
 export interface OrchestratorReferenceImage {
   id: string;
@@ -69,8 +70,7 @@ export function usePromptOrchestratorWorkbench() {
   const [subject, setSubject] = useState("");
   const [setting, setSetting] = useState("");
   const [seed, setSeed] = useState("");
-  const [width, setWidth] = useState("1024");
-  const [height, setHeight] = useState("1024");
+  const mossLayout = useMossLayoutEditor();
   const [video, setVideo] = useState<PromptVideoOrchestrationInput>({
     durationSeconds: 8,
     shotCount: 1,
@@ -93,8 +93,16 @@ export function usePromptOrchestratorWorkbench() {
   const [isRunning, setIsRunning] = useState(false);
   const [isGeneratingSkill, setIsGeneratingSkill] = useState(false);
   const [isSavingSkill, setIsSavingSkill] = useState(false);
+  const [isAssistingLayout, setIsAssistingLayout] = useState(false);
+  const [layoutAssistNote, setLayoutAssistNote] = useState("");
   const requestId = useRef(0);
   const skillRequestId = useRef(0);
+  const layoutSignature = JSON.stringify({
+    width: mossLayout.width,
+    height: mossLayout.height,
+    boxes: mossLayout.boxes,
+  });
+  const previousLayoutSignature = useRef(layoutSignature);
 
   const chatModels = useMemo(
     () => aiModels.filter(
@@ -117,6 +125,15 @@ export function usePromptOrchestratorWorkbench() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (previousLayoutSignature.current === layoutSignature) return;
+    previousLayoutSignature.current = layoutSignature;
+    setResult(null);
+    setSkillDraft(null);
+    setSavedPromptId(null);
+    setSavedSkillId(null);
+  }, [layoutSignature]);
 
   useEffect(() => {
     if (chatModels.some((model) => model.id === llmModelId)) return;
@@ -248,25 +265,64 @@ export function usePromptOrchestratorWorkbench() {
     }
   }
 
-  const canRun = (() => {
-    if (!llmModelId || isRunning || isGeneratingSkill) return false;
-    if (outputFormat === "layout" && skill !== "k2" && !validCanvas(width, height)) return false;
-    if (guidanceMode === "human-led" && !isVideoTask(mode)) {
-      return Boolean(prompt.trim() && selectedTermIds.length > 0);
+  const runBlockers = (() => {
+    const blockers: string[] = [];
+    if (!llmModelId) {
+      blockers.push(t("orchestrator.blocker.model"));
     }
-    if (mode === "random") return Boolean(subject.trim() && setting.trim());
-    if (mode === "reverse") return Boolean(prompt.trim() || referenceImages.length > 0);
-    if (mode === "video-frames") return Boolean(prompt.trim() || referenceImages.length > 0);
-    if (mode === "video-multi-reference") {
-      return Boolean(prompt.trim() || referenceImages.length > 0 || video.referencePlan?.trim());
+    if (
+      outputFormat === "layout" &&
+      skill !== "k2" &&
+      !validCanvas(mossLayout.width, mossLayout.height)
+    ) {
+      blockers.push(t("orchestrator.blocker.canvasSize"));
     }
-    if (mode === "video-long") return Boolean(prompt.trim() || referenceImages.length > 0);
-    if (mode === "video-beat") return Boolean(prompt.trim() && video.beatTimestamps?.trim());
-    if (isVideoTask(mode)) return Boolean(prompt.trim());
-    if (!prompt.trim()) return false;
-    if (mode === "edit" && !editInstruction.trim()) return false;
-    return true;
+    const mossLayoutMode = skill === "moss" && outputFormat === "layout";
+    if (mossLayoutMode) {
+      if (!prompt.trim()) blockers.push(t("orchestrator.blocker.prompt"));
+      if (mossLayout.boxes.length === 0) {
+        blockers.push(t("orchestrator.blocker.boxEmpty"));
+      }
+      mossLayout.boxes.forEach((box, index) => {
+        if (box.label === "text" && !box.text?.trim()) {
+          blockers.push(t("orchestrator.blocker.boxText", { index: index + 1 }));
+        }
+      });
+    } else if (guidanceMode === "human-led" && !isVideoTask(mode)) {
+      if (!prompt.trim()) blockers.push(t("orchestrator.blocker.prompt"));
+      if (selectedTermIds.length === 0 && mossLayout.boxes.length === 0) {
+        blockers.push(t("orchestrator.blocker.humanLed"));
+      }
+    } else if (mode === "random") {
+      if (!subject.trim() || !setting.trim()) blockers.push(t("orchestrator.blocker.random"));
+    } else if (mode === "reverse") {
+      if (!prompt.trim() && referenceImages.length === 0) {
+        blockers.push(t("orchestrator.blocker.reverse"));
+      }
+    } else if (mode === "video-frames" || mode === "video-long") {
+      if (!prompt.trim() && referenceImages.length === 0) {
+        blockers.push(t("orchestrator.blocker.videoFrames"));
+      }
+    } else if (mode === "video-multi-reference") {
+      if (!prompt.trim() && referenceImages.length === 0 && !video.referencePlan?.trim()) {
+        blockers.push(t("orchestrator.blocker.videoFrames"));
+      }
+    } else if (mode === "video-beat") {
+      if (!prompt.trim() || !video.beatTimestamps?.trim()) {
+        blockers.push(t("orchestrator.blocker.beat"));
+      }
+    } else if (isVideoTask(mode)) {
+      if (!prompt.trim()) blockers.push(t("orchestrator.blocker.video"));
+    } else {
+      if (!prompt.trim()) blockers.push(t("orchestrator.blocker.prompt"));
+      if (mode === "edit" && !editInstruction.trim()) {
+        blockers.push(t("orchestrator.blocker.edit"));
+      }
+    }
+    return blockers;
   })();
+
+  const canRun = runBlockers.length === 0 && !isRunning && !isGeneratingSkill;
 
   function buildInput(): PromptOrchestrationInput {
     return {
@@ -284,7 +340,16 @@ export function usePromptOrchestratorWorkbench() {
       outputFormat,
       includePayload,
       ...(outputFormat === "layout" && skill !== "k2"
-        ? { canvas: { width: Number(width), height: Number(height) } }
+        ? { canvas: { width: Number(mossLayout.width), height: Number(mossLayout.height) } }
+        : {}),
+      ...(skill === "moss" && outputFormat === "layout"
+        ? {
+            layout: {
+              version: 1 as const,
+              canvas: { width: Number(mossLayout.width), height: Number(mossLayout.height) },
+              boxes: mossLayout.boxes,
+            },
+          }
         : {}),
       modelId: modelId.trim() || undefined,
       loraIds: splitIds(loraIds),
@@ -332,6 +397,86 @@ export function usePromptOrchestratorWorkbench() {
       if (id === requestId.current) setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       if (id === requestId.current) setIsRunning(false);
+    }
+  }
+
+  async function refineLayoutCaptions(): Promise<void> {
+    if (!llmModelId || mossLayout.boxes.length === 0 || isAssistingLayout) return;
+    setIsAssistingLayout(true);
+    setError("");
+    setLayoutAssistNote("");
+    try {
+      const reply = await window.api.promptOrchestrator.refineLayoutCaptions({
+        draft: {
+          version: 1,
+          canvas: { width: Number(mossLayout.width), height: Number(mossLayout.height) },
+          boxes: mossLayout.boxes,
+        },
+        ...(prompt.trim() ? { intent: prompt.trim() } : {}),
+        llmModelId,
+      });
+      if (reply.ok !== true) {
+        setError(reply.error.message);
+        return;
+      }
+      const { captions, status, warnings } = reply.data;
+      mossLayout.setBoxes((current) =>
+        current.map((box, index) => {
+          const caption = captions[index]?.trim();
+          return caption ? { ...box, caption } : box;
+        }),
+      );
+      setLayoutAssistNote(
+        status === "degraded"
+          ? warnings.join(" ")
+          : t("orchestrator.layout.captionRefined", { count: captions.length }),
+      );
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setIsAssistingLayout(false);
+    }
+  }
+
+  async function reverseLayoutFromImage(file: File): Promise<void> {
+    if (!llmModelId || isAssistingLayout) return;
+    setIsAssistingLayout(true);
+    setError("");
+    setLayoutAssistNote("");
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const reply = await window.api.promptOrchestrator.reverseLayout({
+        images: [dataUrl],
+        canvas: { width: Number(mossLayout.width), height: Number(mossLayout.height) },
+        ...(prompt.trim() ? { intent: prompt.trim() } : {}),
+        llmModelId,
+      });
+      if (reply.ok !== true) {
+        setError(reply.error.message);
+        return;
+      }
+      const { draft, summary, status, warnings } = reply.data;
+      if (draft.boxes.length === 0) {
+        setLayoutAssistNote(warnings.join(" ") || t("orchestrator.layout.reverseEmpty"));
+        return;
+      }
+      mossLayout.setBoxes(draft.boxes);
+      mossLayout.setSelectedBoxId(draft.boxes[0].id);
+      if (summary && !prompt.trim()) setPrompt(summary);
+      const needsReview = draft.boxes.filter((box) => box.needsReview).length;
+      setLayoutAssistNote(
+        [
+          t("orchestrator.layout.reverseDone", { count: draft.boxes.length }),
+          ...(needsReview > 0
+            ? [t("orchestrator.layout.reverseNeedsReview", { count: needsReview })]
+            : []),
+          ...(status === "degraded" ? warnings : []),
+        ].join(" "),
+      );
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setIsAssistingLayout(false);
     }
   }
 
@@ -402,7 +547,7 @@ export function usePromptOrchestratorWorkbench() {
         }),
         userPrompt: result.completePrompt,
         ...(systemLayer.trim() ? { systemPrompt: systemLayer.trim() } : {}),
-        tags: [result.skill, result.mode],
+        tags: [result.skill, result.mode, ...(result.outputFormat ? [result.outputFormat] : [])],
         folderId: null,
         source: "prompt-orchestrator",
       });
@@ -426,12 +571,13 @@ export function usePromptOrchestratorWorkbench() {
     series, setSeries, seriesOptions, llmModelId, setLlmModelId, chatModels,
     modelId, setModelId, loraIds, setLoraIds,
     editInstruction, setEditInstruction, subject, setSubject, setting, setSetting,
-    seed, setSeed, width, setWidth, height, setHeight,
+    seed, setSeed, mossLayout,
     video, updateVideo, referenceImages, setReferenceImages,
     selectedTermIds, lockedTermIds, prefabTerms, addPrefabTerm, removePrefabTerm,
     vocabularyTokenBudget, setVocabularyTokenBudget,
-    rightPanel, setRightPanel, result, error, isRunning, canRun, run,
+    rightPanel, setRightPanel, result, error, isRunning, canRun, runBlockers, run,
     acceptReferenceFiles, pasteReferenceImage,
+    isAssistingLayout, layoutAssistNote, refineLayoutCaptions, reverseLayoutFromImage,
     skillName, setSkillName, skillDraft, savedSkillId, isGeneratingSkill,
     isSavingSkill, canGenerateSkill: Boolean(
       prompt.trim() && llmModelId && !isVideoTask(mode) && !isRunning && !isGeneratingSkill,

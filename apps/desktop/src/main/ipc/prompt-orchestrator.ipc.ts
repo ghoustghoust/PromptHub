@@ -53,4 +53,12 @@ export function registerPromptOrchestratorIPC(
     IPC_CHANNELS.PROMPT_ORCHESTRATOR_GENERATE_SKILL,
     (_, input: unknown) => reply(() => service.generateSkill(input)),
   );
+  ipcMain.handle(
+    IPC_CHANNELS.PROMPT_ORCHESTRATOR_LAYOUT_CAPTIONS,
+    (_, input: unknown) => reply(() => service.refineLayoutCaptions(input)),
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.PROMPT_ORCHESTRATOR_LAYOUT_REVERSE,
+    (_, input: unknown) => reply(() => service.reverseLayout(input)),
+  );
 }

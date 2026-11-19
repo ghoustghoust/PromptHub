@@ -10,6 +10,8 @@ export interface PromptLlmCompletionRequest {
   messages: PromptCompositionMessages;
   mode: PromptOrchestrationMode;
   imageUrls?: string[];
+  /** Per-request output budget; layout JSON needs far more than a caption. */
+  maxTokens?: number;
 }
 
 export interface PromptOrchestratorLlm {
@@ -217,7 +219,7 @@ export class OpenAiCompatiblePromptLlm implements PromptOrchestratorLlm {
       ],
       temperature: request.mode === "random" ? 0.8 : 0.3,
       // Token metrics are observational, not a reason to stop a prompt mid-sentence.
-      max_tokens: this.config.maxTokens ?? 4096,
+      max_tokens: request.maxTokens ?? this.config.maxTokens ?? 4096,
       stream: false,
       response_format: { type: "json_object" },
       ...(this.config.disableThinking !== false

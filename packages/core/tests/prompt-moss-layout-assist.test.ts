@@ -139,4 +139,40 @@ describe("reverseMossLayoutFromImages", () => {
     expect(result.status).toBe("degraded");
     expect(result.draft.boxes).toHaveLength(0);
   });
+
+  it("keeps free-form labels as objects instead of dropping the box", async () => {
+    const result = await reverseMossLayoutFromImages({
+      images: ["data:image/png;base64,AAAA"],
+      canvas: { width: 1024, height: 1024 },
+      llm: fakeLlm(JSON.stringify({
+        summary: "A poster",
+        boxes: [
+          { label: "background", caption: "Teal sky with grain", bbox: [0, 0, 1000, 1000] },
+          { label: "title_bar", caption: "Top strip", bbox: [0, 0, 1000, 80] },
+          { label: "character", caption: "A cat", bbox: [200, 200, 800, 800] },
+        ],
+      })),
+    });
+    expect(result.draft.boxes).toHaveLength(3);
+    expect(result.draft.boxes.map((box) => box.label)).toEqual(["object", "object", "object"]);
+    expect(result.status).toBe("complete");
+  });
+
+  it("asks for a layout-sized output budget", async () => {
+    let requested: number | undefined;
+    await reverseMossLayoutFromImages({
+      images: ["data:image/png;base64,AAAA"],
+      canvas: { width: 1024, height: 1024 },
+      llm: {
+        complete: async (request) => {
+          requested = request.maxTokens;
+          return JSON.stringify({
+            summary: "x",
+            boxes: [{ label: "object", caption: "c", bbox: [0, 0, 100, 100] }],
+          });
+        },
+      },
+    });
+    expect(requested).toBe(4096);
+  });
 });

@@ -12,6 +12,8 @@ import type { PromptOrchestratorLlm } from "./prompt-orchestrator-llm";
 const MAX_BOXES = 32;
 const MAX_CAPTION = 600;
 const MAX_TEXT = 4000;
+/** A 20-box layout JSON easily exceeds a caption-sized budget. */
+const LAYOUT_OUTPUT_TOKENS = 4096;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -60,8 +62,17 @@ export function normalizeLayoutBBox(value: unknown): PromptMossNormalizedBBox | 
   return [top, left, bottom, right];
 }
 
-function parseLabel(value: unknown): PromptMossLayoutLabel | null {
-  return value === "object" || value === "text" ? value : null;
+/**
+ * Models routinely answer with free-form labels (background, title_bar, character).
+ * MOSS only accepts object/text, so anything that is not lettering becomes an object
+ * instead of being dropped as an invalid box.
+ */
+function parseLabel(value: unknown): PromptMossLayoutLabel {
+  if (typeof value !== "string") return "object";
+  const normalized = value.trim().toLowerCase();
+  return normalized === "text" || normalized === "typography" || normalized === "lettering"
+    ? "text"
+    : "object";
 }
 
 export interface MossLayoutCaptionRequest {
@@ -104,6 +115,7 @@ export async function refineMossLayoutCaptions(
     const content = await request.llm.complete({
       messages: { system: CAPTION_SYSTEM, user },
       mode: "polish",
+      maxTokens: LAYOUT_OUTPUT_TOKENS,
     });
     const parsed = parseJson(content);
     const raw = parsed.captions;
@@ -145,7 +157,7 @@ const REVERSE_SYSTEM = [
   "Rules:",
   "- Coordinates are normalized 0-1000 on the yxyx order (top, left, bottom, right) and must satisfy top < bottom, left < right.",
   "- Order boxes as draw order: full-bleed background first, then large subjects, then details, text last.",
-  "- label is 'object' for drawn content and 'text' for any legible lettering.",
+  "- label must be exactly \"object\" or \"text\". Never invent other words such as background, title_bar or character.",
   "- For a text box add \"text\" with the exact characters you can read, preserving case, punctuation and line breaks. If any character is uncertain, write your best guess, put ? in place of the unreadable character, and set \"needsReview\": true.",
   "- Never invent copy that is not printed in the image. If lettering is unreadable, mark needsReview instead of guessing a plausible slogan.",
   "- Every object box needs a caption describing only what is visible: subject, clothing, material, colour, lighting, camera angle, typography style.",
@@ -162,8 +174,8 @@ function parseReverseBoxes(value: unknown, warnings: string[]): PromptMossLayout
     }
     const label = parseLabel(entry.label);
     const bbox = normalizeLayoutBBox(entry.bbox);
-    if (!label || !bbox) {
-      warnings.push(`Box ${index + 1} was ignored because its label or rectangle is invalid.`);
+    if (!bbox) {
+      warnings.push(`Box ${index + 1} was ignored because its rectangle is invalid.`);
       return;
     }
     const text = label === "text" ? cleanText(entry.text) : "";
@@ -211,6 +223,7 @@ export async function reverseMossLayoutFromImages(
       messages: { system: REVERSE_SYSTEM, user },
       mode: "reverse",
       imageUrls: images,
+      maxTokens: LAYOUT_OUTPUT_TOKENS,
     });
     const parsed = parseJson(content);
     const warnings: string[] = [];

@@ -126,3 +126,18 @@ packages/shared/types/index.js.map
 *.tsbuildinfo
 .omx/
 .local/agent-work/
+
+# graphify 可再生代码图谱（理解层底座，不进 git）
+graphify-out/
+
+# 本地研究输入、会话资料与人工验证输出（不是产品源码）
+.workbuddy/
+.qoder-credits/
+.qoder-input-files/
+.qoder-input-images/
+/outputs/
+/prompt/
+/prompt-kb/
+
+# 本地模型权重，不进入仓库
+*.gguf

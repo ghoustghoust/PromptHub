@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   CopyIcon,
   Maximize2Icon,
   Minimize2Icon,
   SparklesIcon,
+  XIcon,
 } from "lucide-react";
 import type {
   PromptOrchestrationField,
@@ -16,8 +17,9 @@ import { Textarea } from "../ui/Textarea";
 import { PromptComparisonView } from "./PromptComparisonView";
 import { PromptSkillDraftPanel } from "./PromptSkillDraftPanel";
 import { PromptMossLayoutResultView } from "./PromptMossLayoutResultView";
+import { PromptTermDecisionPanel } from "./PromptTermDecisionPanel";
 
-type ResultTab = "complete" | "initial" | "fields" | "skill";
+type ResultTab = "complete" | "decisions" | "initial" | "fields" | "skill";
 
 interface Props {
   result: PromptOrchestrationResult | null;
@@ -29,6 +31,7 @@ interface Props {
   onCopy: (value: string) => void;
   expanded: boolean;
   onToggleExpanded: () => void;
+  onClose?: () => void;
   savedPromptId: string | null;
   isSavingToLibrary: boolean;
   onSaveToLibrary: (favorite: boolean) => void;
@@ -60,6 +63,7 @@ export function PromptOrchestratorResultPanel({
   onCopy,
   expanded,
   onToggleExpanded,
+  onClose,
   savedPromptId,
   isSavingToLibrary,
   onSaveToLibrary,
@@ -67,9 +71,17 @@ export function PromptOrchestratorResultPanel({
   const { t } = useTranslation();
   const [tab, setTab] = useState<ResultTab>("complete");
   const [favorite, setFavorite] = useState(false);
+  useEffect(() => {
+    setTab(result?.termDecisions?.length ? "decisions" : "complete");
+  }, [result]);
 
   const tabs: Array<{ id: ResultTab; label: string; disabled?: boolean }> = [
     { id: "complete", label: t("orchestrator.completePrompt") },
+    {
+      id: "decisions",
+      label: t("orchestrator.dynamicPolish.tab"),
+      disabled: !result?.termDecisions?.length,
+    },
     { id: "initial", label: t("orchestrator.initialPrompt") },
     { id: "fields", label: t("orchestrator.fields"), disabled: !result },
     { id: "skill", label: t("orchestrator.skillDraft"), disabled: !skillDraft },
@@ -100,6 +112,17 @@ export function PromptOrchestratorResultPanel({
             </button>
           ))}
         </div>
+        {onClose && (
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label={t("orchestrator.closeResult")}
+            onClick={onClose}
+            data-testid="orchestrator-result-close"
+          >
+            <XIcon className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        )}
         <Button
           size="sm"
           variant="ghost"
@@ -113,7 +136,7 @@ export function PromptOrchestratorResultPanel({
             <Maximize2Icon className="h-3.5 w-3.5" aria-hidden="true" />
           )}
         </Button>
-        {result && tab !== "skill" && tab !== "fields" && (
+        {result && tab !== "skill" && tab !== "fields" && tab !== "decisions" && (
           <Button
             size="sm"
             variant="ghost"
@@ -199,6 +222,17 @@ export function PromptOrchestratorResultPanel({
               </section>
             )}
           </div>
+        ) : tab === "decisions" ? (
+          result.termDecisions ? (
+            <PromptTermDecisionPanel
+              decisions={result.termDecisions}
+              summary={result.retrievalSummary}
+            />
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {t("orchestrator.dynamicPolish.empty")}
+            </p>
+          )
         ) : tab === "initial" ? (
           <div className="space-y-2">
             <Textarea

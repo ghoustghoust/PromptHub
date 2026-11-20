@@ -7,6 +7,9 @@ import type {
   PromptOrchestrationInput,
   PromptOrchestrationMode,
   PromptOrchestrationResult,
+  PromptRetrievalSummary,
+  PromptSelectedTerm,
+  PromptTermDecision,
   PromptTokenMetrics,
 } from "@prompthub/shared/types";
 import {
@@ -23,7 +26,14 @@ import {
   validateTaskComposition,
 } from "./prompt-orchestrator-composition";
 import type { PromptOrchestratorLlm } from "./prompt-orchestrator-llm";
-import { selectPromptTerms } from "./prompt-orchestrator-vocabulary";
+import {
+  selectPromptTerms,
+  type PromptVocabularySelection,
+} from "./prompt-orchestrator-vocabulary";
+import {
+  isDynamicPolish,
+  runDynamicPolish,
+} from "./prompt-orchestrator-dynamic-polish";
 import { buildPromptAlignment } from "./prompt-alignment";
 import {
   estimateResultTokenMetrics,
@@ -56,6 +66,14 @@ const MODES: ReadonlySet<string> = new Set([
 export interface PromptOrchestratorOptions {
   vocabulary: PromptVocabDB;
   llm: PromptOrchestratorLlm;
+}
+
+interface CompositionRun {
+  composition: PromptComposition;
+  selectedTerms: PromptSelectedTerm[];
+  warnings: string[];
+  termDecisions?: PromptTermDecision[];
+  retrievalSummary?: PromptRetrievalSummary;
 }
 
 export class PromptOrchestratorError extends Error {
@@ -320,6 +338,13 @@ function validateOptions(input: PromptOrchestrationInput): void {
     );
   }
   if (input.series !== undefined) requireText(input.series, "series");
+  if (input.domain !== undefined &&
+      !["shared", "anime", "real", "3d"].includes(input.domain)) {
+    throw new PromptOrchestratorError(
+      "INVALID_INPUT",
+      `Unsupported vocabulary domain: ${String(input.domain)}`,
+    );
+  }
   validateOutputFormat(input);
   const limit = input.candidateLimitPerCategory;
   if (
@@ -495,31 +520,64 @@ export class PromptOrchestrator {
     return [...new Set(warnings)];
   }
 
+  private async compose(
+    input: PromptOrchestrationInput,
+    selection: PromptVocabularySelection,
+    directives: PromptModelDirective[],
+  ): Promise<CompositionRun> {
+    if (isDynamicPolish(input)) {
+      const dynamic = await runDynamicPolish({
+        input,
+        vocabulary: this.options.vocabulary,
+        llm: this.options.llm,
+        explicitTerms: selection.terms,
+        modelDirectives: directives,
+      });
+      return { ...dynamic, warnings: [...selection.warnings, ...dynamic.warnings] };
+    }
+    const messages = buildCompositionMessages(input, selection.terms, directives);
+    const content = await this.options.llm.complete({
+      messages,
+      mode: input.mode ?? "expand",
+      imageUrls: input.imageUrls,
+    });
+    const composition = parsePromptComposition(
+      content,
+      input.mode ?? "expand",
+      input.includePayload,
+    );
+    return {
+      composition,
+      selectedTerms: selection.terms,
+      warnings: selection.warnings,
+    };
+  }
+
   async orchestrate(
     input: PromptOrchestrationInput,
   ): Promise<PromptOrchestrationResult> {
     validateInput(input);
     const mode = input.mode ?? "expand";
-    const selection = selectPromptTerms(this.options.vocabulary, input);
+    const dynamicPolish = isDynamicPolish(input);
+    const selection = selectPromptTerms(
+      this.options.vocabulary,
+      dynamicPolish
+        ? { ...input, candidateLimitPerCategory: 0, categories: [] }
+        : input,
+    );
     const directives = modelDirectives(this.options.vocabulary, input);
     const fixedFields = buildFixedFields(input, selection.terms, directives);
-    const messages = buildCompositionMessages(input, selection.terms, directives);
     try {
-      const content = await this.options.llm.complete({
-        messages,
-        mode,
-        imageUrls: input.imageUrls,
-      });
-      const parsed = parsePromptComposition(content, mode, input.includePayload);
-      validateTaskComposition(input, parsed);
-      const finalized = finalizeMossLayoutComposition(input, parsed);
+      const completed = await this.compose(input, selection, directives);
+      validateTaskComposition(input, completed.composition);
+      const finalized = finalizeMossLayoutComposition(input, completed.composition);
       const composition = mergeFixedFields(
         finalized,
         fixedFields,
-        selection.terms,
+        completed.selectedTerms,
       );
-      const tokenMetrics = await this.tokenMetrics(composition, selection.terms);
-      const warnings = this.warnings(input, selection.warnings, tokenMetrics);
+      const tokenMetrics = await this.tokenMetrics(composition, completed.selectedTerms);
+      const warnings = this.warnings(input, completed.warnings, tokenMetrics);
       const pendingCaptions = composition.layout?.pendingCaptions ?? [];
       if (pendingCaptions.length > 0) {
         warnings.push(
@@ -532,11 +590,17 @@ export class PromptOrchestrator {
         outputFormat: input.outputFormat,
         media: isVideoOrchestrationMode(mode) ? "video" : "image",
         ...composition,
-        selectedTerms: selection.terms,
+        selectedTerms: completed.selectedTerms,
         modelDirectives: directives,
         warnings,
         tokenMetrics,
         status: "complete",
+        ...(completed.termDecisions
+          ? { termDecisions: completed.termDecisions }
+          : {}),
+        ...(completed.retrievalSummary
+          ? { retrievalSummary: completed.retrievalSummary }
+          : {}),
         alignment: buildPromptAlignment(input.prompt ?? "", composition.completePrompt),
       };
     } catch (error) {

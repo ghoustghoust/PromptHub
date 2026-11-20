@@ -4871,6 +4871,31 @@
     "selectedTerms": "Vokabelbegriffe",
     "warnings": "Warnungen",
     "degraded": "Der LLM-Aufruf ist fehlgeschlagen. Dies ist ein deterministischer Fallback, keine vollständige LLM-Komposition.",
+    "dynamicPolish": {
+      "hint": "Das Polieren ruft Vokabular bei Bedarf in höchstens zwei Runden ab. Wiederverwenden, Anpassen, Erschaffen und Verwerfen werden verglichen, ohne Charaktere oder Künstler abzuleiten.",
+      "domainLabel": "Dynamischer Abfragebereich",
+      "domain": {
+        "all": "Alle Themen",
+        "shared": "Gemeinsame Begriffe",
+        "anime": "Anime + gemeinsam",
+        "real": "Real + gemeinsam",
+        "3d": "3D + gemeinsam"
+      },
+      "tab": "Strategievergleich",
+      "summary": "{{rounds}} Abfragerunde(n) · {{queries}} Abfragen · {{candidates}} Kandidaten",
+      "all": "Alle",
+      "source": "Ursprüngliche Bedeutung",
+      "output": "Ergebnis",
+      "ignoredOutput": "Für diesen Slot wird kein Vokabularkandidat verwendet; die ursprüngliche Bedeutung bleibt erhalten.",
+      "terms": "Verknüpfte Begriffe",
+      "empty": "Keine Entscheidungen entsprechen dem aktuellen Filter.",
+      "strategy": {
+        "reuse": "Wiederverwenden",
+        "adapt": "Anpassen",
+        "create": "Erschaffen",
+        "ignore": "Verwerfen"
+      }
+    },
     "skillDraft": "Wiederverwendbarer Skill-Entwurf",
     "referenceContent": "Referenzinhalt (bereitgestellt von PromptHub)",
     "creativeSuggestions": "Kreative Vorschläge (optional)",

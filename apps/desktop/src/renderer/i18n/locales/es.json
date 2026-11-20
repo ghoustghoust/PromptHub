@@ -4871,6 +4871,31 @@
     "selectedTerms": "Términos del vocabulario",
     "warnings": "Advertencias",
     "degraded": "El LLM falló. Este es un borrador determinista de respaldo, no una composición LLM completa.",
+    "dynamicPolish": {
+      "hint": "El pulido recupera vocabulario bajo demanda en un máximo de dos rondas. Las decisiones de reutilizar, adaptar, crear e ignorar se comparan sin inferir personajes ni artistas.",
+      "domainLabel": "Ámbito de recuperación dinámica",
+      "domain": {
+        "all": "Todos los temas",
+        "shared": "Términos compartidos",
+        "anime": "Anime + compartidos",
+        "real": "Real + compartidos",
+        "3d": "3D + compartidos"
+      },
+      "tab": "Comparación de estrategias",
+      "summary": "{{rounds}} ronda(s) · {{queries}} consultas · {{candidates}} candidatos",
+      "all": "Todo",
+      "source": "Significado original",
+      "output": "Resultado",
+      "ignoredOutput": "No se usa ningún candidato del vocabulario para este espacio; el significado original se conserva.",
+      "terms": "Términos relacionados",
+      "empty": "No hay decisiones que coincidan con el filtro actual.",
+      "strategy": {
+        "reuse": "Reutilizar",
+        "adapt": "Adaptar",
+        "create": "Crear",
+        "ignore": "Ignorar"
+      }
+    },
     "skillDraft": "Borrador de Skill reutilizable",
     "referenceContent": "Contenido de referencia (proporcionado por PromptHub)",
     "creativeSuggestions": "Sugerencias creativas (opcionales)",

@@ -4871,6 +4871,31 @@
     "selectedTerms": "選択語彙",
     "warnings": "警告",
     "degraded": "LLM の呼び出しに失敗しました。これは完全な生成結果ではなく、決定的なフォールバックです。",
+    "dynamicPolish": {
+      "hint": "推敲では最大2ラウンドのオンデマンド検索を行い、再利用・翻案・創作・不採用を項目別に比較します。キャラクターやアーティストは自動推定しません。",
+      "domainLabel": "動的検索の範囲",
+      "domain": {
+        "all": "すべての題材",
+        "shared": "共通語彙",
+        "anime": "アニメ + 共通",
+        "real": "実写 + 共通",
+        "3d": "3D + 共通"
+      },
+      "tab": "戦略比較",
+      "summary": "{{rounds}} 検索ラウンド · {{queries}} クエリ · {{candidates}} 候補",
+      "all": "すべて",
+      "source": "元の意味",
+      "output": "処理結果",
+      "ignoredOutput": "このスロットでは語彙候補を採用せず、元の意味を保持します。",
+      "terms": "関連語彙",
+      "empty": "現在のフィルターに一致する決定はありません。",
+      "strategy": {
+        "reuse": "再利用",
+        "adapt": "翻案",
+        "create": "創作",
+        "ignore": "不採用"
+      }
+    },
     "skillDraft": "再利用可能な Skill ドラフト",
     "referenceContent": "参照コンテンツ（PromptHub 提供）",
     "creativeSuggestions": "創作提案（任意）",

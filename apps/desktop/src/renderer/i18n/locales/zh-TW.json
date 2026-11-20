@@ -4871,6 +4871,31 @@
     "selectedTerms": "選定詞條",
     "warnings": "警告",
     "degraded": "本機 LLM 呼叫失敗。目前為確定性降級草稿，不是完整 LLM 編排結果。",
+    "dynamicPolish": {
+      "hint": "潤飾將由模型按需檢索詞條，最多兩輪；複用、借鑑、創造、棄用逐項對照，不自動推斷角色或畫師。",
+      "domainLabel": "動態檢索範圍",
+      "domain": {
+        "all": "全部題材",
+        "shared": "共用詞條",
+        "anime": "二次元 + 共用",
+        "real": "真人 + 共用",
+        "3d": "3D + 共用"
+      },
+      "tab": "策略對照",
+      "summary": "{{rounds}} 輪檢索 · {{queries}} 個查詢 · {{candidates}} 個候選",
+      "all": "全部",
+      "source": "原始語義",
+      "output": "處理結果",
+      "ignoredOutput": "不採用詞庫候選，保留原意或由其他槽位表達。",
+      "terms": "關聯詞條",
+      "empty": "目前篩選沒有策略決策。",
+      "strategy": {
+        "reuse": "複用",
+        "adapt": "借鑑",
+        "create": "創造",
+        "ignore": "棄用"
+      }
+    },
     "skillDraft": "可重用 Skill 草稿",
     "referenceContent": "參考內容（由 PromptHub 提供）",
     "creativeSuggestions": "創意建議（可選）",

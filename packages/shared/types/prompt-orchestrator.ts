@@ -124,6 +124,33 @@ export interface PromptSelectedTerm {
   selectionReason: PromptTermSelectionReason;
 }
 
+export type PromptTermDecisionStrategy = "reuse" | "adapt" | "create" | "ignore";
+
+export interface PromptTermDecisionTerm {
+  id: string;
+  category: string;
+  en: string;
+  zh: string | null;
+}
+
+/** Auditable knowledge-use decision for one semantic slot in a polished prompt. */
+export interface PromptTermDecision {
+  slotId: string;
+  category: string;
+  sourceText: string;
+  strategy: PromptTermDecisionStrategy;
+  terms: PromptTermDecisionTerm[];
+  /** Empty only for ignore; create intentionally has no vocabulary terms. */
+  output: string;
+  rationale: string;
+}
+
+export interface PromptRetrievalSummary {
+  rounds: number;
+  queryCount: number;
+  candidateCount: number;
+}
+
 export interface PromptModelDirective {
   modelId: string;
   kind: PromptModelProfileKind;
@@ -322,6 +349,9 @@ export interface PromptOrchestrationResult {
   alignment?: PromptAlignment;
   /** Present when the native MOSS layout canvas produced the final JSON. */
   layout?: PromptMossLayoutResult;
+  /** Present for the dynamic polish prototype; ignored candidates remain auditable. */
+  termDecisions?: PromptTermDecision[];
+  retrievalSummary?: PromptRetrievalSummary;
 }
 
 export function isVideoOrchestrationMode(

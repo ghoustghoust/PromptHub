@@ -4872,6 +4872,31 @@
     "selectedTerms": "Termes du vocabulaire",
     "warnings": "Avertissements",
     "degraded": "Le LLM a échoué. Ceci est un brouillon de secours déterministe, pas une composition LLM complète.",
+    "dynamicPolish": {
+      "hint": "Le polissage recherche le vocabulaire à la demande en deux tours maximum. Les décisions de réutilisation, adaptation, création et rejet sont comparées sans déduire les personnages ou artistes.",
+      "domainLabel": "Portée de la recherche dynamique",
+      "domain": {
+        "all": "Tous les sujets",
+        "shared": "Termes partagés",
+        "anime": "Anime + partagés",
+        "real": "Réel + partagés",
+        "3d": "3D + partagés"
+      },
+      "tab": "Comparaison des stratégies",
+      "summary": "{{rounds}} tour(s) · {{queries}} requêtes · {{candidates}} candidats",
+      "all": "Tout",
+      "source": "Sens source",
+      "output": "Résultat",
+      "ignoredOutput": "Aucun candidat du vocabulaire n’est utilisé pour cet emplacement ; le sens source est préservé ailleurs.",
+      "terms": "Termes associés",
+      "empty": "Aucune décision ne correspond au filtre actuel.",
+      "strategy": {
+        "reuse": "Réutiliser",
+        "adapt": "Adapter",
+        "create": "Créer",
+        "ignore": "Rejeter"
+      }
+    },
     "skillDraft": "Brouillon de Skill réutilisable",
     "referenceContent": "Contenu de référence (fourni par PromptHub)",
     "creativeSuggestions": "Suggestions créatives (facultatives)",

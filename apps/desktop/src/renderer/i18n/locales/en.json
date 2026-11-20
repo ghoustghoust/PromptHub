@@ -4905,6 +4905,7 @@
     "alignmentContinuation": "continues above",
     "expandResult": "Expand result panel",
     "collapseResult": "Collapse result panel",
+    "closeResult": "Close result panel",
     "skillDraftEmpty": "No skill draft yet. Generate a reusable skill first.",
     "outputFormat": "Output format",
     "width": "Canvas width",
@@ -4944,6 +4945,31 @@
     "selectedTerms": "Vocabulary terms",
     "warnings": "Warnings",
     "degraded": "The LLM failed. This is a deterministic fallback, not a completed LLM composition.",
+    "dynamicPolish": {
+      "hint": "Polishing now retrieves vocabulary on demand in at most two rounds. Reuse, adapt, create, and ignore decisions are compared without inferring characters or artists.",
+      "domainLabel": "Dynamic retrieval scope",
+      "domain": {
+        "all": "All subjects",
+        "shared": "Shared terms",
+        "anime": "Anime + shared",
+        "real": "Real + shared",
+        "3d": "3D + shared"
+      },
+      "tab": "Strategy comparison",
+      "summary": "{{rounds}} retrieval round(s) · {{queries}} queries · {{candidates}} candidates",
+      "all": "All",
+      "source": "Source meaning",
+      "output": "Decision output",
+      "ignoredOutput": "No vocabulary candidate is used for this slot; the source meaning is preserved elsewhere.",
+      "terms": "Linked terms",
+      "empty": "No decisions match the current filter.",
+      "strategy": {
+        "reuse": "Reuse",
+        "adapt": "Adapt",
+        "create": "Create",
+        "ignore": "Ignore"
+      }
+    },
     "skillDraft": "Reusable Skill draft",
     "referenceContent": "Reference content (supplied by PromptHub)",
     "creativeSuggestions": "Creative suggestions (optional)",

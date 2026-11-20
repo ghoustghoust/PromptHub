@@ -4903,6 +4903,7 @@
     "alignmentContinuation": "承接上文",
     "expandResult": "展开结果栏",
     "collapseResult": "收起结果栏",
+    "closeResult": "关闭结果栏",
     "skillDraftEmpty": "还没有 Skill 草稿，先点击“生成可复用 Skill”。",
     "outputFormat": "输出格式",
     "width": "画布宽度",
@@ -4942,6 +4943,31 @@
     "selectedTerms": "选定词条",
     "warnings": "警告",
     "degraded": "本地 LLM 调用失败。当前为确定性降级草稿，不是完整 LLM 编排结果。",
+    "dynamicPolish": {
+      "hint": "润色将由模型按需检索词条，最多两轮；复用、借鉴、创造、弃用逐项对照，不自动推断角色或画师。",
+      "domainLabel": "动态检索范围",
+      "domain": {
+        "all": "全部题材",
+        "shared": "共用词条",
+        "anime": "二次元 + 共用",
+        "real": "真人 + 共用",
+        "3d": "3D + 共用"
+      },
+      "tab": "策略对照",
+      "summary": "{{rounds}} 轮检索 · {{queries}} 个查询 · {{candidates}} 个候选",
+      "all": "全部",
+      "source": "原始语义",
+      "output": "处理结果",
+      "ignoredOutput": "不采用词库候选，保留原意或由其他槽位表达。",
+      "terms": "关联词条",
+      "empty": "当前筛选没有策略决策。",
+      "strategy": {
+        "reuse": "复用",
+        "adapt": "借鉴",
+        "create": "创造",
+        "ignore": "弃用"
+      }
+    },
     "skillDraft": "可复用 Skill 草稿",
     "referenceContent": "参考内容（由 PromptHub 提供）",
     "creativeSuggestions": "创意建议（可选）",

@@ -542,3 +542,194 @@ describe("PromptVocabDB (in-memory SQLite)", () => {
     expect(() => db.importFromKbJson({ characters: {} })).toThrow();
   });
 });
+
+describe("PromptVocabDB legacy schema migration", () => {
+  let rawDb: DatabaseAdapter.Database;
+  let db: PromptVocabDB;
+
+  function createLegacyDatabase(): void {
+    rawDb = new DatabaseAdapter(":memory:");
+    rawDb.pragma("foreign_keys = ON");
+    rawDb.exec(`
+      CREATE TABLE prompt_terms (
+        id TEXT PRIMARY KEY,
+        category TEXT NOT NULL,
+        subcategory TEXT,
+        en TEXT NOT NULL,
+        zh TEXT,
+        "function" TEXT,
+        applicable_task TEXT,
+        applicable_models TEXT,
+        source TEXT,
+        validation_status TEXT NOT NULL DEFAULT 'unvalidated',
+        created_at INTEGER NOT NULL
+      );
+    `);
+    rawDb.exec(SCHEMA_TABLES);
+    rawDb
+      .prepare(
+        `INSERT INTO prompt_terms (
+           id, category, subcategory, en, zh, applicable_models, source,
+           validation_status, created_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        "legacy-watercolor",
+        "style",
+        "媒介",
+        "watercolor",
+        "水彩",
+        "[]",
+        "legacy-corpus",
+        "validated",
+        1763400000000,
+      );
+    rawDb
+      .prepare(
+        `INSERT INTO prompt_terms (
+           id, category, subcategory, en, zh, applicable_models, source,
+           validation_status, created_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        "legacy-soft-light",
+        "lighting",
+        null,
+        "soft light",
+        null,
+        "[]",
+        "legacy-corpus",
+        "unvalidated",
+        1763400000001,
+      );
+    rawDb
+      .prepare(
+        `INSERT INTO term_relations (term_id, related_id, relation_type)
+         VALUES (?, ?, 'conflict')`,
+      )
+      .run("legacy-watercolor", "legacy-soft-light");
+    rawDb
+      .prepare(
+        `INSERT INTO validation_records (
+           term_id, model_id, params, outcome, notes, created_at
+         ) VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run("legacy-watercolor", "model-main", null, "good", "legacy check", 1763400000002);
+    db = new PromptVocabDB(rawDb);
+  }
+
+  function columnNames(): string[] {
+    return (rawDb.all("PRAGMA table_info(prompt_terms)") as Array<{ name: string }>)
+      .map((row) => row.name);
+  }
+
+  /** Mirrors the real init order: migrate first, then build indexes. */
+  function upgradeLikeInit(): void {
+    migratePromptVocabSchema(rawDb);
+    rawDb.exec(SCHEMA_INDEXES);
+  }
+
+  afterEach(() => {
+    rawDb.close();
+  });
+
+  it("upgrades a pre-series/template/domain database in place and preserves rows, relations and validations", () => {
+    createLegacyDatabase();
+    const before = columnNames();
+    expect(before).not.toContain("series");
+    expect(before).not.toContain("template");
+    expect(before).not.toContain("domain");
+
+    upgradeLikeInit();
+
+    const after = columnNames();
+    expect(after).toContain("series");
+    expect(after).toContain("template");
+    expect(after).toContain("domain");
+
+    const watercolor = db.getTerm("legacy-watercolor");
+    expect(watercolor?.en).toBe("watercolor");
+    expect(watercolor?.zh).toBe("水彩");
+    expect(watercolor?.subcategory).toBe("媒介");
+    expect(watercolor?.series).toBeNull();
+    expect(watercolor?.template).toBeNull();
+    expect(watercolor?.domain).toBe("shared");
+    expect(watercolor?.source).toBe("legacy-corpus");
+    expect(watercolor?.validationStatus).toBe("validated");
+    expect(db.getConflicts("legacy-watercolor")).toEqual(["legacy-soft-light"]);
+    expect(db.listValidation("legacy-watercolor").map((row) => row.outcome)).toEqual([
+      "good",
+    ]);
+    expect(db.listTermsByCategory("style")).toHaveLength(1);
+    expect(db.listTermsByCategory("style", "model-main", undefined, "anime")).toHaveLength(
+      1,
+    );
+  });
+
+  it("re-runs the migration without duplicating or altering rows", () => {
+    createLegacyDatabase();
+    upgradeLikeInit();
+    migratePromptVocabSchema(rawDb);
+    migratePromptVocabSchema(rawDb);
+
+    const counts = rawDb.get("SELECT COUNT(*) AS count FROM prompt_terms") as {
+      count: number;
+    };
+    expect(counts.count).toBe(2);
+    const relations = rawDb.get(
+      "SELECT COUNT(*) AS count FROM term_relations",
+    ) as { count: number };
+    expect(relations.count).toBe(1);
+    const validations = rawDb.get(
+      "SELECT COUNT(*) AS count FROM validation_records",
+    ) as { count: number };
+    expect(validations.count).toBe(1);
+    expect(db.getTerm("legacy-soft-light")?.domain).toBe("shared");
+  });
+
+  it("answers series, template, domain, search and browse queries on upgraded rows", () => {
+    createLegacyDatabase();
+    upgradeLikeInit();
+
+    expect(db.listTermsByCategory("lighting", undefined, "pool-x")).toHaveLength(1);
+
+    db.addTerm({
+      id: "new-pool-light",
+      category: "lighting",
+      subcategory: "媒介",
+      en: "pool light",
+      zh: "泳池光",
+      series: "pool-x",
+      template: "pool light template",
+      domain: "real",
+      validationStatus: "validated",
+      createdAt: "2026-11-20T00:00:00.000Z",
+    });
+
+    const scoped = db.listTermsByCategory("lighting", undefined, "pool-x");
+    expect(scoped.map((term) => term.id).sort()).toEqual([
+      "legacy-soft-light",
+      "new-pool-light",
+    ]);
+
+    const legacySearch = db.searchTerms({ query: "soft" });
+    expect(legacySearch.map((term) => term.id)).toEqual(["legacy-soft-light"]);
+    expect(legacySearch[0].domain).toBe("shared");
+    expect(legacySearch[0].subcategory).toBeNull();
+    expect(legacySearch[0].template).toBeNull();
+
+    const newSearch = db.searchTerms({ query: "pool", series: "pool-x" });
+    expect(newSearch.map((term) => term.id)).toEqual(["new-pool-light"]);
+    expect(newSearch[0].domain).toBe("real");
+    expect(newSearch[0].template).toBe("pool light template");
+    expect(newSearch[0].subcategory).toBe("媒介");
+
+    const missing = db.browseTerms({ category: "lighting", translation: "missing" });
+    expect(missing.total).toBe(1);
+    expect(missing.items.map((term) => term.id)).toEqual(["legacy-soft-light"]);
+    expect(missing.missingTranslation).toBe(1);
+
+    const deprecated = db.searchTerms({ query: "watercolor" });
+    expect(deprecated.map((term) => term.id)).toEqual(["legacy-watercolor"]);
+  });
+});

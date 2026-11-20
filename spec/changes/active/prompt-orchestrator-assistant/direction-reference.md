@@ -85,7 +85,7 @@ Desktop
 ```
 理解层(graphify 只读) → 引擎基准/选型 → KB 建库(kb.json) → demo 验证
   → 方向评审(非RAG/编排) → T25 db 词库 → T26 core 编排(接手扩成全垂直切片)
-  → [当前]收敛: 编排单测 + 旧库迁移回归 + MTP 复测 + 数据回填
+  → [已完成] 编排单测 + 旧库迁移回归（2026-11-20）→ [当前] MTP 复测 + 数据回填
   → A/B/C 七项评估 → 引擎管理 D8 + provider 本地免key + 模型/LoRA 档案 + 评估体系
 ```
 
@@ -97,12 +97,12 @@ Desktop
 ## 6. 当前状态与缺口（评审结论）
 
 已验证：desktop 35/35（词库12+transport23）、core 技能生成器 3/3 单测；真实编排/反推/生图/Skill 落盘；
-typecheck/eslint/行数门禁达标。状态建议 `needs-convergence`，不按 completed 关闭。
+typecheck/eslint/行数门禁达标。R1/R2 收敛测试于 2026-11-20 补齐：core 编排三件套 33/33（v2 契约 7 + 选词与降级 10 + 动态润色 16），legacy 词库迁移 3 例（prompt-vocab-db.test.ts 该文件 23/23，fixture 按 init.ts 真实顺序构造迁移→索引）。core 全量套件中 storage/migration/canonical/plugin 等模块的失败经 stash 基线对照确认在本批改动前即复现（部分为 git init --initial-branch 的环境性失败），与本批无关；编排器与词库相关文件在全量和聚焦运行中均通过。状态建议 `needs-convergence`，不按 completed 关闭。
 
 | # | 严重度 | 缺口 | 补救/验收 |
 | --- | --- | --- | --- |
-| R1 | Important | 编排器核心逻辑无单测，真实验证不可重复 | 补 core 编排单测：模式/互斥/模型series过滤/provenance/降级/JSON错误/随机seed确定 |
-| R2 | Important | 旧库迁移 + series/template 查询无回归 | 真实旧库 fixture：升级保留词条/关系/验证+补列+重复执行幂等 |
+| R1 | Important | 编排器核心逻辑无单测，真实验证不可重复 | 已补（2026-11-20）：`packages/core/tests/prompt-orchestrator-selection.test.ts`（10 例：模式要求/互斥排除/系列与模型过滤/provenance 固定层/降级回退/随机 seed 确定/输入校验）与 `packages/core/tests/prompt-orchestrator-dynamic-polish.test.ts`（16 例：两轮上限/槽位预算/四策略审计/禁查角色画师 NSFW/冲突拒绝/非法决策修复/边界输入）；core 编排三件套 33/33 通过 |
+| R2 | Important | 旧库迁移 + series/template 查询无回归 | 已补（2026-11-20）：`apps/desktop/tests/unit/main/prompt-vocab-db.test.ts` 新增 legacy migration 3 例——缺 series/template/domain 列的旧库原位升级保留词条/关系/验证、重复执行幂等（新增 0/更新 0）、升级后 series/template/domain/search/browse 查询回归；fixture 按 init.ts 真实顺序（迁移→索引）构造，该文件 23/23 通过 |
 | R3 | Important | MTP 基准矛盾（见下） | 控制复测统一真值后再定模型文件 |
 | R4 | Medium | provenance 强制不完整：无 termId 的 LLM 字段仍可标 fixed | 测试+考虑未链接 fixed 降为 flexible |
 | R5 | Medium | 规则压缩或丢 MOSS 原生审美 | A/B/C 整文 vs 卡片 |
@@ -120,7 +120,7 @@ typecheck/eslint/行数门禁达标。状态建议 `needs-convergence`，不按 
 ## 7. 后续目标与待裁定项
 
 - 待用户裁定：八模式是否必须独立引擎？MOSS Layout 编译器是否第一版硬验收？
-- 推进顺序：R1/R2 → R3 → 数据回填 → A/B/C → 引擎管理 D8 / provider 本地免key / 模型LoRA档案 / 评估体系。
+- 推进顺序：R3 → 数据回填 → A/B/C → 引擎管理 D8 / provider 本地免key / 模型LoRA档案 / 评估体系。R1/R2 已于 2026-11-20 由回归测试关闭（见 §6）。
 - 完成前保持 `needs-convergence`；A/B/C 与全量回归未执行前不宣称发布验收。
 
 ## 8. 第四轮用户确认补充（2026-11-19）

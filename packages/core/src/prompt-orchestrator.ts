@@ -265,10 +265,15 @@ function validateOutputFormat(input: PromptOrchestrationInput): void {
     if (layoutError) {
       throw new PromptOrchestratorError("INVALID_INPUT", layoutError);
     }
-    if (input.skill !== "moss" || format !== "layout") {
+    // Both MOSS-family cards describe the same native canvas contract; a draft
+    // compiled by PromptHub is valid for either one.
+    if (
+      (input.skill !== "moss" && input.skill !== "moodyMoss") ||
+      format !== "layout"
+    ) {
       throw new PromptOrchestratorError(
         "INVALID_INPUT",
-        "Native layout drafts require the MOSS rule card and outputFormat=layout",
+        "Native layout drafts require a MOSS-family rule card and outputFormat=layout",
       );
     }
     if (

@@ -134,6 +134,11 @@ export function outputFormatOptions(
   return ["caption", "layout"];
 }
 
+/** Rule cards whose native canvas contract PromptHub can compile deterministically. */
+export function supportsLayoutDraft(skill: PromptOrchestrationSkill): boolean {
+  return skill === "moss" || skill === "moodyMoss";
+}
+
 export function referenceImageLimit(mode: PromptOrchestrationMode): number {
   if (mode === "video-frames") return 2;
   if (mode === "video-multi-reference") return 6;

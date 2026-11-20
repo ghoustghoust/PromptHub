@@ -84,8 +84,8 @@ function taskOutputContract(input: PromptOrchestrationInput): string {
   if (input.layout) {
     return `Native MOSS canvas mode: completePrompt must be only the refined overall summary.caption, not JSON. Also return layoutCaptions as an array of exactly ${input.layout.boxes.length} refined visual descriptions in the user's draw order. Do not return coordinates, change box order or labels, or rewrite exact text-box content; PromptHub deterministically compiles the final Layout JSON.`;
   }
-  if (input.skill === "moss" && input.outputFormat === "layout") {
-    return "The completePrompt must be one valid Layout JSON line with summary, items, bbox_coord_space and bbox_format, not prose.";
+  if (input.outputFormat === "layout") {
+    return "The completePrompt must be one valid Layout JSON line with summary, items, bbox_coord_space=abs_centralized and bbox_format=yxyx, matching the requested canvas, not prose.";
   }
   return "Follow the selected model and task output format exactly.";
 }
@@ -250,11 +250,11 @@ export function validateTaskComposition(
     }
     return;
   }
-  if (input.skill === "moss" && input.outputFormat === "layout") {
+  if (input.outputFormat === "layout" && !input.layout) {
     const layout = parseJson(output);
     if (!isRecord(layout.summary) || !Array.isArray(layout.items) ||
         layout.bbox_coord_space !== "abs_centralized" || layout.bbox_format !== "yxyx") {
-      throw new Error("MOSS Layout does not match the required summary/items/bbox contract");
+      throw new Error("Layout output does not match the required summary/items/bbox contract");
     }
   }
 }

@@ -79,6 +79,42 @@ describe("PromptOrchestrator v2 contracts", () => {
     expect(system).toContain("Human-led mode");
   });
 
+  it("accepts a PromptHub layout draft for the moodyMoss rule card", async () => {
+    const llm: PromptOrchestratorLlm = {
+      complete: async () =>
+        JSON.stringify({
+          initialPrompt: "poster",
+          completePrompt: "A poster with one centred headline",
+          fields: [],
+          layoutCaptions: ["A bold centred headline"],
+        }),
+    };
+    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate({
+      prompt: "A poster with one centred headline",
+      mode: "expand",
+      skill: "moodyMoss",
+      outputFormat: "layout",
+      guidanceMode: "human-led",
+      canvas: { width: 1024, height: 1024 },
+      layout: {
+        version: 1,
+        canvas: { width: 1024, height: 1024 },
+        boxes: [
+          {
+            id: "headline",
+            label: "text",
+            caption: "A bold headline",
+            text: "HELLO",
+            bbox: [100, 100, 300, 900],
+          },
+        ],
+      },
+    });
+    expect(result.layout?.modelPrompt.bbox_coord_space).toBe("abs_centralized");
+    expect(result.completePrompt).toContain("\"bbox_format\":\"yxyx\"");
+    expect(result.completePrompt).toContain("HELLO");
+  });
+
   it("produces MiniMax-H3 video output and local-tokenizer metrics", async () => {
     const llm: PromptOrchestratorLlm = {
       complete: async () => composition(

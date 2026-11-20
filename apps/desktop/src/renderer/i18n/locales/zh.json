@@ -4879,6 +4879,119 @@
     }
   },
   "orchestrator": {
+    "categories": {
+      "style": "风格",
+      "artist": "画师",
+      "body": "体型",
+      "face": "面部",
+      "hair": "发型",
+      "clothing": "服饰",
+      "accessory": "配饰",
+      "pose": "姿势",
+      "expression": "表情",
+      "environment": "环境",
+      "weather": "天气",
+      "props": "道具",
+      "lighting": "光影",
+      "composition": "构图",
+      "camera": "镜头",
+      "character": "角色",
+      "effect": "特效",
+      "negative": "反向",
+      "nsfw": "NSFW",
+      "work": "作品",
+      "meta": "画幅"
+    },
+    "picker": {
+      "title": "选材台",
+      "hint": "勾选即锁定为直接要求；未勾选的候选由助手按意图推导。",
+      "search": "搜索词条",
+      "searchPlaceholder": "英文、中文或长句片段",
+      "selected": "已锁定 {{count}} 条",
+      "clear": "清空",
+      "empty": "没有匹配词条。可以直接写想法，或先在词库导入词条。",
+      "remove": "取消锁定",
+      "random": "随机选 1 条",
+      "all": "全选本页",
+      "none": "清空当前字段",
+      "browseAll": "完整词库",
+      "browseAllCount": "浏览全部 {{count}} 条（分页查看，不再截断）",
+      "poolSearch": "在当前结果中筛选",
+      "poolEmpty": "该字段暂无匹配",
+      "fields": "字段",
+      "terms": "词条",
+      "allSubcategories": "全部",
+      "uncategorized": "未分类",
+      "expand": "展开选材台",
+      "collapse": "收起选材台",
+      "more": "显示更多（已显示 {{total}} 条中的前 {{count}} 条）",
+      "translation": {
+        "missing": "暂无中文",
+        "originalName": "原名",
+        "chineseOriginal": "中文原文"
+      },
+      "domain": {
+        "label": "题材范围",
+        "all": "全部",
+        "shared": "共用",
+        "real": "真人",
+        "anime": "二次元",
+        "3d": "3D"
+      },
+      "mode": {
+        "label": "浏览方式",
+        "fields": "字段",
+        "packs": "素材包",
+        "presets": "组合"
+      },
+      "packs": {
+        "title": "风格 / 媒介素材包",
+        "group": {
+          "style": "风格",
+          "medium": "媒介"
+        },
+        "lockAll": "全部锁定",
+        "clear": "清空本包",
+        "empty": "当前词库还没有可用的素材包"
+      },
+      "presets": {
+        "title": "预设组合",
+        "hits": "命中 {{hit}}/{{total}}",
+        "load": "载入选中 {{count}} 条",
+        "selectAll": "全选",
+        "selectNone": "全不选",
+        "loaded": "已锁定 {{count}} 条",
+        "empty": "当前词库还没有可用的预设组合"
+      }
+    },
+    "browser": {
+      "title": "完整词库",
+      "subtitle": "数据库分页加载；分类与总数均为真实统计，锁定状态与选材台同步。",
+      "search": "搜索完整词库",
+      "searchPlaceholder": "默认搜索全部字段；点击字段可缩小范围",
+      "allFields": "全部字段",
+      "subcategories": "二级分类",
+      "allFieldsHint": "正在浏览全部字段。选择左侧字段后，可按二级分类继续筛选。",
+      "total": "共 {{count}} 条",
+      "empty": "当前筛选没有词条",
+      "translation": {
+        "all": "全部中文状态",
+        "missing": "缺中文 {{count}}",
+        "translated": "已有中文"
+      },
+      "pageSize": "每页",
+      "previous": "上一页",
+      "next": "下一页",
+      "pageStatus": "第 {{page}} / {{pageCount}} 页",
+      "pageNumber": "跳转页码"
+    },
+    "workspace": {
+      "picker": "词条选材",
+      "canvas": "版面画布",
+      "layoutHint": "精确排版：先在画布定框，再把锁定词条写进选中框。",
+      "lockedHint": "已锁定 {{count}} 条，可写入选中框：",
+      "insertTerms": "写入选中框"
+    },
     "localEngine": {
       "params": "本地引擎参数",
       "context": "上下文",
@@ -4909,6 +5022,10 @@
     "expandResult": "展开结果栏",
     "collapseResult": "收起结果栏",
     "closeResult": "关闭结果栏",
+    "viewResult": "查看编排结果",
+    "resizeResult": "拖动调整结果栏宽度",
+    "expandIntent": "展开创作意图",
+    "collapseIntent": "收起创作意图",
     "skillDraftEmpty": "还没有 Skill 草稿，先点击“生成可复用 Skill”。",
     "outputFormat": "输出格式",
     "width": "画布宽度",

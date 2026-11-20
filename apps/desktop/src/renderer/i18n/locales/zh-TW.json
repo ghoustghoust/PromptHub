@@ -4909,6 +4909,37 @@
     "skillNamePlaceholder": "小寫連字號名稱；留空則根據意圖產生",
     "generatingSkill": "正在產生 Skill…",
     "generateSkill": "產生可重用 Skill",
+    "picker": {
+      "all": "全選本頁",
+      "browseAll": "完整詞庫",
+      "browseAllCount": "瀏覽全部 {{count}} 條（分頁查看，不再截斷）",
+      "translation": {
+        "missing": "暫無中文",
+        "originalName": "原名",
+        "chineseOriginal": "中文原文"
+      }
+    },
+    "browser": {
+      "title": "完整詞庫",
+      "subtitle": "資料庫分頁載入；分類與總數均為真實統計，鎖定狀態與選材台同步。",
+      "search": "搜尋完整詞庫",
+      "searchPlaceholder": "預設搜尋全部欄位；點擊欄位可縮小範圍",
+      "allFields": "全部欄位",
+      "subcategories": "二級分類",
+      "allFieldsHint": "正在瀏覽全部欄位。選擇左側欄位後，可按二級分類繼續篩選。",
+      "total": "共 {{count}} 條",
+      "empty": "目前篩選沒有詞條",
+      "translation": {
+        "all": "全部中文狀態",
+        "missing": "缺中文 {{count}}",
+        "translated": "已有中文"
+      },
+      "pageSize": "每頁",
+      "previous": "上一頁",
+      "next": "下一頁",
+      "pageStatus": "第 {{page}} / {{pageCount}} 頁",
+      "pageNumber": "跳轉頁碼"
+    },
     "modes": {
       "expand": "擴寫",
       "professional": "專業編排",

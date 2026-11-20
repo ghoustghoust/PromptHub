@@ -4909,6 +4909,37 @@
     "skillNamePlaceholder": "Slug en minúsculas; se genera desde la intención si está vacío",
     "generatingSkill": "Generando Skill…",
     "generateSkill": "Generar Skill reutilizable",
+    "picker": {
+      "all": "Seleccionar esta página",
+      "browseAll": "Vocabulario completo",
+      "browseAllCount": "Ver los {{count}} términos (paginados, sin truncar)",
+      "translation": {
+        "missing": "Aún sin chino",
+        "originalName": "Nombre original",
+        "chineseOriginal": "Texto original chino"
+      }
+    },
+    "browser": {
+      "title": "Vocabulario completo",
+      "subtitle": "Paginación de base de datos con recuentos exactos; términos bloqueados sincronizados.",
+      "search": "Buscar en todo el vocabulario",
+      "searchPlaceholder": "Busca en todos los campos por defecto; elige un campo para limitar",
+      "allFields": "Todos los campos",
+      "subcategories": "Subcategorías",
+      "allFieldsHint": "Mostrando todos los campos. Elige un campo a la izquierda para filtrar por subcategoría.",
+      "total": "{{count}} términos",
+      "empty": "Ningún término coincide con los filtros",
+      "translation": {
+        "all": "Todos los estados de traducción",
+        "missing": "Sin chino ({{count}})",
+        "translated": "Con chino"
+      },
+      "pageSize": "Por página",
+      "previous": "Página anterior",
+      "next": "Página siguiente",
+      "pageStatus": "Página {{page}} de {{pageCount}}",
+      "pageNumber": "Ir a la página"
+    },
     "modes": {
       "expand": "Expandir",
       "professional": "Profesional",

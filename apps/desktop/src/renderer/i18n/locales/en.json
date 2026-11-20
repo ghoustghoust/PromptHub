@@ -4881,6 +4881,119 @@
     }
   },
   "orchestrator": {
+    "categories": {
+      "style": "Style",
+      "artist": "Artist",
+      "body": "Body",
+      "face": "Face",
+      "hair": "Hair",
+      "clothing": "Clothing",
+      "accessory": "Accessory",
+      "pose": "Pose",
+      "expression": "Expression",
+      "environment": "Environment",
+      "weather": "Weather",
+      "props": "Props",
+      "lighting": "Lighting",
+      "composition": "Composition",
+      "camera": "Camera",
+      "character": "Character",
+      "effect": "Effect",
+      "negative": "Negative",
+      "nsfw": "NSFW",
+      "work": "Work",
+      "meta": "Meta"
+    },
+    "picker": {
+      "title": "Term picker",
+      "hint": "A selected term is locked as a direct requirement; unchecked candidates are inferred by the assistant.",
+      "search": "Search terms",
+      "searchPlaceholder": "English, Chinese, or a phrase fragment",
+      "selected": "{{count}} locked",
+      "clear": "Clear",
+      "empty": "No matching terms. Write the idea directly, or import vocabulary first.",
+      "remove": "Unlock",
+      "random": "Pick 1 at random",
+      "all": "Select this page",
+      "none": "Clear this field",
+      "browseAll": "Full vocabulary",
+      "browseAllCount": "Browse all {{count}} terms (paginated, not truncated)",
+      "poolSearch": "Filter current results",
+      "poolEmpty": "No match in this field",
+      "fields": "Fields",
+      "terms": "Terms",
+      "allSubcategories": "All",
+      "uncategorized": "Uncategorized",
+      "expand": "Expand term picker",
+      "collapse": "Collapse term picker",
+      "more": "Show more ({{count}} of {{total}})",
+      "translation": {
+        "missing": "No Chinese yet",
+        "originalName": "Original name",
+        "chineseOriginal": "Chinese source text"
+      },
+      "domain": {
+        "label": "Subject scope",
+        "all": "All",
+        "shared": "Shared",
+        "real": "Real",
+        "anime": "Anime",
+        "3d": "3D"
+      },
+      "mode": {
+        "label": "Browsing mode",
+        "fields": "Fields",
+        "packs": "Packs",
+        "presets": "Presets"
+      },
+      "packs": {
+        "title": "Style / medium packs",
+        "group": {
+          "style": "Style",
+          "medium": "Medium"
+        },
+        "lockAll": "Lock all",
+        "clear": "Clear pack",
+        "empty": "No packs are available in this vocabulary yet"
+      },
+      "presets": {
+        "title": "Preset combos",
+        "hits": "{{hit}}/{{total}} found",
+        "load": "Load {{count}} selected",
+        "selectAll": "Select all",
+        "selectNone": "Select none",
+        "loaded": "{{count}} locked",
+        "empty": "No preset combos are available in this vocabulary yet"
+      }
+    },
+    "browser": {
+      "title": "Full vocabulary",
+      "subtitle": "Database pagination with exact counts; locked terms stay in sync with the picker.",
+      "search": "Search full vocabulary",
+      "searchPlaceholder": "Searches all fields by default; choose a field to narrow the scope",
+      "allFields": "All fields",
+      "subcategories": "Subcategories",
+      "allFieldsHint": "Browsing every field. Choose a field on the left to filter by subcategory.",
+      "total": "{{count}} terms",
+      "empty": "No terms match the current filters",
+      "translation": {
+        "all": "All translation states",
+        "missing": "Missing Chinese ({{count}})",
+        "translated": "Has Chinese"
+      },
+      "pageSize": "Per page",
+      "previous": "Previous page",
+      "next": "Next page",
+      "pageStatus": "Page {{page}} of {{pageCount}}",
+      "pageNumber": "Jump to page"
+    },
+    "workspace": {
+      "picker": "Vocabulary",
+      "canvas": "Layout canvas",
+      "layoutHint": "Exact placement: draw the boxes, then write locked terms into the selected box.",
+      "lockedHint": "{{count}} locked term(s) ready to insert:",
+      "insertTerms": "Insert into selected box"
+    },
     "localEngine": {
       "params": "Engine parameters",
       "context": "Context",
@@ -4911,6 +5024,10 @@
     "expandResult": "Expand result panel",
     "collapseResult": "Collapse result panel",
     "closeResult": "Close result panel",
+    "viewResult": "View orchestration result",
+    "resizeResult": "Drag to resize the result panel",
+    "expandIntent": "Expand intent",
+    "collapseIntent": "Collapse intent",
     "skillDraftEmpty": "No skill draft yet. Generate a reusable skill first.",
     "outputFormat": "Output format",
     "width": "Canvas width",

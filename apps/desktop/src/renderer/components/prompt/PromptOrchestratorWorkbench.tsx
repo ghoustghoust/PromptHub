@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
+  ChevronDownIcon,
+  ChevronUpIcon,
   FilePlus2Icon,
   LoaderCircleIcon,
   PlayIcon,
@@ -21,7 +23,7 @@ import { LOCAL_LLAMA_MODEL_ID } from "../../stores/settings/settings-ai-actions"
 import { useUIStore } from "../../stores/ui.store";
 import { PromptReferenceImageInput } from "./PromptReferenceImageInput";
 import { PromptVideoFields } from "./PromptVideoFields";
-import { PromptVocabularyPrefabPanel } from "./PromptVocabularyPrefabPanel";
+import { PromptTermPicker } from "./PromptTermPicker";
 import { PromptMossLayoutCanvas } from "./PromptMossLayoutCanvas";
 import {
   taskModesForSkill,
@@ -271,13 +273,73 @@ export function PromptOrchestratorWorkbench() {
   const { showToast } = useToast();
   const state = usePromptOrchestratorWorkbench();
   const [resultExpanded, setResultExpanded] = useState(false);
+  const [resultOpen, setResultOpen] = useState(false);
+  const [pickerExpanded, setPickerExpanded] = useState(false);
+  const [intentCollapsed, setIntentCollapsed] = useState(false);
+  const [workspaceTab, setWorkspaceTab] = useState<"picker" | "canvas">("picker");
+  const [resultWidth, setResultWidth] = useState(520);
+  const [wideLayout, setWideLayout] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 1440px)").matches,
+  );
+  const resizeOrigin = useRef<{ x: number; width: number } | null>(null);
   const modeOptions = taskModesForSkill(state.skill).map((value) => ({
     value,
     label: t(`orchestrator.modes.${value}`),
   }));
   const videoTask = isVideoTask(state.mode);
   const humanLed = state.guidanceMode === "human-led" && !videoTask;
-  const mossLayoutMode = state.skill === "moss" && state.outputFormat === "layout";
+  const layoutMode = !videoTask && state.outputFormat === "layout";
+  const dynamicPolish = state.mode === "polish" && state.guidanceMode === "agent-led" && !layoutMode;
+  const hasResultContent = Boolean(state.result || state.skillDraft);
+  useEffect(() => {
+    setResultExpanded(false);
+    setResultOpen(hasResultContent);
+  }, [hasResultContent]);
+  useEffect(() => {
+    if (!humanLed) {
+      setPickerExpanded(false);
+      setIntentCollapsed(false);
+    }
+  }, [humanLed]);
+  // Exact-placement work belongs on the canvas; word picking belongs on the picker.
+  useEffect(() => {
+    if (!humanLed) return;
+    setWorkspaceTab(layoutMode ? "canvas" : "picker");
+  }, [humanLed, layoutMode]);
+  const lockTermsIntoBox = () => {
+    const box = state.mossLayout.selectedBox;
+    if (!box || state.prefabTerms.length === 0) return;
+    const addition = state.prefabTerms
+      .map((term) => term.template ?? term.en)
+      .join(", ");
+    state.mossLayout.updateBox(box.id, {
+      caption: [box.caption?.trim(), addition].filter(Boolean).join(", "),
+    });
+  };
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1440px)");
+    const onChange = () => setWideLayout(query.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  const beginResultResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    resizeOrigin.current = { x: event.clientX, width: resultWidth };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const resizeResult = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const origin = resizeOrigin.current;
+    if (!origin) return;
+    const next = origin.width + (origin.x - event.clientX);
+    const maxWidth = Math.max(440, Math.min(640, window.innerWidth - 300 - 560));
+    setResultWidth(Math.min(maxWidth, Math.max(440, next)));
+  };
+  const endResultResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    resizeOrigin.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
   const copy = async (value: string) => {
     try {
       await navigator.clipboard.writeText(value);
@@ -303,11 +365,12 @@ export function PromptOrchestratorWorkbench() {
           {t("orchestrator.subtitle")}
         </p>
       </header>
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div className="relative flex min-h-0 flex-1 flex-col lg:flex-row">
         <div
-          className={`shrink-0 space-y-4 overflow-y-auto border-b border-border p-4 lg:w-[320px] lg:border-b-0 lg:border-r ${
-            resultExpanded ? "hidden" : "block"
-          }`}
+          className={`shrink-0 space-y-4 overflow-y-auto border-b border-border p-4 lg:border-b-0 lg:border-r ${
+            humanLed ? "lg:w-[280px] xl:w-[300px]" : "lg:w-[320px]"
+          } ${resultExpanded || pickerExpanded ? "hidden" : "block"}`}
+          data-testid="orchestrator-config-panel"
         >
           <SelectControl
             label={t("orchestrator.skill")}
@@ -329,6 +392,11 @@ export function PromptOrchestratorWorkbench() {
           <div className="space-y-1 rounded-lg border border-primary/20 bg-primary/5 p-3" data-testid="orchestrator-mode-guide">
             <p className="text-xs font-medium text-primary">{t(`orchestrator.modeDetails.${state.mode}`)}</p>
             <p className="text-xs text-muted-foreground">{t(`orchestrator.modeInputs.${state.mode}`)}</p>
+            {dynamicPolish && (
+              <p className="text-xs text-muted-foreground" data-testid="orchestrator-dynamic-polish-hint">
+                {t("orchestrator.dynamicPolish.hint")}
+              </p>
+            )}
           </div>
           {!videoTask && (
             <div className="space-y-1">
@@ -412,6 +480,17 @@ export function PromptOrchestratorWorkbench() {
             }))}
             onChange={(value) => state.setOutputFormat(value as WorkbenchState["outputFormat"])}
           />
+          {dynamicPolish && (
+            <SelectControl
+              label={t("orchestrator.dynamicPolish.domainLabel")}
+              value={state.domain}
+              options={(["all", "shared", "anime", "real", "3d"] as const).map((value) => ({
+                value,
+                label: t(`orchestrator.dynamicPolish.domain.${value}`),
+              }))}
+              onChange={(value) => state.setDomain(value as WorkbenchState["domain"])}
+            />
+          )}
           {!videoTask && state.seriesOptions.length > 0 && (
             <div className="space-y-1">
               <SelectControl
@@ -450,20 +529,55 @@ export function PromptOrchestratorWorkbench() {
         </div>
 
         <div
-          className={`min-h-0 min-w-0 flex-1 overflow-y-auto p-4 ${
-            resultExpanded ? "hidden" : "block"
-          }`}
+          className={`min-h-0 min-w-0 flex-1 ${
+            humanLed ? "flex flex-col overflow-hidden" : "overflow-y-auto p-4"
+          } ${resultExpanded ? "hidden" : ""}`}
+          data-testid="orchestrator-workspace"
         >
-          <div className={humanLed ? "grid gap-4 xl:grid-cols-2" : "space-y-4"}>
-            <div className="space-y-4">
-              <Textarea
-                label={t("orchestrator.inputLabel")}
-                placeholder={t("orchestrator.inputPlaceholder")}
-                value={state.prompt}
-                onChange={(event) => state.setPrompt(event.target.value)}
-                rows={mossLayoutMode ? 4 : videoTask ? 6 : 10}
-              />
-              {mossLayoutMode && (
+          <div className={humanLed ? "flex min-h-0 flex-1 flex-col" : "space-y-4"}>
+            <div
+              className={
+                humanLed
+                  ? `${pickerExpanded ? "hidden" : "block"} shrink-0 space-y-2 border-b border-border/60 bg-muted/10 p-3`
+                  : "space-y-4"
+              }
+              data-testid="orchestrator-intent-panel"
+            >
+              {humanLed && (
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-3 text-left"
+                  onClick={() => setIntentCollapsed((value) => !value)}
+                  aria-expanded={!intentCollapsed}
+                  data-testid="orchestrator-intent-toggle"
+                >
+                  <span className="text-sm font-medium text-foreground">
+                    {t("orchestrator.inputLabel")}
+                  </span>
+                  <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    {intentCollapsed
+                      ? t("orchestrator.expandIntent")
+                      : t("orchestrator.collapseIntent")}
+                    {intentCollapsed ? (
+                      <ChevronDownIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                    ) : (
+                      <ChevronUpIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                    )}
+                  </span>
+                </button>
+              )}
+              {(!humanLed || !intentCollapsed) && (
+                <Textarea
+                  label={humanLed ? undefined : t("orchestrator.inputLabel")}
+                  aria-label={t("orchestrator.inputLabel")}
+                  placeholder={t("orchestrator.inputPlaceholder")}
+                  value={state.prompt}
+                  onChange={(event) => state.setPrompt(event.target.value)}
+                  rows={humanLed ? 3 : layoutMode ? 4 : videoTask ? 6 : 10}
+                  className={humanLed ? "min-h-[80px] py-2" : undefined}
+                />
+              )}
+              {!humanLed && layoutMode && (
                 <PromptMossLayoutCanvas
                   editor={state.mossLayout}
                   onRefineCaptions={() => void state.refineLayoutCaptions()}
@@ -495,16 +609,111 @@ export function PromptOrchestratorWorkbench() {
               )}
             </div>
             {humanLed && (
-              <PromptVocabularyPrefabPanel
-                series={state.series}
-                selectedTerms={state.prefabTerms}
-                onAdd={state.addPrefabTerm}
-                onRemove={state.removePrefabTerm}
-              />
+              <>
+                {layoutMode && (
+                  <div
+                    className="flex shrink-0 items-center gap-1 border-b border-border/60 px-3 py-1.5"
+                    role="tablist"
+                    data-testid="orchestrator-workspace-tabs"
+                  >
+                    {(["picker", "canvas"] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        role="tab"
+                        aria-selected={workspaceTab === tab}
+                        onClick={() => setWorkspaceTab(tab)}
+                        className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                          workspaceTab === tab
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                        data-testid={`orchestrator-workspace-tab-${tab}`}
+                      >
+                        {t(`orchestrator.workspace.${tab}`)}
+                      </button>
+                    ))}
+                    <span className="ml-auto truncate text-[11px] text-muted-foreground">
+                      {t("orchestrator.workspace.layoutHint")}
+                    </span>
+                  </div>
+                )}
+                <div className="flex min-h-0 flex-1 flex-col">
+                  {layoutMode && workspaceTab === "canvas" ? (
+                    <>
+                      {state.prefabTerms.length > 0 && (
+                        <div
+                          className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/60 bg-muted/10 px-3 py-2"
+                          data-testid="orchestrator-canvas-terms"
+                        >
+                          <span className="text-[11px] text-muted-foreground">
+                            {t("orchestrator.workspace.lockedHint", {
+                              count: state.prefabTerms.length,
+                            })}
+                          </span>
+                          {state.prefabTerms.slice(0, 8).map((term) => (
+                            <span
+                              key={term.id}
+                              className="max-w-[220px] truncate rounded bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary"
+                              title={term.template ?? term.en}
+                            >
+                              {term.template ?? term.en}
+                            </span>
+                          ))}
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="ml-auto"
+                            disabled={!state.mossLayout.selectedBox}
+                            onClick={lockTermsIntoBox}
+                            data-testid="orchestrator-canvas-insert-terms"
+                          >
+                            {t("orchestrator.workspace.insertTerms")}
+                          </Button>
+                        </div>
+                      )}
+                      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                        <PromptMossLayoutCanvas
+                          editor={state.mossLayout}
+                          onRefineCaptions={() => void state.refineLayoutCaptions()}
+                          onReverseFromImage={(file) => void state.reverseLayoutFromImage(file)}
+                          isAssisting={state.isAssistingLayout}
+                          assistNote={state.layoutAssistNote}
+                          assistDisabled={!state.llmModelId}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="min-h-0 flex-1 p-3">
+                      <PromptTermPicker
+                        series={state.series}
+                        seriesOptions={state.seriesOptions}
+                        selectedTerms={state.prefabTerms}
+                        onSeriesChange={state.setSeries}
+                        onAdd={state.addPrefabTerm}
+                        onRemove={state.removePrefabTerm}
+                        onClear={state.clearPrefabTerms}
+                        expanded={pickerExpanded}
+                        onToggleExpanded={() => {
+                          setPickerExpanded((value) => !value);
+                          setResultExpanded(false);
+                          setResultOpen(false);
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
-          <div className="sticky bottom-0 -mx-4 mt-4 border-t border-border bg-background px-4 py-3">
-            <div className="flex flex-wrap gap-2">
+          <div
+            className={
+              humanLed
+                ? "shrink-0 border-t border-border bg-background px-4 py-3"
+                : "sticky bottom-0 -mx-4 mt-4 border-t border-border bg-background px-4 py-3"
+            }
+          >
+            <div className={`flex gap-2 ${humanLed ? "flex-nowrap" : "flex-wrap"}`}>
               <Button
                 className="min-w-[132px] flex-1 whitespace-nowrap"
                 disabled={!state.canRun}
@@ -557,28 +766,73 @@ export function PromptOrchestratorWorkbench() {
           )}
         </div>
 
-        <div
-          className={`flex min-h-0 flex-col border-border lg:border-l ${
-            resultExpanded
-              ? "min-w-0 flex-1"
-              : "min-h-[320px] border-t lg:min-h-0 lg:w-[46%] lg:min-w-[420px] lg:border-t-0"
-          }`}
-        >
-          <PromptOrchestratorResultPanel
-            result={state.result}
-            sourcePrompt={state.prompt}
-            skillDraft={state.skillDraft}
-            savedSkillId={state.savedSkillId}
-            isSavingSkill={state.isSavingSkill}
-            onSaveSkill={() => void saveSkill()}
-            onCopy={(value) => void copy(value)}
-            expanded={resultExpanded}
-            onToggleExpanded={() => setResultExpanded((value) => !value)}
-            savedPromptId={state.savedPromptId}
-            isSavingToLibrary={state.isSavingToLibrary}
-            onSaveToLibrary={(favorite) => void saveToLibrary(favorite)}
-          />
-        </div>
+        {humanLed && hasResultContent && !resultOpen && !pickerExpanded && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="absolute right-4 top-4 z-20 shadow-lg"
+            onClick={() => setResultOpen(true)}
+            data-testid="orchestrator-result-open"
+          >
+            <SparklesIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            {t("orchestrator.viewResult")}
+          </Button>
+        )}
+
+        {(!humanLed || (hasResultContent && resultOpen)) && (
+          <div
+            className={`flex min-h-0 flex-col border-border ${
+              resultExpanded
+                ? "relative min-w-0 flex-1"
+                : humanLed
+                  ? "absolute inset-y-0 right-0 z-30 w-[min(680px,88%)] border-l bg-background shadow-2xl xl:relative xl:z-auto xl:w-[42%] xl:min-w-[440px] xl:max-w-[640px] xl:bg-transparent xl:shadow-none"
+                  : "relative min-h-[320px] border-t lg:min-h-0 lg:w-[46%] lg:min-w-[420px] lg:border-l lg:border-t-0"
+            }`}
+            style={
+              humanLed && wideLayout && !resultExpanded
+                ? { width: resultWidth }
+                : undefined
+            }
+            data-testid="orchestrator-result-slot"
+          >
+            {humanLed && wideLayout && !resultExpanded && (
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label={t("orchestrator.resizeResult")}
+                title={t("orchestrator.resizeResult")}
+                className="absolute inset-y-0 left-0 z-10 w-1.5 -translate-x-1/2 cursor-col-resize touch-none hover:bg-primary/40"
+                onPointerDown={beginResultResize}
+                onPointerMove={resizeResult}
+                onPointerUp={endResultResize}
+                onPointerCancel={endResultResize}
+                data-testid="orchestrator-result-resize"
+              />
+            )}
+            <PromptOrchestratorResultPanel
+              result={state.result}
+              sourcePrompt={state.prompt}
+              skillDraft={state.skillDraft}
+              savedSkillId={state.savedSkillId}
+              isSavingSkill={state.isSavingSkill}
+              onSaveSkill={() => void saveSkill()}
+              onCopy={(value) => void copy(value)}
+              expanded={resultExpanded}
+              onToggleExpanded={() => {
+                setResultExpanded((value) => !value);
+                setPickerExpanded(false);
+                setResultOpen(true);
+              }}
+              onClose={humanLed ? () => {
+                setResultOpen(false);
+                setResultExpanded(false);
+              } : undefined}
+              savedPromptId={state.savedPromptId}
+              isSavingToLibrary={state.isSavingToLibrary}
+              onSaveToLibrary={(favorite) => void saveToLibrary(favorite)}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

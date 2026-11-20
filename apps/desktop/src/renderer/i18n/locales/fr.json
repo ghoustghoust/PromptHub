@@ -4910,6 +4910,37 @@
     "skillNamePlaceholder": "Slug en minuscules ; généré à partir de l’intention si vide",
     "generatingSkill": "Génération du Skill…",
     "generateSkill": "Générer un Skill réutilisable",
+    "picker": {
+      "all": "Sélectionner cette page",
+      "browseAll": "Vocabulaire complet",
+      "browseAllCount": "Parcourir les {{count}} termes (pagination, sans troncature)",
+      "translation": {
+        "missing": "Pas encore de chinois",
+        "originalName": "Nom original",
+        "chineseOriginal": "Texte source chinois"
+      }
+    },
+    "browser": {
+      "title": "Vocabulaire complet",
+      "subtitle": "Pagination en base avec comptes exacts ; les termes verrouillés restent synchronisés.",
+      "search": "Rechercher dans tout le vocabulaire",
+      "searchPlaceholder": "Recherche dans tous les champs par défaut ; choisissez un champ pour restreindre",
+      "allFields": "Tous les champs",
+      "subcategories": "Sous-catégories",
+      "allFieldsHint": "Tous les champs sont affichés. Choisissez un champ à gauche pour filtrer par sous-catégorie.",
+      "total": "{{count}} termes",
+      "empty": "Aucun terme ne correspond aux filtres",
+      "translation": {
+        "all": "Tous les états de traduction",
+        "missing": "Chinois manquant ({{count}})",
+        "translated": "Avec chinois"
+      },
+      "pageSize": "Par page",
+      "previous": "Page précédente",
+      "next": "Page suivante",
+      "pageStatus": "Page {{page}} sur {{pageCount}}",
+      "pageNumber": "Aller à la page"
+    },
     "modes": {
       "expand": "Développer",
       "professional": "Professionnel",

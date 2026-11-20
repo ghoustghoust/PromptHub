@@ -8,6 +8,7 @@ import type {
   PromptOrchestrationResult,
   PromptOrchestrationSkill,
   PromptSkillDraft,
+  PromptTermDomain,
   PromptVideoOrchestrationInput,
   PromptVocabularySearchItem,
 } from "@prompthub/shared/types";
@@ -19,6 +20,7 @@ import {
   defaultOutputFormat,
   isVideoTask,
   referenceImageLimit,
+  supportsLayoutDraft,
 } from "./prompt-orchestrator-catalog";
 import { useMossLayoutEditor } from "./useMossLayoutEditor";
 
@@ -62,6 +64,7 @@ export function usePromptOrchestratorWorkbench() {
   const [outputFormat, setOutputFormat] = useState<PromptOrchestrationOutputFormat>("caption");
   const [includePayload, setIncludePayload] = useState(false);
   const [series, setSeries] = useState("");
+  const [domain, setDomain] = useState<"all" | PromptTermDomain>("all");
   const [seriesOptions, setSeriesOptions] = useState<string[]>([]);
   const [llmModelId, setLlmModelId] = useState("");
   const [modelId, setModelId] = useState("");
@@ -216,6 +219,12 @@ export function usePromptOrchestratorWorkbench() {
     setPrefabTerms((current) => current.filter((item) => item.id !== id));
   }
 
+  function clearPrefabTerms(): void {
+    setSelectedTermIds([]);
+    setLockedTermIds([]);
+    setPrefabTerms([]);
+  }
+
   function addReferenceImages(images: Array<{ fileName: string; dataUrl: string }>): void {
     const limit = referenceImageLimit(mode);
     setReferenceImages((current) => [
@@ -270,6 +279,10 @@ export function usePromptOrchestratorWorkbench() {
     if (!llmModelId) {
       blockers.push(t("orchestrator.blocker.model"));
     }
+    const layoutMode =
+      outputFormat === "layout" &&
+      !isVideoTask(mode) &&
+      supportsLayoutDraft(skill);
     if (
       outputFormat === "layout" &&
       skill !== "k2" &&
@@ -277,8 +290,7 @@ export function usePromptOrchestratorWorkbench() {
     ) {
       blockers.push(t("orchestrator.blocker.canvasSize"));
     }
-    const mossLayoutMode = skill === "moss" && outputFormat === "layout";
-    if (mossLayoutMode) {
+    if (layoutMode) {
       if (!prompt.trim()) blockers.push(t("orchestrator.blocker.prompt"));
       if (mossLayout.boxes.length === 0) {
         blockers.push(t("orchestrator.blocker.boxEmpty"));
@@ -290,7 +302,7 @@ export function usePromptOrchestratorWorkbench() {
       });
     } else if (guidanceMode === "human-led" && !isVideoTask(mode)) {
       if (!prompt.trim()) blockers.push(t("orchestrator.blocker.prompt"));
-      if (selectedTermIds.length === 0 && mossLayout.boxes.length === 0) {
+      if (selectedTermIds.length === 0) {
         blockers.push(t("orchestrator.blocker.humanLed"));
       }
     } else if (mode === "random") {
@@ -337,12 +349,13 @@ export function usePromptOrchestratorWorkbench() {
           }
         : {}),
       series: series || undefined,
+      ...(domain === "all" ? {} : { domain }),
       outputFormat,
       includePayload,
       ...(outputFormat === "layout" && skill !== "k2"
         ? { canvas: { width: Number(mossLayout.width), height: Number(mossLayout.height) } }
         : {}),
-      ...(skill === "moss" && outputFormat === "layout"
+      ...(outputFormat === "layout" && supportsLayoutDraft(skill)
         ? {
             layout: {
               version: 1 as const,
@@ -568,12 +581,12 @@ export function usePromptOrchestratorWorkbench() {
     prompt, setPrompt, mode, setMode: changeMode, skill, setSkill: changeSkill,
     guidanceMode, setGuidanceMode: changeGuidance,
     outputFormat, setOutputFormat, includePayload, setIncludePayload,
-    series, setSeries, seriesOptions, llmModelId, setLlmModelId, chatModels,
+    series, setSeries, domain, setDomain, seriesOptions, llmModelId, setLlmModelId, chatModels,
     modelId, setModelId, loraIds, setLoraIds,
     editInstruction, setEditInstruction, subject, setSubject, setting, setSetting,
     seed, setSeed, mossLayout,
     video, updateVideo, referenceImages, setReferenceImages,
-    selectedTermIds, lockedTermIds, prefabTerms, addPrefabTerm, removePrefabTerm,
+    selectedTermIds, lockedTermIds, prefabTerms, addPrefabTerm, removePrefabTerm, clearPrefabTerms,
     vocabularyTokenBudget, setVocabularyTokenBudget,
     rightPanel, setRightPanel, result, error, isRunning, canRun, runBlockers, run,
     acceptReferenceFiles, pasteReferenceImage,

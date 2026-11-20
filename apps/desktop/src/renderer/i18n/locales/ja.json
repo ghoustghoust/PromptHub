@@ -4909,6 +4909,37 @@
     "skillNamePlaceholder": "小文字のスラッグ。空の場合は意図から生成",
     "generatingSkill": "Skill を生成中…",
     "generateSkill": "再利用可能な Skill を生成",
+    "picker": {
+      "all": "このページを全選択",
+      "browseAll": "全語彙ライブラリ",
+      "browseAllCount": "全 {{count}} 件を表示（ページ分割）",
+      "translation": {
+        "missing": "中国語未訳",
+        "originalName": "原名",
+        "chineseOriginal": "中国語原文"
+      }
+    },
+    "browser": {
+      "title": "全語彙ライブラリ",
+      "subtitle": "データベースからページ単位で読み込み、正確な件数を表示します。選択状態は共有されます。",
+      "search": "全語彙を検索",
+      "searchPlaceholder": "初期状態は全フィールドを検索。フィールドで範囲を絞れます",
+      "allFields": "全フィールド",
+      "subcategories": "サブカテゴリ",
+      "allFieldsHint": "全フィールドを表示中です。左でフィールドを選ぶとサブカテゴリで絞り込めます。",
+      "total": "全 {{count}} 件",
+      "empty": "条件に一致する語句がありません",
+      "translation": {
+        "all": "すべての翻訳状態",
+        "missing": "中国語なし（{{count}}）",
+        "translated": "中国語あり"
+      },
+      "pageSize": "1 ページ",
+      "previous": "前のページ",
+      "next": "次のページ",
+      "pageStatus": "{{page}} / {{pageCount}} ページ",
+      "pageNumber": "ページへ移動"
+    },
     "modes": {
       "expand": "拡張",
       "professional": "プロフェッショナル",

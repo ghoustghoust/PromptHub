@@ -4909,6 +4909,37 @@
     "skillNamePlaceholder": "Kleingeschriebener Slug; bei Leere aus Absicht generiert",
     "generatingSkill": "Skill wird generiert…",
     "generateSkill": "Wiederverwendbaren Skill generieren",
+    "picker": {
+      "all": "Diese Seite auswählen",
+      "browseAll": "Gesamtes Vokabular",
+      "browseAllCount": "Alle {{count}} Begriffe ansehen (seitenweise, ungekürzt)",
+      "translation": {
+        "missing": "Noch kein Chinesisch",
+        "originalName": "Originalname",
+        "chineseOriginal": "Chinesischer Quelltext"
+      }
+    },
+    "browser": {
+      "title": "Gesamtes Vokabular",
+      "subtitle": "Datenbankseiten mit exakten Anzahlen; gesperrte Begriffe bleiben synchron.",
+      "search": "Gesamtes Vokabular durchsuchen",
+      "searchPlaceholder": "Sucht standardmäßig in allen Feldern; Feld zur Eingrenzung wählen",
+      "allFields": "Alle Felder",
+      "subcategories": "Unterkategorien",
+      "allFieldsHint": "Alle Felder werden angezeigt. Links ein Feld wählen, um nach Unterkategorie zu filtern.",
+      "total": "{{count}} Begriffe",
+      "empty": "Keine Begriffe entsprechen den Filtern",
+      "translation": {
+        "all": "Alle Übersetzungsstatus",
+        "missing": "Chinesisch fehlt ({{count}})",
+        "translated": "Mit Chinesisch"
+      },
+      "pageSize": "Pro Seite",
+      "previous": "Vorherige Seite",
+      "next": "Nächste Seite",
+      "pageStatus": "Seite {{page}} von {{pageCount}}",
+      "pageNumber": "Zur Seite springen"
+    },
     "modes": {
       "expand": "Erweitern",
       "professional": "Professionell",

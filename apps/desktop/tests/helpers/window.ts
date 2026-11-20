@@ -49,6 +49,14 @@ function createWindowApiDefaults() {
       generateSkill: vi.fn(),
       listSeries: vi.fn().mockResolvedValue({ ok: true, data: [] }),
       searchTerms: vi.fn().mockResolvedValue({ ok: true, data: [] }),
+      browseTerms: vi.fn().mockResolvedValue({
+        ok: true,
+        data: {
+          items: [], total: 0, offset: 0, limit: 60,
+          categories: [], subcategories: [], missingTranslation: 0,
+        },
+      }),
+      resolveTerms: vi.fn().mockResolvedValue({ ok: true, data: [] }),
       refineLayoutCaptions: vi.fn(),
       reverseLayout: vi.fn(),
     },

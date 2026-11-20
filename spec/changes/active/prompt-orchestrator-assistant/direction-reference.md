@@ -135,6 +135,7 @@ typecheck/eslint/行数门禁达标。状态建议 `needs-convergence`，不按 
 ## 9. 真源与关联
 
 - 权威需求与验收：[design.md](design.md)
+- 本轮补充需求：[润色 · 动态检索与四策略对照](polish-dynamic-retrieval-requirements.md)
 - 实施交接与变更目录：[review-handoff.md](review-handoff.md)
 - 本机实测（派生·非权威）：[benchmark-results.md](../../../knowledge/understanding/ai-provider/benchmark-results.md)
 - 只读理解层：[spec/knowledge/understanding/](../../../knowledge/understanding/)

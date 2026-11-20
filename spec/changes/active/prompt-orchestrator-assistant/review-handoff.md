@@ -6,7 +6,7 @@ Desktop
 
 ## 状态
 
-review-pending — 第一版已实现并做针对性真实验证；第四轮原生 MOSS 布局画布已实现并验证，其余选材、风格包与数据导入需求待实施和评审。
+review-pending — 第一版已实现并做针对性真实验证；第四轮原生 MOSS 布局画布已实现并验证；选材台、风格/媒介素材包、预设组合与词库导入已实现，真实窗口视觉验收待评审。
 
 > 本文是实施交接与评审材料，不是新增需求或第二套验收定义。权威需求与边界仍以同目录 [design.md](design.md) 为准。
 
@@ -480,3 +480,162 @@ Skill 保存不另造文件写入通道，使用现有 `window.api.skill.create`
   `spec:test` 7/7、13 个 change 追踪校验和 `git diff --check` 均通过。
 - 截图与结果：`outputs/moss-layout-native-test-20261119/`。尚未验证真实 MOSS 生图质量，
   也未完成第四轮选材、主题包、参考数据导入、全量回归或 A/B/C 评估。
+
+## 15. 选材台重排、词条分类修复与素材包/预设组合（2026-11-20）
+
+### 变更文件
+
+- `apps/desktop/src/renderer/components/prompt/PromptTermPicker.tsx`：选材台改为
+  “字段 / 素材包 / 组合”三种浏览模式；素材包或预设全部未命中时不显示模式入口。
+- `PromptTermChip.tsx`：统一的词条行，去掉导入残留的下划线与转义斜杠。
+- `PromptVocabularyPackBrowser.tsx`、`PromptVocabularyPresetBrowser.tsx`：素材包与
+  预设组合的浏览、勾选和载入。
+- `prompt-vocabulary-collections.ts`：10 个素材包（投影现有 `category + subcategory`）
+  与参考生成器的 26 个预设；`MIN_PACK_TERMS = 3`、`MIN_PRESET_TERMS = 6` 为渲染门槛。
+- `packages/shared/utils/prompt-term-key.ts`：统一大小写、下划线、转义括号与空白。
+- `packages/db/src/prompt-vocab.ts`、`packages/shared/types/prompt-orchestrator.ts`、
+  共享 IPC 常量、main service/IPC、preload：新增
+  `prompt:orchestrator:vocabulary:resolve` / `resolveTerms`。
+- `scripts/import-vocabulary.ts`：按“上级分类 + 二级分类”修正人物面部/头发/表情、
+  服饰配饰、天气与镜头主角动作的归类，并原位修复旧行。
+- i18n `zh.json` / `en.json`：模式、素材包与预设文案。
+
+### 验证证据
+
+- 隔离库实测解析：10 个素材包分别命中 5–28 条真实词条；26 个预设中 20 个达到 6 条
+  门槛，6 个（神社参拜、复古胶片、星空露营、废墟探索、水墨和风、像素游戏）整组隐藏，
+  没有生成空壳入口。
+- 定向单测：`prompt-term-picker.test.tsx` 7/7、`prompt-vocab-db.test.ts` 15/15。
+- `typecheck`、`typecheck:tests`、定向 ESLint、Desktop 生产构建、文件行数检查、
+  `spec:test` 与 13 个 change 追踪校验均通过；构建产物确认生成 620px 容器查询规则。
+- 隔离库分类复查：角色下仅剩角色/对象/身份/年龄/作品系列；指定串类检查为零；
+  重复导入新增 0、更新 0。
+
+### 仍未验证
+
+- 真实窗口的视觉与手感验收未做，需要用户重启 `start-prompthub-test.bat` 后确认：模式
+  切换、素材包分列、预设命中数与载入后的锁定清单。
+- 全量单测存在 145 个与本轮无关的 Windows 平台既有失败（tray 图标 POSIX 路径、
+  symlink、升级备份等），未在本轮处理；定向用例全部通过。
+
+## 16. 语料库、题材域与 NSFW 分类（2026-11-20）
+
+### 变更文件
+
+- `scripts/import-vocabulary.ts`：新增 `domain` 归类、`fromWorkbench()`（18,250 标签 +
+  50 画风）、`fromPortraitAtlas()`（`{argument}` 槽位真人语料）；语料源每次重建
+  （按 source 先删后插，词条 id 由内容确定性生成）。
+- `packages/db/src/prompt-vocab-schema.ts`：`prompt_terms.domain` 列与旧库迁移。
+- `packages/db/src/prompt-vocab.ts`：读写、`searchTerms({ domain })` 过滤（具体域同时
+  返回 `shared`）、`resolveTerms` 返回域。
+- `packages/shared/types/prompt-vocab.ts`、`prompt-orchestrator.ts`：`PromptTermDomain`
+  与搜索/词条字段。
+- `apps/desktop/src/renderer/components/prompt/PromptTermPicker.tsx`：全部/共用/真人/
+  二次元/3D 范围过滤；分类栏新增 NSFW。
+- `prompt/corpus/`：6 个克隆源的文本/JSON 语料与 LICENSE（约 22 MB，剔除 727 张图片与
+  `.git`）；`prompt/` 已被 `.gitignore` 忽略，不进入提交。
+- i18n：NSFW 分类名与题材范围文案。
+
+### 验证证据
+
+- 隔离库：总词条 91,168；`prompt-workbench` 16,726、`portrait-prompt-atlas` 604、
+  `shuixian-prompts` 1,982、`cys-portrait-prompts` 2,098、`hf-photoreal-prompts` 1,025、
+  `nuyoah-xiezhen-prompt` 227、`ai-magazine-photographer` 119、
+  `awesome-ai-image-prompts` 34、`nsfw` 4,105；域分布
+  `anime 67,053 / shared 23,064 / real 1,015 / 3d 36`。
+- 重跑导入总数不变（91,168），说明按 source 重建是幂等的；比例、纯颜色、
+  “from the photo” 一类槽位噪声已剔除（`Green color` 等 16 条不再进入）。
+- 中文写真语料：6,601 条 prompt 中抽取 1,982 条词条（角色 642、头发 325、环境 320、
+  服装 311、风格 211、构图 49、光影 46 等），占位符、`#hex`、比例与指令句已过滤；
+  动漫分类产生的风格/角色词标 `anime`，其余写真分类标 `real`。
+- 结构化穿搭库：`cys-portrait-prompts` 的 JSON 抽出 2,098 条（服装 984、环境 443、
+  配饰 314、风格 357），真人风格标签标 `real`；同目录 md 的鞋履/背景/光线段落有
+  系统性截断，整段弃用，不入库。
+- 杂志摄影：30 组场景解析抽出 119 条（姿势 46、氛围 30、环境 25、表情 18）。
+- HF 真人 prompt：20,009 条完整下载到 `prompt/corpus/hf-photoreal-prompts/prompts.jsonl`，
+  按“≥3 次高频从句 + 视觉关键词”抽出 1,025 条（面部 315、光线 259、镜头 169、
+  头发 109、表情 71、环境 72 等），镜头类标 `real`。
+- nuyoah 规则文档：只取 `成立：` 列表、高频风格/成像条目、妆容动作场景示例与
+  反引号英文词，抽出 227 条（风格 97、光线 51、面部 21、表情 14、环境 12、姿势 12 等）；
+  规则句与泛化词已剔除，写真成像风格标 `real`。
+- Awesome 画廊：249 个成品 prompt、17 个分区；保留出现 ≥2 次的技术/风格短语与分区
+  标题，抽出 34 条（3D render、octane、close-up、studio lighting 等），3D 类标 `3d`。
+- 成人词条归并（隔离库，操作前备份为
+  `prompthub-test-before-nsfw-merge-20261120.db`）：迁移 55 个词、隐藏 62 条重复行；
+  `nsfw` 可见 4,105 条，旧字段可见重复 0；抽查 `ahegao`、`black_pantyhose`、`cameltoe`
+  在旧分类搜索为 0，NSFW 下各只剩一条且 ID 为原 SkyLoong ID；`quick_check` 为 `ok`。
+- `prompt-vocab-db.test.ts` 18/18（含域默认值、域过滤、`resolveTerms` 域返回、
+  旧库迁移）、`prompt-term-picker.test.tsx` 8/8（含域过滤与 NSFW 入口）。
+- `typecheck`、`typecheck:tests`、定向 ESLint、Desktop 构建通过；隔离库 `quick_check`
+  为 `ok`。
+
+### 仍未验证 / 已知缺口
+
+- 真实窗口视觉验收未做；本轮开始前测试窗口已不在运行，未由本轮关闭或重启。
+- 成人词条去重已完成：55 个词迁入 `nsfw` 并保留原 ID，62 条重复行
+  （7 个词曾在两个旧字段各有一条）标记 `deprecated`，仍保留在库内但不再出现在
+  搜索与选材台；`nsfw` 可见 4,105 条，旧字段已无可见重复。
+- 真人域当前 1,015 条；nuyoah 与 Awesome 是规则文档/画廊，可复用词条天然少于
+  词库型来源。
+- HF 语料为从句抽取，可能残留少量语句型短语；`portrait-prompt-atlas` 的相机槽位
+  也仍有少量指令式短语。
+
+## 17. 全量词库分页与翻译任务导出（2026-11-20）
+
+### 修复与交付
+
+- 新增 `PromptVocabDB.browseTerms` 和 `prompt:orchestrator:vocabulary:browse`，通过
+  preload 暴露给 renderer。每页最多 200 条，使用 `en + id` 稳定排序和非负 offset；
+  返回真实总数、一级/二级分类计数和缺中文数量，不再用前 5000 条推算全量。
+- 紧凑选材台只显示当前页；“完整词库”大页提供全部字段搜索、纵向一级/二级分类、
+  题材域、中文状态、60/120/200 条分页及页码跳转，选择与原材料台共享。
+- 词条卡片区分“暂无中文”“原名”“中文原文”；中文与英文规范化后相同不视为有效翻译。
+- 只读导出 `prompt-translation-tasks-no-artists-20261120.xlsx`：排除 `artist` 和
+  `deprecated`，共 2,606 条，其中普通待翻译 1,714、中英混合核对 99、专名核对 792、
+  原中文无效 1。工作簿含统计汇总、任务清单、填写说明；建议中文、状态、处理人和备注
+  为可填写列。数据库未修改。
+
+### 验证证据
+
+- `prompt-vocab-db.test.ts`、`prompt-term-picker.test.tsx`、
+  `prompt-vocabulary-browser.test.tsx` 共 31/31 通过。真实 SQLite 用 5,002 条数据验证
+  offset 4980 后返回 22 条，字段总数、分类计数、中文筛选与非法分页输入均有断言。
+- 隔离库只读实测：`character total=6003`，offset 5000 返回 60 条，二级分类计数合计
+  6003，缺中文及筛选后均为 643；`artist total=61257`，offset 50000 返回 60 条；
+  `quick_check=ok`。
+- Desktop 与测试 TypeScript、`@prompthub/db`、`@prompthub/shared` 类型检查通过；
+  Desktop 定向 ESLint、生产构建、7 个 locale JSON 和文件行数门禁通过。
+- 翻译工作簿已回读验证任务行数、无画师、默认处理状态、汇总公式与缓存统计值。
+  本机无可用 LibreOffice 且公式工具的 Unix socket 前置不适用于 Windows，因此未声称
+  完成 LibreOffice 公式重算；汇总缓存由独立统计结果写入并逐项核对。
+
+### 未验收边界
+
+- 真实 Electron 窗口的视觉、滚动和分页手感未由本轮操作验收；未关闭或重启用户窗口。
+- 翻译导出只是待办清单，不代表 2,606 条已翻译或已清洗；中文误入英文字段、专名与品牌
+  仍需人工复核后通过单独受控流程回写。
+
+## 18. 回传翻译预检与隔离库导入（2026-11-20）
+
+### 回传与预检
+
+- 实际回传文件为 `prompt-translation-tasks-no-artists-20261120-filled.xlsx` 和
+  `prompt-translation-remaining-review-20261120-filled.xlsx`；未填写的原文件不作为导入来源。
+- 两份共 29,849 行。首份：已完成 2,499、保留原名 106、待复核 1；剩余表：已完成 4,207、
+  保留原名 45、无需修改 22,991。仅“已完成且建议中文非空”进入候选，共 6,706 条。
+- 113 行旧 ID 在当前库不存在，全部属于“无需修改”，没有待导入翻译因此丢失；其余 ID、
+  英文原文、分类、题材域、废弃状态和空译文校验通过，无不含中文的译文警告。
+- 未导入：22,991 条无需修改、151 条保留原名、1 条待复核。空白建议中文不覆盖现有值。
+
+### 备份、事务与读回
+
+- 导入前一致性备份：`prompthub-test-before-translation-import-20261120.db`，
+  18,391,040 bytes，sha256 `76bd1b30…0536`。
+- 单事务执行 6,706 条 `UPDATE`，只修改 `zh`。每行同时匹配 ID、原文、分类、原中文和
+  非废弃状态；若任一行发生冲突则全量回滚。实际无冲突，未改 ID、英文、分类、来源或验证状态。
+- 构成：首份新翻译 2,499；中文字段迁移 4,141；数字符号核对 2；已有中文修正 64。
+- 6,706 条全部逐条读回一致，`quick_check=ok`，总记录仍为 91,168、废弃 62；非画师可见
+  中文 NULL 降至 151，画师 NULL 60,689 未触碰。
+- 经 `PromptVocabDB.browseTerms` 抽查，`New York Yankees baseball cap` 显示“纽约洋基队
+  棒球帽”，`云头锦履` 的中文迁移结果可见。正式库未修改，未关闭或重启用户窗口。
+- 尚未做真实 Electron 窗口视觉验收；回传中的 1 条待复核和保留原名项未强行导入。

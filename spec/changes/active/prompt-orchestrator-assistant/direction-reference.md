@@ -120,7 +120,7 @@ typecheck/eslint/行数门禁达标。R1/R2 收敛测试于 2026-11-20 补齐：
 ## 7. 后续目标与待裁定项
 
 - 待用户裁定：八模式是否必须独立引擎？MOSS Layout 编译器是否第一版硬验收？
-- 推进顺序：R3 → 数据回填 → A/B/C → 引擎管理 D8 / provider 本地免key / 模型LoRA档案 / 评估体系。R1/R2 已于 2026-11-20 由回归测试关闭（见 §6）。
+- 推进顺序：R3 → 数据回填 → A/B/C → 引擎管理 D8 / provider 本地免key / 模型LoRA档案 / 评估体系。R1/R2 已于 2026-11-20 由回归测试关闭（见 §6）；同日晚些时候建立了真实查询检索评测基线与双检索面评测套件，裁定输入与发现见 [retrieval-evaluation-results.md](retrieval-evaluation-results.md)。
 - 完成前保持 `needs-convergence`；A/B/C 与全量回归未执行前不宣称发布验收。
 
 ## 8. 第四轮用户确认补充（2026-11-19）

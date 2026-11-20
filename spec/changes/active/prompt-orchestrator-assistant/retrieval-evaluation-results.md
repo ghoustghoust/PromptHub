@@ -1,0 +1,59 @@
+# 词库检索评测基线（隔离测试库 · 91k）
+
+## 结论先行
+
+当前词法检索在「表达级精确命中」上可靠（模型可见面 28/28 表达登顶），禁查类别、domain 路由、长度去偏置、近重复抑制、零预算降级全部经真实语料验证。主要缺口是**单词/短片段查询的 top6 可见度**（英文单词片段 B 面 12/21、A 面 9/21）。按需求文档 §十一 的裁定条件：本轮数据尚不能证明多语言 Embedding 必要，也不能证明重排序模型必要；应先做检索深度/预算的程序化 A/B，再评估 Embedding 与重排序。
+
+## 一、方法
+
+- 数据源：`start-prompthub-test.bat` 隔离手工测试 profile 的 `profile/data/prompthub.db`（约 9.1 万行）。只读打开，评测不写库。
+- 地面真值：15 个允许检索类别（style/base/body/face/hair/clothing/accessory/pose/expression/environment/weather/props/lighting/composition/camera）每类按 `en` 排序确定性 stride 采样 2 条，共 28 条；deprecated 除外。artist/character/nsfw 不参与采样。
+- 双检索面：
+  - A 面 = `PromptVocabDB.searchTerms`（SQLite LIKE，按 en 排序，limit 60）——选材台、IPC 搜索与浏览器面对用户可见的行为。
+  - B 面 = 动态润色检索组（`runDynamicPolish` + 脚本化 LLM 规划查询）——模型在编排消息中实际收到的候选（经排序、去重、槽位预算）。
+- 套件：`packages/core/tests/retrieval-evaluation.test.ts`；未设置 `PROMPTHUB_EVAL_DB` 时整体跳过，不进入常规回归。
+- 重跑（仓库根目录）：
+  ```
+  $env:PROMPTHUB_EVAL_DB="<隔离库 prompthub.db 路径>"
+  $env:PROMPTHUB_EVAL_OUT="<报告 JSON 输出路径>"
+  pnpm --dir packages/core exec vitest run tests/retrieval-evaluation.test.ts
+  ```
+
+## 二、词库剖面（检索相关）
+
+- 允许检索 15 类共 **18,819** 行：clothing 5173、environment 2349、pose 2070、props 1770、hair 1012、style 1549、body 906、accessory 820、face 805、lighting 672、expression 593、camera 502、composition 355、weather 243、base 0。
+- domain 分布：shared 18,043 / real 620 / anime 135 / 3d 21；deprecated 7；zh 缺失 18。
+- 禁用类别（自动检索不查询）：artist 61,257 / character 6,003 / nsfw 4,160。
+- applicableModels 受限行 0、series 标记行 0（检索类别内）：模型/系列路由门在真实语料上暂无可测数据，其逻辑由 `prompt-orchestrator-selection.test.ts` 与本套件合成数据路径之外的单元层证明。
+
+## 三、基线数字（2026-11-20）
+
+| 查询类 | 查询数 | A 面 @6 | A 面 @60 | B 面表达登顶 | B 面 id 登顶 | B 面 @6 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 精确英文表达 | 28 | 26 | 28 | 28 | 25 | 25 |
+| 中文片段（zh 前 4 字） | 28 | 26 | — | — | — | 25 |
+| 英文单词片段 | 21 | 9 | — | — | — | 12 |
+
+不变量类（全部通过）：无匹配空结果 + `no_match` 状态 + 槽位警告；artist/character/nsfw 规划查询零候选；长句探针不占优（精确行登顶，池内 4 个长竞争者）；模型可见候选中规范化重复文本 0 组（LIKE 池内 7/28 样本存在重复变体）；domain 路由（anime/real 查询命中本 domain + shared，排斥他 domain）；零预算降级 + 每槽公平预算（1200 token 两槽位各得候选）。
+
+## 四、发现
+
+1. **精确表达可靠**：B 面 28/28 表达登顶，A 面 @60 全命中。精确/短语奖励与长度归一化评分在真实社区语料上成立，未观察到长句靠长度占优。
+2. **跨来源重复表达**：7/28 样本在 LIKE 池内有规范化同义文本行；3/28 样本的具体 id 因近重复抑制不可见（`sketch` 两行、`lower body` 两行、`from behind`/`from_behind`）。表达式级召回完整，id 级召回 25/28。对复用策略的 termId 溯源有实际影响：模型只能引用去重后幸存行。建议数据回填阶段合并同表达行或标记首选行。
+3. **单词片段召回是主要缺口**：单 token 查询 B 面 12/21（57%）、A 面 9/21（43%）。焦点深度（focused，候选上限 6）下，正确表达常被更短/更高频的邻近表达挤出 top6。这直接定义了下一个检索改进点。
+4. **中文片段**：B 面 25/28、A 面 26/28。未命中多为 2–3 字短标签被 bigram 匹配到的大量候选挤出，与英文单词片段同源。
+5. **反义不可区分（记录在案）**：本轮 `soft` 相关查询的 top6 未出现 `hard` 行（精确/短语奖励主导），但词汇层面无法区分反义是结构性的——不能靠更大 Embedding 解决，需冲突关系与规则卡片参与。
+6. **禁查与路由**：artist/character/nsfw 零候选由检索器强制（即使模型规划了这类查询）；domain 路由在真实数据上成立；model/series 路由因语料无受限行而不可测，已由单元层证明。
+7. **预算**：默认 900 与小额预算下槽位公平成立；零预算正确降级为「无候选 + 明确警告」，不会静默拼词。
+
+## 五、对需求文档 §十一 裁定的输入
+
+- **Embedding（暂不投入）**：中文片段 25/28 已由 LIKE + CJK bigram 覆盖，跨语言改写并非当前主要矛盾；单词片段缺口是「top6 可见度」问题，不是「漏召回」问题（LIKE 池内正确表达存在）。若程序化深度调整后缺口仍在，再评估多语言 Embedding。
+- **重排序（暂不投入）**：精确面已登顶，重排序无增益空间；其潜在价值仅在单词片段面的语义排序，排在程序化深度/预算调整之后。
+- **先行程序化手段（建议下一批）**：① 单词/短片段查询自动升 exploratory 深度或提高 focused 上限；② 近重复抑制时保留 id 级可追溯的首选行标记；③ 数据回填合并跨来源同表达行；④ 短 zh 标签的 bigram 挤出缓解（查询侧短语化或候选侧去高频词）。
+
+## 六、边界
+
+- 本基线证明检索面行为，不证明生图效果；动态润色的模型决策质量仍需真实模型与 A/B/C 出图对照验收。
+- 评测使用隔离手工测试 profile 数据库，未触碰正式 profile；只读打开，无写入。
+- 采样为确定性 stride（每类按 en 排序取 2 条），重复运行数字一致；样本量 28，类别内长尾分布不代表全部 18,819 行。

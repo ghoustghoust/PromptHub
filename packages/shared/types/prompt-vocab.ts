@@ -20,6 +20,16 @@ export type PromptTermRelationType =
 
 export type PromptModelProfileKind = "base" | "lora";
 
+/**
+ * Subject domain a term belongs to.
+ *
+ * `shared` covers descriptors that work for any subject (hair, pose, clothing,
+ * environment, lighting, camera). `anime`, `real` and `3d` mark terms that only
+ * make sense inside that rendering world, such as cel shading, photorealistic
+ * photography or a named anime character.
+ */
+export type PromptTermDomain = "shared" | "anime" | "real" | "3d";
+
 export type PromptValidationOutcome = "good" | "bad" | "neutral";
 
 export interface PromptTerm {
@@ -37,6 +47,7 @@ export interface PromptTerm {
   /** Model ids this term applies to; an empty array means all models. */
   applicableModels: string[];
   source: string | null;
+  domain: PromptTermDomain;
   validationStatus: PromptTermValidationStatus;
   createdAt: string;
 }
@@ -53,6 +64,7 @@ export interface CreatePromptTermDTO {
   applicableTask?: string | null;
   applicableModels?: string[];
   source?: string | null;
+  domain?: PromptTermDomain;
   validationStatus?: PromptTermValidationStatus;
   createdAt?: string;
 }

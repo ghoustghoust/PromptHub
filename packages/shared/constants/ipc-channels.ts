@@ -33,6 +33,8 @@ export const IPC_CHANNELS = {
   PROMPT_ORCHESTRATOR_GENERATE_SKILL: "prompt:orchestrator:generateSkill",
   PROMPT_ORCHESTRATOR_SERIES: "prompt:orchestrator:series",
   PROMPT_ORCHESTRATOR_VOCABULARY_SEARCH: "prompt:orchestrator:vocabulary:search",
+  PROMPT_ORCHESTRATOR_VOCABULARY_BROWSE: "prompt:orchestrator:vocabulary:browse",
+  PROMPT_ORCHESTRATOR_VOCABULARY_RESOLVE: "prompt:orchestrator:vocabulary:resolve",
   PROMPT_ORCHESTRATOR_LAYOUT_CAPTIONS: "prompt:orchestrator:layout:captions",
   PROMPT_ORCHESTRATOR_LAYOUT_REVERSE: "prompt:orchestrator:layout:reverse",
   /**

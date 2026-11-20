@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS prompt_terms (
   applicable_task TEXT,
   applicable_models TEXT,
   source TEXT,
+  domain TEXT NOT NULL DEFAULT 'shared'
+    CHECK(domain IN ('shared', 'anime', 'real', '3d')),
   validation_status TEXT NOT NULL DEFAULT 'unvalidated'
     CHECK(validation_status IN ('pending', 'unvalidated', 'validated', 'deprecated')),
   created_at INTEGER NOT NULL
@@ -84,5 +86,10 @@ export function migratePromptVocabSchema(
   }
   if (!columns.has("template")) {
     database.run("ALTER TABLE prompt_terms ADD COLUMN template TEXT");
+  }
+  if (!columns.has("domain")) {
+    database.run(
+      "ALTER TABLE prompt_terms ADD COLUMN domain TEXT NOT NULL DEFAULT 'shared'",
+    );
   }
 }

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { PromptVocabDB } from "@prompthub/db";
+import { PromptVocabDB, migratePromptVocabSchema } from "@prompthub/db";
 import {
   SCHEMA_INDEXES,
   SCHEMA_TABLES,
@@ -31,15 +31,19 @@ describe("PromptVocabDB (in-memory SQLite)", () => {
       zh?: string | null;
       applicableModels?: string[];
       series?: string;
+      subcategory?: string;
+      domain?: "shared" | "anime" | "real" | "3d";
     } = {},
   ) {
     return db.addTerm({
       category: overrides.category ?? "style",
       en: overrides.en ?? "watercolor",
       zh: overrides.zh ?? null,
+      ...(overrides.subcategory === undefined ? {} : { subcategory: overrides.subcategory }),
       applicableModels: overrides.applicableModels ?? [],
       ...(overrides.id === undefined ? {} : { id: overrides.id }),
       ...(overrides.series === undefined ? {} : { series: overrides.series }),
+      ...(overrides.domain === undefined ? {} : { domain: overrides.domain }),
     });
   }
 
@@ -125,6 +129,147 @@ describe("PromptVocabDB (in-memory SQLite)", () => {
     ).toEqual(["watercolor"]);
     expect(db.listTermsByCategory("lighting")).toHaveLength(1);
     expect(db.listTermsByCategory("missing-category")).toEqual([]);
+  });
+
+  it("resolves curated collection terms across import spellings", () => {
+    addTerm({ en: "blender \\(medium\\)", zh: "3D 渲染" });
+    addTerm({ en: "cel_shading", zh: "赛璐璐阴影" });
+    addTerm({ en: "glowing neon lights", zh: "霓虹灯" });
+    addTerm({ en: "deprecated tag" });
+    rawDb.prepare("UPDATE prompt_terms SET validation_status = 'deprecated' WHERE en = ?").run(
+      "deprecated tag",
+    );
+
+    const rows = db.resolveTerms(["Blender (medium)", "cel shading", "glowing neon lights", "deprecated tag", "missing"]);
+    expect(rows.map((row) => row.en).sort()).toEqual([
+      "blender \\(medium\\)",
+      "cel_shading",
+      "glowing neon lights",
+    ]);
+
+    expect(db.resolveTerms(["  CEL   SHADING  "]).map((row) => row.en)).toEqual(["cel_shading"]);
+    expect(db.resolveTerms(["missing"])).toEqual([]);
+  });
+
+  it("validates resolve input bounds", () => {
+    expect(() => db.resolveTerms([])).toThrow(/1 to 500/);
+    expect(() => db.resolveTerms(Array.from({ length: 501 }, (_, index) => `term ${index}`))).toThrow(
+      /1 to 500/,
+    );
+    expect(() => db.resolveTerms(["  "])).toThrow(/non-empty/);
+  });
+
+  it("defaults terms to shared and filters by subject domain", () => {
+    const shared = addTerm({ category: "hair", en: "auburn hair" });
+    addTerm({ category: "style", en: "cel shading", domain: "anime" });
+    addTerm({ category: "style", en: "photorealistic", domain: "real" });
+    addTerm({ category: "camera", en: "3d render", domain: "3d" });
+
+    expect(shared.domain).toBe("shared");
+    const names = (input: Parameters<typeof db.searchTerms>[0]) =>
+      db.searchTerms(input).map((term) => term.en).sort();
+
+    // A specific domain also offers descriptors every subject can use.
+    expect(names({ domain: "anime" })).toEqual(["auburn hair", "cel shading"]);
+    expect(names({ domain: "real" })).toEqual(["auburn hair", "photorealistic"]);
+    expect(names({ domain: "shared" })).toEqual(["auburn hair"]);
+    expect(names({})).toEqual(["3d render", "auburn hair", "cel shading", "photorealistic"]);
+    expect(() => addTerm({ category: "style", en: "bad", domain: "cartoon" as never })).toThrow(
+      /Unsupported term domain/,
+    );
+  });
+
+  it("pages beyond 5000 with exact totals, facets and translation filters", () => {
+    const insert = rawDb.prepare(
+      `INSERT INTO prompt_terms (
+        id, category, subcategory, en, zh, source, domain, validation_status, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'unvalidated', 0)`,
+    );
+    rawDb.transaction(() => {
+      for (let index = 0; index < 5002; index += 1) {
+        insert.run(
+          `bulk-${index}`,
+          "character",
+          index === 5001 ? "其他" : "主角",
+          `bulk ${String(index).padStart(4, "0")}`,
+          index % 2 === 0 ? "中文" : null,
+          "fixture",
+          "anime",
+        );
+      }
+    })();
+
+    const page = db.browseTerms({ category: "character", limit: 60, offset: 4980 });
+    expect(page.total).toBe(5002);
+    expect(page.items.map((term) => term.en)).toEqual([
+      ...Array.from({ length: 22 }, (_, index) => `bulk ${String(index + 4980).padStart(4, "0")}`),
+    ]);
+    expect(page.categories).toEqual([{ category: "character", count: 5002 }]);
+    expect(page.subcategories).toHaveLength(2);
+    expect(page.subcategories).toEqual(expect.arrayContaining([
+      { subcategory: "主角", count: 5001 },
+      { subcategory: "其他", count: 1 },
+    ]));
+    expect(page.missingTranslation).toBe(2501);
+
+    const scoped = db.browseTerms({
+      category: "character",
+      subcategory: "其他",
+      translation: "missing",
+      limit: 60,
+    });
+    expect(scoped.total).toBe(1);
+    expect(scoped.items.map((term) => term.id)).toEqual(["bulk-5001"]);
+    expect(scoped.missingTranslation).toBe(2501);
+  });
+
+  it("validates vocabulary browse pages and subcategory input", () => {
+    addTerm({ category: "style", en: "watercolor", subcategory: "媒介" });
+    expect(() => db.browseTerms({ limit: 0 })).toThrow(/1 to 200/);
+    expect(() => db.browseTerms({ limit: 201 })).toThrow(/1 to 200/);
+    expect(() => db.browseTerms({ offset: -1 })).toThrow(/non-negative/);
+    expect(() => db.browseTerms({ subcategory: "bad\0value" })).toThrow(/null byte/);
+    expect(db.browseTerms({ category: "style", subcategory: "", limit: 60 }).total).toBe(0);
+    expect(db.browseTerms({ category: "style", subcategory: "媒介", limit: 60 }).total).toBe(1);
+  });
+
+  it("returns the domain from exact collection resolves", () => {
+    addTerm({ category: "style", en: "photorealistic", domain: "real" });
+    addTerm({ category: "pose", en: "low-angle selfie" });
+    const rows = db.resolveTerms(["photorealistic", "low-angle selfie"]);
+    expect(Object.fromEntries(rows.map((term) => [term.en, term.domain]))).toEqual({
+      photorealistic: "real",
+      "low-angle selfie": "shared",
+    });
+  });
+
+  it("adds the domain column to databases created before it existed", () => {
+    const legacy = new DatabaseAdapter(":memory:");
+    legacy.exec(
+      `CREATE TABLE prompt_terms (
+         id TEXT PRIMARY KEY,
+         category TEXT NOT NULL,
+         subcategory TEXT,
+         en TEXT NOT NULL,
+         zh TEXT,
+         series TEXT,
+         template TEXT,
+         "function" TEXT,
+         applicable_task TEXT,
+         applicable_models TEXT,
+         source TEXT,
+         validation_status TEXT NOT NULL DEFAULT 'unvalidated',
+         created_at INTEGER NOT NULL
+       )`,
+    );
+    legacy.prepare(
+      `INSERT INTO prompt_terms (id, category, en, created_at) VALUES ('old', 'style', 'watercolor', 1)`,
+    ).run();
+    migratePromptVocabSchema(legacy);
+    expect(legacy.prepare("SELECT domain FROM prompt_terms WHERE id = 'old'").get()).toEqual({
+      domain: "shared",
+    });
+    legacy.close();
   });
 
   it("derives series options from categories when no series metadata exists", () => {

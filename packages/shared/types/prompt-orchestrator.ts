@@ -1,5 +1,6 @@
 import type {
   PromptModelProfileKind,
+  PromptTermDomain,
   PromptTermValidationStatus,
 } from "./prompt-vocab";
 import type {
@@ -71,6 +72,8 @@ export interface PromptOrchestrationInput {
   modelId?: string;
   /** Optional series filter; generic terms remain eligible. */
   series?: string;
+  /** Specific subject domain also includes shared descriptors. */
+  domain?: PromptTermDomain;
   outputFormat?: PromptOrchestrationOutputFormat;
   canvas?: PromptOrchestrationCanvas;
   /** Native editable MOSS layout; normalized boxes are compiled deterministically. */
@@ -214,10 +217,13 @@ export interface PromptTokenMetrics {
 export interface PromptVocabularySearchItem {
   id: string;
   category: string;
+  subcategory: string | null;
   en: string;
   zh: string | null;
   series: string | null;
   template: string | null;
+  /** Subject domain; omitted rows are treated as shared by older callers. */
+  domain?: PromptTermDomain;
   validationStatus: PromptTermValidationStatus;
 }
 
@@ -225,7 +231,47 @@ export interface PromptVocabularySearchInput {
   query?: string;
   category?: string;
   series?: string;
+  /** Specific domain also matches `shared` terms; omit to search every domain. */
+  domain?: PromptTermDomain;
   limit?: number;
+}
+
+export interface PromptVocabularyBrowseInput extends PromptVocabularySearchInput {
+  /** Empty string selects rows without a subcategory; omitted keeps every subcategory. */
+  subcategory?: string;
+  offset?: number;
+  translation?: "all" | "missing" | "translated";
+}
+
+export interface PromptVocabularyCategoryCount {
+  category: string;
+  count: number;
+}
+
+export interface PromptVocabularySubcategoryCount {
+  subcategory: string | null;
+  count: number;
+}
+
+/** Database-backed page with exact counts, never a truncated 5000-row estimate. */
+export interface PromptVocabularyBrowseResult {
+  items: PromptVocabularySearchItem[];
+  total: number;
+  offset: number;
+  limit: number;
+  categories: PromptVocabularyCategoryCount[];
+  subcategories: PromptVocabularySubcategoryCount[];
+  /** Rows with no Chinese value under the current filters, before subcategory selection. */
+  missingTranslation: number;
+}
+
+/**
+ * Exact lookup used by curated collections (style packs and preset combos).
+ * Matching ignores case, underscores, escaped parentheses and extra spacing so
+ * one reference resolves against whichever spelling the imported library uses.
+ */
+export interface PromptVocabularyResolveInput {
+  terms: string[];
 }
 
 export interface PromptAlignmentSegment {

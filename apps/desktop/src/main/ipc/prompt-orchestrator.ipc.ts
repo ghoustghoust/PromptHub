@@ -50,6 +50,14 @@ export function registerPromptOrchestratorIPC(
     (_, input: unknown) => reply(() => service.searchTerms(input)),
   );
   ipcMain.handle(
+    IPC_CHANNELS.PROMPT_ORCHESTRATOR_VOCABULARY_BROWSE,
+    (_, input: unknown) => reply(() => service.browseTerms(input)),
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.PROMPT_ORCHESTRATOR_VOCABULARY_RESOLVE,
+    (_, input: unknown) => reply(() => service.resolveTerms(input)),
+  );
+  ipcMain.handle(
     IPC_CHANNELS.PROMPT_ORCHESTRATOR_GENERATE_SKILL,
     (_, input: unknown) => reply(() => service.generateSkill(input)),
   );

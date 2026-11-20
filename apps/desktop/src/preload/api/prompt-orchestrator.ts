@@ -10,8 +10,11 @@ import type {
   PromptOrchestrationResult,
   PromptOrchestratorIPCReply,
   PromptSkillDraft,
+  PromptVocabularyBrowseInput,
+  PromptVocabularyBrowseResult,
   PromptVocabularySearchInput,
   PromptVocabularySearchItem,
+  PromptVocabularyResolveInput,
 } from "@prompthub/shared/types";
 
 export const promptOrchestratorApi = {
@@ -31,6 +34,16 @@ export const promptOrchestratorApi = {
   searchTerms: (input: PromptVocabularySearchInput) =>
     ipcRenderer.invoke(
       IPC_CHANNELS.PROMPT_ORCHESTRATOR_VOCABULARY_SEARCH,
+      input,
+    ) as Promise<PromptOrchestratorIPCReply<PromptVocabularySearchItem[]>>,
+  browseTerms: (input: PromptVocabularyBrowseInput) =>
+    ipcRenderer.invoke(
+      IPC_CHANNELS.PROMPT_ORCHESTRATOR_VOCABULARY_BROWSE,
+      input,
+    ) as Promise<PromptOrchestratorIPCReply<PromptVocabularyBrowseResult>>,
+  resolveTerms: (input: PromptVocabularyResolveInput) =>
+    ipcRenderer.invoke(
+      IPC_CHANNELS.PROMPT_ORCHESTRATOR_VOCABULARY_RESOLVE,
       input,
     ) as Promise<PromptOrchestratorIPCReply<PromptVocabularySearchItem[]>>,
   refineLayoutCaptions: (request: DesktopPromptLayoutCaptionRequest) =>

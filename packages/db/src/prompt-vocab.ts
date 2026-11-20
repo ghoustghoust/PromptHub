@@ -1,5 +1,6 @@
 import Database from "./adapter";
 import { v4 as uuidv4 } from "uuid";
+import { resolveTermKey } from "@prompthub/shared/utils/prompt-term-key";
 import type {
   CreatePromptModelProfileDTO,
   CreatePromptTermDTO,
@@ -8,10 +9,13 @@ import type {
   PromptModelProfile,
   PromptModelProfileKind,
   PromptTerm,
+  PromptTermDomain,
   PromptTermRelationType,
   PromptTermValidationStatus,
   PromptValidationOutcome,
   PromptValidationRecord,
+  PromptVocabularyBrowseInput,
+  PromptVocabularyBrowseResult,
   PromptVocabularySearchInput,
   PromptVocabularySearchItem,
 } from "@prompthub/shared/types";
@@ -28,8 +32,14 @@ interface PromptTermRow {
   applicable_task: string | null;
   applicable_models: string | null;
   source: string | null;
+  domain: PromptTermDomain;
   validation_status: PromptTermValidationStatus;
   created_at: number;
+}
+
+interface VocabularyFilter {
+  conditions: string[];
+  params: Array<string | number>;
 }
 
 interface ModelProfileRow {
@@ -64,6 +74,7 @@ const RELATION_TYPES: ReadonlySet<string> = new Set([
   "precondition",
 ]);
 const MODEL_KINDS: ReadonlySet<string> = new Set(["base", "lora"]);
+const TERM_DOMAINS: ReadonlySet<string> = new Set(["shared", "anime", "real", "3d"]);
 const VALIDATION_OUTCOMES: ReadonlySet<string> = new Set([
   "good",
   "bad",
@@ -192,6 +203,12 @@ function parseJsonObject(
 }
 
 /** Empty applicableModels means the term applies to every model. */
+function normalizeDomain(value: string | null | undefined): PromptTermDomain {
+  return typeof value === "string" && TERM_DOMAINS.has(value)
+    ? (value as PromptTermDomain)
+    : "shared";
+}
+
 function termAppliesToModel(term: PromptTerm, modelId: string): boolean {
   return (
     term.applicableModels.length === 0 || term.applicableModels.includes(modelId)
@@ -214,8 +231,23 @@ function rowToTerm(row: PromptTermRow): PromptTerm {
       `prompt_terms(${row.id}).applicable_models`,
     ),
     source: row.source,
+    domain: normalizeDomain(row.domain),
     validationStatus: row.validation_status,
     createdAt: new Date(row.created_at).toISOString(),
+  };
+}
+
+function rowToSearchItem(row: PromptTermRow): PromptVocabularySearchItem {
+  return {
+    id: row.id,
+    category: row.category,
+    subcategory: row.subcategory,
+    en: row.en,
+    zh: row.zh,
+    series: row.series,
+    template: row.template,
+    domain: normalizeDomain(row.domain),
+    validationStatus: row.validation_status,
   };
 }
 
@@ -280,12 +312,16 @@ export class PromptVocabDB {
     for (const modelId of applicableModels) {
       requireText(modelId, "Term applicableModels entry");
     }
+    const domain = normalizeDomain(input.domain);
+    if (input.domain !== undefined && domain !== input.domain) {
+      throw new Error(`Unsupported term domain: ${input.domain}`);
+    }
     this.db
       .prepare(
         `INSERT INTO prompt_terms (
           id, category, subcategory, en, zh, series, template, "function",
-          applicable_task, applicable_models, source, validation_status, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          applicable_task, applicable_models, source, domain, validation_status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -299,6 +335,7 @@ export class PromptVocabDB {
         optionalText(input.applicableTask, "Term applicableTask"),
         JSON.stringify(applicableModels),
         optionalText(input.source, "Term source"),
+        domain,
         validationStatus,
         toTimestamp(input.createdAt),
       );
@@ -316,24 +353,29 @@ export class PromptVocabDB {
     category: string,
     modelId?: string,
     series?: string,
+    domain?: PromptTermDomain,
   ): PromptTerm[] {
     const categoryKey = requireText(category, "Term category");
     if (modelId !== undefined) requireText(modelId, "Model id");
     const seriesKey =
       series === undefined ? undefined : requireText(series, "Term series");
-    const rows = (
-      seriesKey === undefined
-        ? this.db
-            .prepare("SELECT * FROM prompt_terms WHERE category = ? ORDER BY en ASC")
-            .all(categoryKey)
-        : this.db
-            .prepare(
-              `SELECT * FROM prompt_terms
-               WHERE category = ? AND (series IS NULL OR series = ? OR category = ?)
-               ORDER BY en ASC`,
-            )
-            .all(categoryKey, seriesKey, seriesKey)
-    ) as PromptTermRow[];
+    const conditions = ["category = ?"];
+    const params: string[] = [categoryKey];
+    if (seriesKey !== undefined) {
+      conditions.push("(series IS NULL OR series = ? OR category = ?)");
+      params.push(seriesKey, seriesKey);
+    }
+    if (domain !== undefined) {
+      const domainKey = normalizeDomain(domain);
+      conditions.push("(domain = ? OR domain = 'shared')");
+      params.push(domainKey);
+    }
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM prompt_terms
+         WHERE ${conditions.join(" AND ")} ORDER BY en ASC`,
+      )
+      .all(...params) as PromptTermRow[];
     const terms = rows.map(rowToTerm);
     if (modelId === undefined) return terms;
     return terms.filter((term) => termAppliesToModel(term, modelId));
@@ -364,10 +406,113 @@ export class PromptVocabDB {
     return categories.map((row) => row.category);
   }
 
+  browseTerms(input: PromptVocabularyBrowseInput): PromptVocabularyBrowseResult {
+    const limit = input.limit ?? 60;
+    const offset = input.offset ?? 0;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
+      throw new Error("Vocabulary browse limit must be an integer from 1 to 200");
+    }
+    if (!Number.isInteger(offset) || offset < 0) {
+      throw new Error("Vocabulary browse offset must be a non-negative integer");
+    }
+    const translation = input.translation ?? "all";
+    if (!new Set(["all", "missing", "translated"]).has(translation)) {
+      throw new Error(`Unsupported vocabulary translation filter: ${translation}`);
+    }
+    if (input.subcategory !== undefined) {
+      optionalText(input.subcategory, "Browse subcategory");
+    }
+
+    const base = this.buildVocabularyFilter(input);
+    const filtered = this.withTranslationFilter(base, translation);
+    const termsFilter: VocabularyFilter = {
+      conditions: [...filtered.conditions],
+      params: [...filtered.params],
+    };
+    if (input.subcategory !== undefined) {
+      termsFilter.conditions.push("COALESCE(subcategory, '') = ?");
+      termsFilter.params.push(input.subcategory);
+    }
+    const categoryFilter = this.withTranslationFilter(
+      this.buildVocabularyFilter({ ...input, category: undefined }),
+      translation,
+    );
+    const missingFilter = this.withTranslationFilter(base, "missing");
+
+    const totalRow = this.db.prepare(
+      `SELECT COUNT(*) AS count FROM prompt_terms WHERE ${termsFilter.conditions.join(" AND ")}`,
+    ).get(...termsFilter.params) as { count: number };
+    const rows = this.db.prepare(
+      `SELECT * FROM prompt_terms WHERE ${termsFilter.conditions.join(" AND ")}
+       ORDER BY en ASC, id ASC LIMIT ? OFFSET ?`,
+    ).all(...termsFilter.params, limit, offset) as PromptTermRow[];
+    const categoryRows = this.db.prepare(
+      `SELECT category, COUNT(*) AS count FROM prompt_terms
+       WHERE ${categoryFilter.conditions.join(" AND ")}
+       GROUP BY category ORDER BY category ASC`,
+    ).all(...categoryFilter.params) as Array<{ category: string; count: number }>;
+    const subcategoryRows = this.db.prepare(
+      `SELECT subcategory, COUNT(*) AS count FROM prompt_terms
+       WHERE ${filtered.conditions.join(" AND ")}
+       GROUP BY subcategory ORDER BY subcategory ASC`,
+    ).all(...filtered.params) as Array<{ subcategory: string | null; count: number }>;
+    const missingRow = this.db.prepare(
+      `SELECT COUNT(*) AS count FROM prompt_terms WHERE ${missingFilter.conditions.join(" AND ")}`,
+    ).get(...missingFilter.params) as { count: number };
+
+    return {
+      items: rows.map(rowToSearchItem),
+      total: totalRow.count,
+      offset,
+      limit,
+      categories: categoryRows,
+      subcategories: subcategoryRows,
+      missingTranslation: missingRow.count,
+    };
+  }
+
+  private buildVocabularyFilter(input: PromptVocabularySearchInput): VocabularyFilter {
+    const conditions = ["validation_status <> 'deprecated'"];
+    const params: Array<string | number> = [];
+    if (input.category?.trim()) {
+      conditions.push("category = ?");
+      params.push(requireText(input.category, "Search category"));
+    }
+    if (input.series?.trim()) {
+      conditions.push("(series IS NULL OR series = ?)");
+      params.push(requireText(input.series, "Search series"));
+    }
+    if (input.query?.trim()) {
+      const query = requireText(input.query, "Search query").replace(/[\\%_]/g, "\\$&");
+      conditions.push("(en LIKE ? ESCAPE '\\' OR zh LIKE ? ESCAPE '\\' OR template LIKE ? ESCAPE '\\')");
+      const pattern = `%${query}%`;
+      params.push(pattern, pattern, pattern);
+    }
+    if (input.domain) {
+      const domain = normalizeDomain(input.domain);
+      conditions.push("(domain = ? OR domain = 'shared')");
+      params.push(domain);
+    }
+    return { conditions, params };
+  }
+
+  private withTranslationFilter(
+    filter: VocabularyFilter,
+    translation: "all" | "missing" | "translated",
+  ): VocabularyFilter {
+    return {
+      conditions: [
+        ...filter.conditions,
+        ...(translation === "all" ? [] : [`zh IS ${translation === "missing" ? "NULL" : "NOT NULL"}`]),
+      ],
+      params: [...filter.params],
+    };
+  }
+
   searchTerms(input: PromptVocabularySearchInput): PromptVocabularySearchItem[] {
     const limit = input.limit ?? 40;
-    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
-      throw new Error("Vocabulary search limit must be an integer from 1 to 100");
+    if (!Number.isInteger(limit) || limit < 1 || limit > 5000) {
+      throw new Error("Vocabulary search limit must be an integer from 1 to 5000");
     }
     const conditions = ["validation_status <> 'deprecated'"];
     const params: Array<string | number> = [];
@@ -385,6 +530,12 @@ export class PromptVocabDB {
       const pattern = `%${query}%`;
       params.push(pattern, pattern, pattern);
     }
+    if (input.domain) {
+      const domain = normalizeDomain(input.domain);
+      // A specific domain still offers the descriptors every subject can use.
+      conditions.push("(domain = ? OR domain = 'shared')");
+      params.push(domain);
+    }
     params.push(limit);
     const rows = this.db
       .prepare(
@@ -396,10 +547,52 @@ export class PromptVocabDB {
     return rows.map((row) => ({
       id: row.id,
       category: row.category,
+      subcategory: row.subcategory,
       en: row.en,
       zh: row.zh,
       series: row.series,
       template: row.template,
+      domain: normalizeDomain(row.domain),
+      validationStatus: row.validation_status,
+    }));
+  }
+
+  /**
+   * Resolve curated references to stored rows. Matching normalizes case,
+   * underscores, escaped parentheses and spacing, so a pack definition stays
+   * valid across SkyLoong and generator import spellings.
+   */
+  resolveTerms(terms: string[]): PromptVocabularySearchItem[] {
+    if (!Array.isArray(terms)) {
+      throw new Error("Vocabulary resolve input must be an array of terms");
+    }
+    if (terms.length < 1 || terms.length > 500) {
+      throw new Error("Vocabulary resolve accepts 1 to 500 terms");
+    }
+    const keys = new Map<string, string>();
+    for (const value of terms) {
+      const term = requireText(value, "Resolve term");
+      keys.set(resolveTermKey(term), term);
+    }
+    if (keys.size === 0) return [];
+    const placeholders = Array.from(keys.keys(), () => "?").join(", ");
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM prompt_terms
+         WHERE validation_status <> 'deprecated'
+           AND trim(lower(replace(replace(en, '_', ' '), char(92), ''))) IN (${placeholders})
+         ORDER BY en ASC`,
+      )
+      .all(...keys.keys()) as PromptTermRow[];
+    return rows.map((row) => ({
+      id: row.id,
+      category: row.category,
+      subcategory: row.subcategory,
+      en: row.en,
+      zh: row.zh,
+      series: row.series,
+      template: row.template,
+      domain: normalizeDomain(row.domain),
       validationStatus: row.validation_status,
     }));
   }

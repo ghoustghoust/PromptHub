@@ -16,6 +16,8 @@ import type {
   PromptOrchestrationInput,
   PromptOrchestrationResult,
   PromptSkillDraft,
+  PromptVocabularyBrowseInput,
+  PromptVocabularyBrowseResult,
   PromptVocabularySearchInput,
   PromptVocabularySearchItem,
 } from "@prompthub/shared/types";
@@ -123,6 +125,30 @@ export class DesktopPromptOrchestratorService {
   searchTerms(value: unknown): PromptVocabularySearchItem[] {
     if (!isRecord(value)) throw new Error("Vocabulary search input must be an object");
     return this.vocabulary.searchTerms(value as PromptVocabularySearchInput);
+  }
+
+  browseTerms(value: unknown): PromptVocabularyBrowseResult {
+    if (!isRecord(value)) throw new Error("Vocabulary browse input must be an object");
+    return this.vocabulary.browseTerms(value as PromptVocabularyBrowseInput);
+  }
+
+  resolveTerms(value: unknown): PromptVocabularySearchItem[] {
+    if (!isRecord(value) || !Array.isArray(value.terms)) {
+      throw new Error("Vocabulary resolve input must contain a terms array");
+    }
+    const terms = value.terms;
+    if (terms.length < 1 || terms.length > 500) {
+      throw new Error("Vocabulary resolve accepts 1 to 500 terms");
+    }
+    for (const term of terms) {
+      if (typeof term !== "string" || !term.trim()) {
+        throw new Error("Vocabulary resolve terms must be non-empty strings");
+      }
+      if (term.includes("\0")) {
+        throw new Error("Vocabulary resolve terms must not contain null bytes");
+      }
+    }
+    return this.vocabulary.resolveTerms(terms as string[]);
   }
 
   async run(value: unknown): Promise<PromptOrchestrationResult> {

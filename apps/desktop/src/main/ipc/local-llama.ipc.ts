@@ -24,6 +24,7 @@ export function registerLocalLlamaIPC(): void {
   ipcMain.handle(IPC_CHANNELS.LOCAL_LLAMA_START, () => engine.start());
   ipcMain.handle(IPC_CHANNELS.LOCAL_LLAMA_STOP, () => engine.stop());
   ipcMain.handle(IPC_CHANNELS.LOCAL_LLAMA_RESTART, () => engine.restart());
+  ipcMain.handle(IPC_CHANNELS.LOCAL_LLAMA_UNLOAD, () => engine.unload());
   ipcMain.handle(IPC_CHANNELS.LOCAL_LLAMA_READ_LOG, () => engine.readLog());
   ipcMain.handle(
     IPC_CHANNELS.LOCAL_LLAMA_SELECT_FILE,

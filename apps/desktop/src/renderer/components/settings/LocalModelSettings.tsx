@@ -5,6 +5,7 @@ import {
   BrainIcon,
   FileIcon,
   PlayIcon,
+  PowerOffIcon,
   RefreshCwIcon,
   SquareIcon,
 } from "lucide-react";
@@ -37,6 +38,8 @@ export function LocalModelSettings() {
   const [dirty, setDirty] = useState(false);
   const [formError, setFormError] = useState("");
   const [log, setLog] = useState("");
+  const [confirmExternal, setConfirmExternal] = useState(false);
+  const [unloadNote, setUnloadNote] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -85,6 +88,33 @@ export function LocalModelSettings() {
     await engine.start();
   };
 
+  const running = engine.status?.phase === "running";
+  const canUnload = running || engine.status?.phase === "error";
+  const external = running && !engine.status?.managed;
+
+  useEffect(() => {
+    if (!confirmExternal) return;
+    const timer = window.setTimeout(() => setConfirmExternal(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [confirmExternal]);
+
+  const unload = async () => {
+    if (external && !confirmExternal) {
+      setConfirmExternal(true);
+      return;
+    }
+    setConfirmExternal(false);
+    const result = await engine.unload();
+    if (!result) return;
+    setUnloadNote(
+      result.freedGpuMb === null
+        ? t("localModel.unloaded")
+        : t("localModel.unloadedWithMemory", {
+            size: `${(result.freedGpuMb / 1024).toFixed(1)} GB`,
+          }),
+    );
+  };
+
   const browse = async (kind: "executable" | "model" | "mmproj") => {
     try {
       const selected = await window.api.localLlama.selectFile(kind);
@@ -100,7 +130,6 @@ export function LocalModelSettings() {
   const managedActive = Boolean(
     engine.status?.managed && engine.status.phase !== "stopped",
   );
-  const running = engine.status?.phase === "running";
   const error = formError || engine.error;
 
   return (
@@ -138,6 +167,16 @@ export function LocalModelSettings() {
             <Button size="sm" variant="secondary" onClick={() => void engine.stop()} disabled={busy || !managedActive} data-testid="local-engine-stop">
               <SquareIcon className="h-3.5 w-3.5" />{t("localModel.stop")}
             </Button>
+            <Button
+              size="sm"
+              variant={confirmExternal ? "danger" : "secondary"}
+              onClick={() => void unload()}
+              disabled={busy || !canUnload}
+              data-testid="local-engine-unload"
+            >
+              <PowerOffIcon className="h-3.5 w-3.5" />
+              {confirmExternal ? t("localModel.unloadConfirm") : t("localModel.unload")}
+            </Button>
             <Button size="sm" variant="secondary" onClick={() => void restart()} disabled={busy || !managedActive}>
               <RefreshCwIcon className="h-3.5 w-3.5" />{t("localModel.restart")}
             </Button>
@@ -145,6 +184,14 @@ export function LocalModelSettings() {
               <BrainIcon className="h-3.5 w-3.5" />{t("localModel.connect")}
             </Button>
           </div>
+          {external && (
+            <p className="text-xs text-muted-foreground">{t("localModel.unloadExternalHint")}</p>
+          )}
+          {unloadNote && (
+            <p className="text-xs text-emerald-600 dark:text-emerald-400" data-testid="local-engine-unloaded">
+              {unloadNote}
+            </p>
+          )}
         </div>
       </SettingSection>
 

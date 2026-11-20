@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { LocalLlamaEngineConfig, LocalLlamaEngineStatus } from "@prompthub/shared/types";
+import type {
+  LocalLlamaEngineConfig,
+  LocalLlamaEngineStatus,
+  LocalLlamaUnloadResult,
+} from "@prompthub/shared/types";
 import { useSettingsStore } from "../../stores/settings.store";
 
 function messageOf(error: unknown): string {
@@ -109,6 +113,28 @@ export function useLocalLlamaEngine() {
   const stop = useCallback(() => run("stop"), [run]);
   const restart = useCallback(() => run("restart"), [run]);
 
+  /** Explicitly unload so llama-server gives VRAM and RAM back to the desktop. */
+  const unload = useCallback(async (): Promise<LocalLlamaUnloadResult | null> => {
+    if (busy) return null;
+    setBusy(true);
+    busyRef.current = true;
+    setError("");
+    try {
+      const result = await window.api.localLlama.unload();
+      setStatus(result.status);
+      return result;
+    } catch (cause) {
+      const message = messageOf(cause);
+      busyRef.current = false;
+      await refresh();
+      setError(message);
+      return null;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }, [busy, refresh]);
+
   /** Saves engine parameters and restarts so the new context budget takes effect. */
   const saveAndRestart = useCallback(
     async (patch: Partial<LocalLlamaEngineConfig>) => {
@@ -149,6 +175,7 @@ export function useLocalLlamaEngine() {
     start,
     stop,
     restart,
+    unload,
     saveAndRestart,
   };
 }

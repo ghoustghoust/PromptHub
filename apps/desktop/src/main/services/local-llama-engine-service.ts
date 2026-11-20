@@ -10,6 +10,7 @@ import {
   type LocalLlamaEnginePhase,
   type LocalLlamaEngineStatus,
   type LocalLlamaKvCacheType,
+  type LocalLlamaUnloadResult,
 } from "@prompthub/shared/types";
 import { getUserDataPath } from "../runtime-paths";
 
@@ -180,6 +181,64 @@ function readGpuUsedMb(): Promise<number | null> {
       resolve(Number.isFinite(value) ? value : null);
     });
   });
+}
+
+/** Runs a short Windows helper and returns its text output; never throws. */
+function runCommand(
+  command: string,
+  args: string[],
+): Promise<{ code: number | null; output: string }> {
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn(command, args, {
+        windowsHide: true,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch {
+      resolve({ code: null, output: "" });
+      return;
+    }
+    let output = "";
+    const timer = setTimeout(() => {
+      child.kill();
+      resolve({ code: null, output });
+    }, 6000);
+    child.stdout.on("data", (chunk: Buffer) => {
+      output += chunk.toString("utf8");
+    });
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolve({ code: null, output });
+    });
+    child.on("exit", (code: number | null) => {
+      clearTimeout(timer);
+      resolve({ code, output });
+    });
+  });
+}
+
+/** PID of the process LISTENING on the port, or null when nothing listens. */
+async function findListeningPid(port: number): Promise<number | null> {
+  const { output } = await runCommand("netstat", ["-ano", "-p", "tcp"]);
+  for (const line of output.split(/\r?\n/)) {
+    const match = line
+      .trim()
+      .match(/^TCP\s+\S+:(\d+)\s+\S+\s+LISTENING\s+(\d+)$/i);
+    if (match && Number(match[1]) === port) return Number(match[2]);
+  }
+  return null;
+}
+
+async function processImageName(pid: number): Promise<string> {
+  const { output } = await runCommand("tasklist", [
+    "/FI",
+    `PID eq ${pid}`,
+    "/FO",
+    "CSV",
+    "/NH",
+  ]);
+  return output.trim().split(",")[0]?.replace(/^"|"$/g, "") ?? "";
 }
 
 export class LocalLlamaEngineService {
@@ -447,6 +506,84 @@ export class LocalLlamaEngineService {
   async restart(): Promise<LocalLlamaEngineStatus> {
     await this.stop();
     return this.start();
+  }
+
+  /**
+   * Manual unload: ends the engine and waits for the port/VRAM to come back.
+   * Stopping the request queue is not enough — llama-server keeps the weights
+   * resident, so only terminating the process returns VRAM and RAM.
+   */
+  async unload(): Promise<LocalLlamaUnloadResult> {
+    const config = await this.readConfig();
+    const before = await readGpuUsedMb();
+    if (this.startPromise) await this.startPromise.catch(() => undefined);
+    let stoppedExternal = false;
+
+    if (this.child) {
+      await this.stop();
+    } else {
+      stoppedExternal = await this.terminateExternal(config);
+    }
+
+    // The driver needs a moment to hand the allocation back before it can be read.
+    await delay(800);
+    const after = await readGpuUsedMb();
+    const status = await this.getStatus();
+    if (status.phase === "running") {
+      throw new Error(
+        `The local engine still responds at ${status.endpoint} after unload`,
+      );
+    }
+    return {
+      status,
+      freedGpuMb:
+        before !== null && after !== null ? Math.max(0, before - after) : null,
+      stoppedExternal,
+    };
+  }
+
+  /** Ends an engine PromptHub did not start, but only when the port belongs to llama. */
+  private async terminateExternal(
+    config: LocalLlamaEngineConfig,
+  ): Promise<boolean> {
+    const status = await this.getStatus();
+    if (status.phase !== "running") return false;
+    const pid = await findListeningPid(config.port);
+    if (!pid) {
+      throw new Error(
+        `The local engine responds on port ${config.port}, but its process could not be resolved`,
+      );
+    }
+    const name = await processImageName(pid);
+    if (!/llama/i.test(name)) {
+      throw new Error(
+        `Port ${config.port} is held by ${name || "an unknown process"}; PromptHub only ends llama processes`,
+      );
+    }
+    await runCommand("taskkill", ["/PID", String(pid), "/T", "/F"]);
+    this.phase = "stopped";
+    this.managed = false;
+    this.models = [];
+    this.message = "";
+    this.onGpu = null;
+    this.gpuUsedMb = null;
+    const deadline = Date.now() + STOP_TIMEOUT_MS;
+    let released = false;
+    while (Date.now() < deadline) {
+      try {
+        await this.probe(config);
+        await delay(400);
+      } catch {
+        released = true;
+        break;
+      }
+    }
+    if (!released) {
+      throw new Error(
+        `Process ${pid} did not release port ${config.port}; it may need administrator rights`,
+      );
+    }
+    return true;
   }
 
   private openLogStream(): void {

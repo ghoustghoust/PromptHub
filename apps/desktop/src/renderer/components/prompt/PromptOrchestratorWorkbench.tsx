@@ -3,9 +3,9 @@ import {
   FilePlus2Icon,
   LoaderCircleIcon,
   PlayIcon,
+  PowerOffIcon,
   Settings2Icon,
   SparklesIcon,
-  SquareIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { supportsReferenceImages } from "@prompthub/shared/types";
@@ -60,19 +60,29 @@ function SelectControl({
   );
 }
 
-function LocalEngineQuickControl({ onConnected }: { onConnected: () => void }) {
+function LocalEngineQuickControl({ onConnected, onUnloaded }: { onConnected: () => void; onUnloaded: () => void }) {
   const { t } = useTranslation();
   const engine = useLocalLlamaEngine();
   const requestSettingsSection = useUIStore(
     (state) => state.requestSettingsSection,
   );
   const running = engine.status?.phase === "running";
+  const canUnload = running || engine.status?.phase === "error";
+  const external = running && !engine.status?.managed;
   const [paramsOpen, setParamsOpen] = useState(false);
+  const [confirmExternal, setConfirmExternal] = useState(false);
+  const [unloadNote, setUnloadNote] = useState("");
   const [contextSize, setContextSize] = useState("");
   const [imageTokens, setImageTokens] = useState("");
   const [gpuLayers, setGpuLayers] = useState("");
   const [mtpEnabled, setMtpEnabled] = useState(false);
   const [kvUnified, setKvUnified] = useState(true);
+
+  useEffect(() => {
+    if (!confirmExternal) return;
+    const timer = window.setTimeout(() => setConfirmExternal(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [confirmExternal]);
 
   useEffect(() => {
     if (!engine.config) return;
@@ -84,7 +94,28 @@ function LocalEngineQuickControl({ onConnected }: { onConnected: () => void }) {
   }, [engine.config]);
 
   const start = async () => {
+    setUnloadNote("");
+    setConfirmExternal(false);
     if (await engine.start()) onConnected();
+  };
+
+  const unload = async () => {
+    // An engine PromptHub did not start is a user process; confirm before ending it.
+    if (external && !confirmExternal) {
+      setConfirmExternal(true);
+      return;
+    }
+    setConfirmExternal(false);
+    const result = await engine.unload();
+    if (!result) return;
+    setUnloadNote(
+      result.freedGpuMb === null
+        ? t("localModel.unloaded")
+        : t("localModel.unloadedWithMemory", {
+            size: `${(result.freedGpuMb / 1024).toFixed(1)} GB`,
+          }),
+    );
+    onUnloaded();
   };
 
   const applyParams = async () => {
@@ -118,9 +149,20 @@ function LocalEngineQuickControl({ onConnected }: { onConnected: () => void }) {
               <PlayIcon className="h-3.5 w-3.5" />{t("localModel.start")}
             </Button>
           )}
-          {running && engine.status?.managed && (
-            <Button size="sm" variant="ghost" onClick={() => void engine.stop()} disabled={engine.busy}>
-              <SquareIcon className="h-3.5 w-3.5" />{t("localModel.stop")}
+          {canUnload && (
+            <Button
+              size="sm"
+              variant={confirmExternal ? "danger" : "secondary"}
+              onClick={() => void unload()}
+              disabled={engine.busy}
+              data-testid="orchestrator-engine-unload"
+            >
+              {engine.busy ? (
+                <LoaderCircleIcon className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <PowerOffIcon className="h-3.5 w-3.5" />
+              )}
+              {confirmExternal ? t("localModel.unloadConfirm") : t("localModel.unload")}
             </Button>
           )}
           <Button size="sm" variant="ghost" aria-label={t("localModel.menu")} onClick={() => requestSettingsSection("localModel")}>
@@ -128,6 +170,12 @@ function LocalEngineQuickControl({ onConnected }: { onConnected: () => void }) {
           </Button>
         </div>
       </div>
+      {unloadNote && (
+        <p className="text-[11px] text-emerald-600 dark:text-emerald-400" data-testid="orchestrator-engine-unloaded">
+          {unloadNote}
+        </p>
+      )}
+      {external && <p className="text-[11px] text-muted-foreground">{t("localModel.unloadExternalHint")}</p>}
       {engine.error && <p className="text-xs text-destructive">{engine.error}</p>}
       {running && engine.status?.onGpu === false && (
         <p className="text-[11px] text-destructive" data-testid="orchestrator-engine-cpu-fallback">
@@ -345,7 +393,16 @@ export function PromptOrchestratorWorkbench() {
           {state.chatModels.length === 0 && (
             <p className="text-xs text-destructive">{t("orchestrator.noModels")}</p>
           )}
-          <LocalEngineQuickControl onConnected={() => state.setLlmModelId(LOCAL_LLAMA_MODEL_ID)} />
+          <LocalEngineQuickControl
+            onConnected={() => state.setLlmModelId(LOCAL_LLAMA_MODEL_ID)}
+            onUnloaded={() => {
+              if (state.llmModelId !== LOCAL_LLAMA_MODEL_ID) return;
+              const fallback = state.chatModels.find(
+                (model) => model.id !== LOCAL_LLAMA_MODEL_ID,
+              );
+              if (fallback) state.setLlmModelId(fallback.id);
+            }}
+          />
           <SelectControl
             label={t("orchestrator.outputFormat")}
             value={state.outputFormat}

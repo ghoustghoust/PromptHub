@@ -99,6 +99,7 @@ export const IPC_CHANNELS = {
   LOCAL_LLAMA_START: "localLlama:start",
   LOCAL_LLAMA_STOP: "localLlama:stop",
   LOCAL_LLAMA_RESTART: "localLlama:restart",
+  LOCAL_LLAMA_UNLOAD: "localLlama:unload",
   LOCAL_LLAMA_SELECT_FILE: "localLlama:selectFile",
   LOCAL_LLAMA_READ_LOG: "localLlama:readLog",
 

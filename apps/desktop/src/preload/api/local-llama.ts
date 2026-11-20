@@ -3,6 +3,7 @@ import { IPC_CHANNELS } from "@prompthub/shared/constants/ipc-channels";
 import type {
   LocalLlamaEngineConfig,
   LocalLlamaEngineStatus,
+  LocalLlamaUnloadResult,
 } from "@prompthub/shared/types";
 
 export const localLlamaApi = {
@@ -18,6 +19,8 @@ export const localLlamaApi = {
     ipcRenderer.invoke(IPC_CHANNELS.LOCAL_LLAMA_STOP) as Promise<LocalLlamaEngineStatus>,
   restart: () =>
     ipcRenderer.invoke(IPC_CHANNELS.LOCAL_LLAMA_RESTART) as Promise<LocalLlamaEngineStatus>,
+  unload: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.LOCAL_LLAMA_UNLOAD) as Promise<LocalLlamaUnloadResult>,
   selectFile: (kind: "executable" | "model" | "mmproj") =>
     ipcRenderer.invoke(IPC_CHANNELS.LOCAL_LLAMA_SELECT_FILE, kind) as Promise<string | null>,
   readLog: () =>

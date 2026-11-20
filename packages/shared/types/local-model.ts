@@ -40,6 +40,14 @@ export interface LocalLlamaEngineStatus {
   updatedAt: string;
 }
 
+export interface LocalLlamaUnloadResult {
+  status: LocalLlamaEngineStatus;
+  /** GPU memory the driver reported back after the engine exited; null when unreadable. */
+  freedGpuMb: number | null;
+  /** True when the engine was started outside PromptHub and had to be terminated by port. */
+  stoppedExternal: boolean;
+}
+
 export interface LocalLlamaModelConnection {
   apiUrl: string;
   model: string;

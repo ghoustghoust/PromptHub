@@ -175,15 +175,25 @@ function parseField(value: unknown, index: number): PromptOrchestrationField {
   if (!isRecord(value)) {
     throw new Error(`LLM composition fields[${index}] must be an object`);
   }
+  const requestedLayer = parseLayer(value.layer);
+  const termId = optionalString(value.termId, `fields[${index}].termId`);
+  // Only the system can promote a fact to fixed: it does so from user input or
+  // an explicit term id. An LLM field without a vocabulary link is a derivation.
+  const layer = requestedLayer === "fixed" && termId === undefined ? "flexible" : requestedLayer;
   const field: PromptOrchestrationField = {
     name: requiredString(value, "name"),
     value: requiredString(value, "value"),
-    layer: parseLayer(value.layer),
+    layer,
     source: "llm",
   };
   const rationale = optionalString(value.rationale, `fields[${index}].rationale`);
-  const termId = optionalString(value.termId, `fields[${index}].termId`);
-  if (rationale !== undefined) field.rationale = rationale;
+  const notes = [
+    rationale,
+    layer !== requestedLayer
+      ? "Downgraded from fixed: an LLM field needs a vocabulary termId to be a fixed fact."
+      : undefined,
+  ].filter((note): note is string => typeof note === "string" && note.length > 0);
+  if (notes.length > 0) field.rationale = notes.join(" ");
   if (termId !== undefined) field.termId = termId;
   return field;
 }

@@ -415,4 +415,31 @@ describe("PromptOrchestrator selection contracts", () => {
       "was ignored because the user excluded it",
     );
   });
+
+  it("downgrades an LLM fixed field that has no vocabulary termId", async () => {
+    const result = await new PromptOrchestrator({
+      vocabulary,
+      llm: llmReturning(
+        compositionJson({
+          fields: [
+            { name: "vibe", value: "quiet", layer: "fixed" },
+            { name: "medium", value: "watercolor", layer: "fixed", termId: "style-a" },
+          ],
+        }),
+      ),
+    }).orchestrate({
+      prompt: "a quiet study in watercolor",
+      mode: "expand",
+      categories: [],
+      candidateLimitPerCategory: 0,
+    });
+
+    const unlinked = result.fields.find((field) => field.name === "vibe");
+    expect(unlinked?.layer).toBe("flexible");
+    expect(unlinked?.rationale).toContain("Downgraded from fixed");
+    // A linked id is still allowed to carry the fixed layer.
+    const linked = result.fields.find((field) => field.name === "medium");
+    expect(linked?.layer).toBe("fixed");
+    expect(linked?.termId).toBe("style-a");
+  });
 });

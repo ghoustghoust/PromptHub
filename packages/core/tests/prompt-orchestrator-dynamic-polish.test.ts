@@ -702,3 +702,91 @@ describe("PromptOrchestrator dynamic polish", () => {
     expect(notArray.warnings.join(" ")).toContain("LLM composition failed");
   });
 });
+
+describe("dynamic polish short-query escalation and duplicate audit", () => {
+  function groupsOf(calls: LlmCall[]): Array<Record<string, unknown>> {
+    // The composition request carries the retrieval groups the model receives.
+    const payload = JSON.parse(calls[1].user) as { retrieval?: Array<Record<string, unknown>> };
+    return payload.retrieval ?? [];
+  }
+
+  it("widens single-token and two-character CJK queries to exploratory depth", async () => {
+    const latin = scriptedLlm([
+      planResponse([
+        { slotId: "eval", category: "lighting", query: "light", purpose: "compare", depth: "exact" },
+      ]),
+      finalComposition([createDecision()]),
+    ]);
+    const latinResult = await new PromptOrchestrator({ vocabulary, llm: latin.llm }).orchestrate(
+      polishInput(),
+    );
+    expect(latinResult.status).toBe("complete");
+    const latinGroup = groupsOf(latin.calls)[0];
+    expect(latinGroup.escalated).toBe(true);
+    expect((latinGroup.candidates as unknown[]).length).toBeGreaterThanOrEqual(5);
+
+    const cjk = scriptedLlm([
+      planResponse([
+        { slotId: "eval", category: "lighting", query: "光线", purpose: "compare", depth: "exact" },
+      ]),
+      finalComposition([createDecision()]),
+    ]);
+    const cjkResult = await new PromptOrchestrator({ vocabulary, llm: cjk.llm }).orchestrate(
+      polishInput(),
+    );
+    expect(cjkResult.status).toBe("complete");
+    const cjkGroup = groupsOf(cjk.calls)[0];
+    expect(cjkGroup.escalated).toBe(true);
+    expect(cjkGroup.status).toBe("no_match");
+
+    const control = scriptedLlm([
+      planResponse([
+        {
+          slotId: "eval",
+          category: "lighting",
+          query: "soft light",
+          purpose: "compare",
+          depth: "exact",
+        },
+      ]),
+      finalComposition([createDecision()]),
+    ]);
+    await new PromptOrchestrator({ vocabulary, llm: control.llm }).orchestrate(polishInput());
+    const controlGroup = groupsOf(control.calls)[0];
+    expect(controlGroup.escalated).toBe(false);
+    expect((controlGroup.candidates as unknown[]).length).toBeLessThanOrEqual(3);
+  }, 120_000);
+
+  it("audits duplicate expressions collapsed into the surviving candidate", async () => {
+    const { llm, calls } = scriptedLlm([
+      planResponse([
+        { slotId: "eval", category: "lighting", query: "soft light", purpose: "compare", depth: "exact" },
+      ]),
+      finalComposition([createDecision()]),
+    ]);
+    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(polishInput());
+    expect(result.status).toBe("complete");
+    const group = groupsOf(calls)[0];
+    const candidates = group.candidates as Array<{ id: string }>;
+    const collapsed = group.collapsedTerms as Array<{ id: string; en: string }>;
+    expect(candidates.map((candidate) => candidate.id)).toContain("light-1");
+    expect(candidates.map((candidate) => candidate.id)).not.toContain("light-2");
+    expect(collapsed.map((term) => term.id)).toContain("light-2");
+
+    const solo = scriptedLlm([
+      planResponse([
+        {
+          slotId: "eval",
+          category: "lighting",
+          query: "golden hour",
+          purpose: "compare",
+          depth: "exact",
+        },
+      ]),
+      finalComposition([createDecision()]),
+    ]);
+    await new PromptOrchestrator({ vocabulary, llm: solo.llm }).orchestrate(polishInput());
+    const soloGroup = groupsOf(solo.calls)[0];
+    expect((soloGroup.collapsedTerms as unknown[]).length).toBe(0);
+  }, 120_000);
+});

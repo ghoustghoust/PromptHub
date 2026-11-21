@@ -63,6 +63,13 @@ interface RankedTerm {
 interface RetrievalResult {
   slotId: string;
   candidates: RankedTerm[];
+  collapsed: Array<{ id: string; en: string }>;
+  escalated: boolean;
+}
+
+/** Single-token or single-bigram queries are ambiguous; widen them deterministically. */
+function isShortQuery(query: string): boolean {
+  return tokenize(query).length <= 1;
 }
 
 interface VisibleRetrieval {
@@ -317,21 +324,34 @@ function candidateLimit(depth: RetrievalDepth): number {
   return 6;
 }
 
-function selectDiverse(ranked: RankedTerm[], query: RetrievalQuery): RankedTerm[] {
+interface DiverseSelection {
+  candidates: RankedTerm[];
+  /** Near-identical expressions absorbed into the top-ranked row, for audit. */
+  collapsed: Array<{ id: string; en: string }>;
+}
+
+function selectDiverse(ranked: RankedTerm[], query: RetrievalQuery): DiverseSelection {
   const selected: RankedTerm[] = [];
+  const collapsed: Array<{ id: string; en: string }> = [];
   const seenText = new Set<string>();
   const threshold = query.purpose === "inspire" ? 0.76 : query.purpose === "compare" ? 0.88 : 0.95;
   for (const candidate of ranked.slice(0, RAW_CANDIDATE_LIMIT)) {
     const textKey = normalizeText(candidate.term.template?.trim() || candidate.term.en);
-    if (seenText.has(textKey)) continue;
+    if (seenText.has(textKey)) {
+      if (collapsed.length < 8) {
+        collapsed.push({ id: candidate.term.id, en: candidate.term.en });
+      }
+      continue;
+    }
     const tooSimilar = selected.some((existing) =>
-      jaccard(existing.tokens, candidate.tokens) >= threshold);
+      jaccard(existing.tokens, candidate.tokens) >= threshold,
+    );
     if (tooSimilar) continue;
     selected.push(candidate);
     seenText.add(textKey);
     if (selected.length >= candidateLimit(query.depth)) break;
   }
-  return selected;
+  return { candidates: selected, collapsed };
 }
 
 class LexicalVocabularyRetriever {
@@ -358,11 +378,17 @@ class LexicalVocabularyRetriever {
 
   search(query: RetrievalQuery): RetrievalResult {
     if (!CATEGORY_SET.has(query.category)) {
-      return { slotId: query.slotId, candidates: [] };
+      return { slotId: query.slotId, candidates: [], collapsed: [], escalated: false };
     }
     const queries = [query.query, ...(query.alternateQuery ? [query.alternateQuery] : [])];
     const ranked = rankDocuments(buildDocuments(this.terms(query.category)), queries);
-    return { slotId: query.slotId, candidates: selectDiverse(ranked, query) };
+    // A single token (or a two-CJK-character label) matches too many unrelated
+    // rows to stay useful at focused depth; widen it deterministically instead
+    // of trusting the model to pick the right depth for it.
+    const escalated = isShortQuery(query.query);
+    const effective: RetrievalQuery = escalated ? { ...query, depth: "exploratory" } : query;
+    const { candidates, collapsed } = selectDiverse(ranked, effective);
+    return { slotId: query.slotId, candidates, collapsed, escalated };
   }
 }
 
@@ -409,6 +435,8 @@ function presentRetrieval(results: RetrievalResult[], budget: number): VisibleRe
           ? "budget_exceeded"
           : "no_match",
       truncated: candidates.length < result.candidates.length,
+      escalated: result.escalated,
+      collapsedTerms: result.collapsed,
       candidates,
     });
   }
@@ -424,7 +452,7 @@ function mergeResults(current: RetrievalResult[], followUp: RetrievalResult[]): 
 const QUERY_CONTRACT = `
 Each query must be {"slotId":"stable slot id","category":"allowed category","query":"semantic query","alternateQuery":"optional bilingual or alternate wording","purpose":"resolve | compare | inspire","depth":"exact | focused | exploratory"}.
 Allowed categories: ${RETRIEVAL_CATEGORIES.join(", ")}.
-Do not query artist, character or NSFW categories. Do not infer a named character or artist from appearance. Exact names and trigger words already supplied by the user must remain untouched.`;
+Do not query artist, character or NSFW categories. Do not infer a named character or artist from appearance. Exact names and trigger words already supplied by the user must remain untouched. Short single-token queries are widened to exploratory depth automatically (the group carries escalated=true); collapsedTerms lists duplicate expressions merged into the top-ranked row, so reference only the surviving candidate ids.`;
 
 function planMessages(options: DynamicPolishOptions): PromptCompositionMessages {
   const system = [
@@ -641,7 +669,12 @@ export async function runDynamicPolish(
   const initialQueries = parseQueryList(parseJson(plan).queries, MAX_INITIAL_QUERIES);
   let results = budget > 0
     ? initialQueries.map((query) => retriever.search(query))
-    : initialQueries.map((query) => ({ slotId: query.slotId, candidates: [] }));
+    : initialQueries.map((query) => ({
+        slotId: query.slotId,
+        candidates: [],
+        collapsed: [],
+        escalated: false,
+      }));
   let rounds = budget > 0 && initialQueries.length > 0 ? 1 : 0;
   let queryCount = rounds > 0 ? initialQueries.length : 0;
   let content = "";

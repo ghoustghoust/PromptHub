@@ -82,6 +82,8 @@ export interface PromptOrchestrationInput {
   categories?: string[];
   selectedTermIds?: string[];
   lockedTermIds?: string[];
+  /** Optional material: the model may reuse, adapt or ignore these terms. */
+  referenceTermIds?: string[];
   excludedTermIds?: string[];
   fixedDetails?: string[];
   constraints?: string[];
@@ -109,7 +111,7 @@ export interface PromptOrchestrationInput {
   video?: PromptVideoOrchestrationInput;
 }
 
-export type PromptTermSelectionReason = "explicit" | "relevance" | "random";
+export type PromptTermSelectionReason = "explicit" | "relevance" | "random" | "reference";
 
 export interface PromptSelectedTerm {
   id: string;

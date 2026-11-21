@@ -138,11 +138,11 @@ class TermCollector {
     selectionReason: PromptTermSelectionReason,
     locked = false,
   ): boolean {
-    if (!this.isAllowed(term, selectionReason === "explicit")) return false;
+    if (!this.isAllowed(term, selectionReason !== "relevance" && selectionReason !== "random")) return false;
     const key = termKey(term);
     if (this.ids.has(term.id) || this.keys.has(key)) return false;
     const automaticCost = estimatePromptTokens(term.template?.trim() || term.en) + 8;
-    if (selectionReason !== "explicit") {
+    if (selectionReason === "relevance" || selectionReason === "random") {
       const budget = this.input.vocabularyTokenBudget ?? 900;
       if (this.automaticTokens + automaticCost > budget) {
         if (!this.budgetWarningEmitted) {
@@ -165,7 +165,9 @@ class TermCollector {
     }
     this.ids.add(term.id);
     this.keys.add(key);
-    if (selectionReason !== "explicit") this.automaticTokens += automaticCost;
+    if (selectionReason === "relevance" || selectionReason === "random") {
+      this.automaticTokens += automaticCost;
+    }
     this.terms.push({
       id: term.id,
       category: term.category,
@@ -206,14 +208,22 @@ function addExplicitTerms(
   warnings: string[],
 ): void {
   const locked = new Set(unique(input.lockedTermIds));
-  const ids = unique([...locked, ...unique(input.selectedTermIds)]);
+  const recommended = new Set(unique(input.selectedTermIds));
+  const reference = new Set(unique(input.referenceTermIds));
+  const excluded = new Set(unique(input.excludedTermIds));
+  const ids = unique([...locked, ...recommended, ...reference]);
   for (const id of ids) {
+    if (excluded.has(id)) {
+      warnings.push(`Explicit term ${id} was ignored because the user excluded it.`);
+      continue;
+    }
     const term = db.getTerm(id);
     if (!term) {
       warnings.push(`Explicit term was not found: ${id}.`);
       continue;
     }
-    collector.add(term, "explicit", locked.has(id));
+    const reason = locked.has(id) || recommended.has(id) ? "explicit" : "reference";
+    collector.add(term, reason, locked.has(id));
   }
 }
 

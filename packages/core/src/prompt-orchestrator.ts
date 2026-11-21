@@ -134,6 +134,7 @@ function validateInput(input: PromptOrchestrationInput): void {
     ["categories", input.categories],
     ["selectedTermIds", input.selectedTermIds],
     ["lockedTermIds", input.lockedTermIds],
+    ["referenceTermIds", input.referenceTermIds],
     ["excludedTermIds", input.excludedTermIds],
     ["fixedDetails", input.fixedDetails],
     ["constraints", input.constraints],

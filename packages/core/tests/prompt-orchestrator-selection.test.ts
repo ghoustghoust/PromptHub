@@ -357,4 +357,62 @@ describe("PromptOrchestrator selection contracts", () => {
       "No compatible vocabulary terms were selected",
     );
   });
+
+  it("treats reference terms as optional material and lets exclusion win", async () => {
+    const payloads: string[] = [];
+    const llm: PromptOrchestratorLlm = {
+      complete: async (request) => {
+        payloads.push(request.messages.user);
+        return compositionJson();
+      },
+    };
+    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate({
+      prompt: "a quiet study",
+      mode: "polish",
+      guidanceMode: "human-led",
+      categories: [],
+      candidateLimitPerCategory: 0,
+      lockedTermIds: ["light-a"],
+      selectedTermIds: ["light-b"],
+      referenceTermIds: ["style-a", "light-a"],
+      excludedTermIds: ["excl-a"],
+    });
+
+    const payload = JSON.parse(payloads[0]) as {
+      vocabulary: Array<{ id: string }>;
+      referenceVocabulary: Array<{ id: string }>;
+      excludedTermIds: string[];
+    };
+    // Locked/recommended terms keep their state; a term listed twice is resolved once.
+    expect(payload.vocabulary.map((term) => term.id)).toEqual(["light-a", "light-b"]);
+    expect(payload.referenceVocabulary.map((term) => term.id)).toEqual(["style-a"]);
+    expect(payload.excludedTermIds).toEqual(["excl-a"]);
+
+    const fixedTermIds = result.fields
+      .filter((field) => field.layer === "fixed" && field.source === "vocabulary")
+      .map((field) => field.termId);
+    expect(fixedTermIds).toEqual(["light-a", "light-b"]);
+    // Reference material is offered to the model but never injected as a fixed fact.
+    expect(result.selectedTerms.find((term) => term.id === "style-a")?.selectionReason)
+      .toBe("reference");
+  });
+
+  it("drops an explicit term that the user also excluded", async () => {
+    const result = await new PromptOrchestrator({
+      vocabulary,
+      llm: llmReturning(compositionJson()),
+    }).orchestrate({
+      prompt: "a quiet study",
+      mode: "polish",
+      guidanceMode: "human-led",
+      categories: [],
+      candidateLimitPerCategory: 0,
+      selectedTermIds: ["light-b"],
+      excludedTermIds: ["light-b"],
+    });
+    expect(result.selectedTerms.map((term) => term.id)).not.toContain("light-b");
+    expect(result.warnings.join(" ")).toContain(
+      "was ignored because the user excluded it",
+    );
+  });
 });

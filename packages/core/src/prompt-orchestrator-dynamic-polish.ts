@@ -654,7 +654,7 @@ function assertNoConflicts(
   explicitTerms: PromptSelectedTerm[],
   dynamicTerms: PromptSelectedTerm[],
 ): void {
-  const accepted = [...explicitTerms];
+  const accepted = explicitTerms.filter((term) => term.selectionReason !== "reference");
   for (const candidate of dynamicTerms) {
     const conflicts = new Set(vocabulary.getConflicts(candidate.id));
     const conflict = accepted.find((term) => conflicts.has(term.id));
@@ -683,6 +683,7 @@ export async function runDynamicPolish(
   // one bad pick into a full polish fallback.
   const blockedConflicts = new Map<string, string>();
   for (const term of options.explicitTerms) {
+    if (term.selectionReason === "reference") continue;
     for (const conflictId of options.vocabulary.getConflicts(term.id)) {
       blockedConflicts.set(conflictId, term.id);
     }
@@ -725,7 +726,11 @@ export async function runDynamicPolish(
   const available = availableTerms(options.explicitTerms, visible, options.vocabulary);
   const parsed = parseDecisions(content, available);
   assertNoConflicts(options.vocabulary, options.explicitTerms, parsed.usedTerms);
-  const selected = new Map(options.explicitTerms.map((term) => [term.id, term]));
+  const selected = new Map(
+    options.explicitTerms
+      .filter((term) => term.selectionReason !== "reference")
+      .map((term) => [term.id, term]),
+  );
   for (const term of parsed.usedTerms) {
     if (!selected.has(term.id)) selected.set(term.id, term);
   }

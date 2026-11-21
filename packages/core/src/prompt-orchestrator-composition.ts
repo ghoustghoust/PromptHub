@@ -90,6 +90,13 @@ function taskOutputContract(input: PromptOrchestrationInput): string {
   return "Follow the selected model and task output format exactly.";
 }
 
+const VOCABULARY_STATE_CONTRACT = `
+Vocabulary states:
+- locked: user requirement; keep the wording exactly, never rephrase, replace or drop it.
+- recommended: user requirement; the concept must appear, but you may adjust wording to fit the sentence.
+- reference: optional material supplied by the user; reuse, adapt or ignore it per slot. It is never a requirement.
+- excludedTermIds: never use these terms, even if they would fit.`.trim();
+
 const OUTPUT_CONTRACT = `
 Return one valid JSON object and nothing else. Do not use Markdown fences.
 Schema:
@@ -307,8 +314,9 @@ export function buildCompositionMessages(
     MODE_INSTRUCTIONS[mode],
     getPromptRuleCard(input.skill),
     input.guidanceMode === "human-led"
-      ? "Human-led mode: the user's searched and explicitly selected vocabulary is locked 'prefab' material. Preserve the user's structure and selections, make only restrained coherence/polish changes, and do not add automatic vocabulary or unrelated entities. Put any nonessential creative idea only in optional fields, never merge it into the final prompt without user approval."
+      ? "Human-led mode: the user's searched vocabulary is organized by state. locked terms must be kept verbatim; recommended terms must appear but their wording may be adjusted to fit the sentence; reference terms are optional material that may be reused, adapted or ignored. Preserve the user's structure, make only restrained coherence/polish changes, and do not add automatic vocabulary or unrelated entities. Put any nonessential creative idea only in optional fields, never merge it into the final prompt without user approval."
       : "Agent-led mode: guide the initial idea actively while respecting the selected rule card and the user's fixed facts. Useful creative additions must remain explicitly optional.",
+    VOCABULARY_STATE_CONTRACT,
     systemPromptLayerSection(input),
     OUTPUT_CONTRACT,
     taskOutputContract(input),
@@ -328,7 +336,9 @@ export function buildCompositionMessages(
     guidanceMode: input.guidanceMode ?? "agent-led",
     includePayload: input.includePayload === true || mode === "json",
     video: input.video ?? null,
-    vocabulary: selectedTerms,
+    vocabulary: selectedTerms.filter((term) => term.selectionReason !== "reference"),
+    referenceVocabulary: selectedTerms.filter((term) => term.selectionReason === "reference"),
+    excludedTermIds: input.excludedTermIds ?? [],
     modelDirectives,
   });
   return { system, user };
@@ -416,7 +426,7 @@ function buildSelectedVocabularyFields(
   selectedTerms: PromptSelectedTerm[],
 ): PromptOrchestrationField[] {
   return selectedTerms
-    .filter((term) => term.selectionReason !== "explicit")
+    .filter((term) => term.selectionReason !== "explicit" && term.selectionReason !== "reference")
     .map((term) => ({
       name: term.category,
       value: selectedTermText(term),
@@ -476,7 +486,7 @@ export function buildFallbackComposition(
 ): PromptComposition {
   const fixedFields = buildFixedFields(input, selectedTerms, modelDirectives);
   const suggestions = selectedTerms.filter(
-    (term) => term.selectionReason !== "explicit",
+    (term) => term.selectionReason !== "explicit" && term.selectionReason !== "reference",
   );
   const initialPrompt = [...new Set(fixedFields.map((field) => field.value))].join(", ");
   const completePrompt = isVideoOrchestrationMode(input.mode)

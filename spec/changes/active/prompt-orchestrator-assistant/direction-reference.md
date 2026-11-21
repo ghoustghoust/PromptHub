@@ -103,7 +103,7 @@ typecheck/eslint/行数门禁达标。R1/R2 收敛测试于 2026-11-20 补齐：
 | --- | --- | --- | --- |
 | R1 | Important | 编排器核心逻辑无单测，真实验证不可重复 | 已补（2026-11-20）：`packages/core/tests/prompt-orchestrator-selection.test.ts`（10 例：模式要求/互斥排除/系列与模型过滤/provenance 固定层/降级回退/随机 seed 确定/输入校验）与 `packages/core/tests/prompt-orchestrator-dynamic-polish.test.ts`（16 例：两轮上限/槽位预算/四策略审计/禁查角色画师 NSFW/冲突拒绝/非法决策修复/边界输入）；core 编排三件套 33/33 通过 |
 | R2 | Important | 旧库迁移 + series/template 查询无回归 | 已补（2026-11-20）：`apps/desktop/tests/unit/main/prompt-vocab-db.test.ts` 新增 legacy migration 3 例——缺 series/template/domain 列的旧库原位升级保留词条/关系/验证、重复执行幂等（新增 0/更新 0）、升级后 series/template/domain/search/browse 查询回归；fixture 按 init.ts 真实顺序（迁移→索引）构造，该文件 23/23 通过 |
-| R3 | Important | MTP 基准矛盾（见下） | 已控制复测（2026-11-21）：同一 MTP 模型 77.2 vs 60.3 t/s = **1.28×**，两轮会话复现；旧 1.20× 混淆了模型变体。MTP 必须配 MTP 变体，非 MTP 模型开 MTP 会直接启动失败。协议见 [mtp-retest-protocol.md](mtp-retest-protocol.md)，数字见 benchmark-results.md |
+| R3 | Important | MTP 基准矛盾（见下） | 已控制复测（2026-11-21）：同一 MTP 模型长生成 77.2 vs 60.3 t/s = **1.28×**，两轮会话复现；提示词短输出总体 71.4 vs 60.5 = **1.18×**，5/7 逐字一致。旧 1.20× 混淆了模型变体。MTP 必须配 MTP 变体，非 MTP 模型开 MTP 会直接启动失败。协议见 [mtp-retest-protocol.md](mtp-retest-protocol.md)，数字见 benchmark-results.md |
 | R4 | Medium | provenance 强制不完整：无 termId 的 LLM 字段仍可标 fixed | 测试+考虑未链接 fixed 降为 flexible |
 | R5 | Medium | 规则压缩或丢 MOSS 原生审美 | A/B/C 整文 vs 卡片 |
 | R6 | Medium | 受控随机仅锁 subject/setting，类别池不限 | v1 可接受，注明 |

@@ -84,6 +84,13 @@ export function normalizeLocalLlamaConfig(
       128,
       8192,
     ),
+    idleUnloadMinutes: readInteger(
+      value.idleUnloadMinutes,
+      defaults.idleUnloadMinutes,
+      "Idle unload minutes",
+      0,
+      240,
+    ),
   };
 }
 

@@ -104,7 +104,7 @@ typecheck/eslint/行数门禁达标。R1/R2 收敛测试于 2026-11-20 补齐：
 | R1 | Important | 编排器核心逻辑无单测，真实验证不可重复 | 已补（2026-11-20）：`packages/core/tests/prompt-orchestrator-selection.test.ts`（10 例：模式要求/互斥排除/系列与模型过滤/provenance 固定层/降级回退/随机 seed 确定/输入校验）与 `packages/core/tests/prompt-orchestrator-dynamic-polish.test.ts`（16 例：两轮上限/槽位预算/四策略审计/禁查角色画师 NSFW/冲突拒绝/非法决策修复/边界输入）；core 编排三件套 33/33 通过 |
 | R2 | Important | 旧库迁移 + series/template 查询无回归 | 已补（2026-11-20）：`apps/desktop/tests/unit/main/prompt-vocab-db.test.ts` 新增 legacy migration 3 例——缺 series/template/domain 列的旧库原位升级保留词条/关系/验证、重复执行幂等（新增 0/更新 0）、升级后 series/template/domain/search/browse 查询回归；fixture 按 init.ts 真实顺序（迁移→索引）构造，该文件 23/23 通过 |
 | R3 | Important | MTP 基准矛盾（见下） | 已控制复测（2026-11-21）：同一 MTP 模型长生成 77.2 vs 60.3 t/s = **1.28×**，两轮会话复现；提示词短输出总体 71.4 vs 60.5 = **1.18×**，5/7 逐字一致。旧 1.20× 混淆了模型变体。MTP 必须配 MTP 变体，非 MTP 模型开 MTP 会直接启动失败。协议见 [mtp-retest-protocol.md](mtp-retest-protocol.md)，数字见 benchmark-results.md |
-| R4 | Medium | provenance 强制不完整：无 termId 的 LLM 字段仍可标 fixed | 测试+考虑未链接 fixed 降为 flexible |
+| R4 | Medium | provenance 强制不完整：无 termId 的 LLM 字段仍可标 fixed | 已补（2026-11-21）：`parseField` 对 `layer=fixed` 且无 `termId` 的 LLM 字段降为 `flexible`，rationale 注明降级原因；单测覆盖“无 id 降级 / 有 id 保留 fixed” |
 | R5 | Medium | 规则压缩或丢 MOSS 原生审美 | A/B/C 整文 vs 卡片 |
 | R6 | Medium | 受控随机仅锁 subject/setting，类别池不限 | v1 可接受，注明 |
 | R7 | Minor | Layout 无确定性编译器/bbox 校验 | 裁定是否 v1 |
@@ -122,6 +122,7 @@ typecheck/eslint/行数门禁达标。R1/R2 收敛测试于 2026-11-20 补齐：
 - 待用户裁定：八模式是否必须独立引擎？MOSS Layout 编译器是否第一版硬验收？
 - 推进顺序：R3 → 数据回填 → A/B/C → 引擎管理 D8 / provider 本地免key / 模型LoRA档案 / 评估体系。R1/R2 已于 2026-11-20 由回归测试关闭（见 §6）；同日晚些时候建立了真实查询检索评测基线与双检索面评测套件，裁定输入与发现见 [retrieval-evaluation-results.md](retrieval-evaluation-results.md)。
 - 完成前保持 `needs-convergence`；A/B/C 与全量回归未执行前不宣称发布验收。
+- D8 部分落地（2026-11-21）：本地引擎支持「空闲 N 分钟自动释放」（`/slots` 活动检测，0=关闭）与启动前显存预检（GPU 被其它进程重度占用时拒绝启动并给出提示）。不做“进入生图自动释放”：PromptHub 无法观察外部 ComfyUI 的生图事件。
 
 ## 8. 第四轮用户确认补充（2026-11-19）
 

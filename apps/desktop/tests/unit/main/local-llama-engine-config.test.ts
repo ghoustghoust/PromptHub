@@ -51,4 +51,15 @@ describe("local llama engine config", () => {
       /KV cache/,
     );
   });
+
+  it("validates the idle auto-release window", () => {
+    expect(normalizeLocalLlamaConfig({}).idleUnloadMinutes).toBe(0);
+    expect(normalizeLocalLlamaConfig({ idleUnloadMinutes: 30 }).idleUnloadMinutes).toBe(30);
+    expect(() => normalizeLocalLlamaConfig({ idleUnloadMinutes: -1 })).toThrow(
+      /Idle unload/,
+    );
+    expect(() => normalizeLocalLlamaConfig({ idleUnloadMinutes: 241 })).toThrow(
+      /Idle unload/,
+    );
+  });
 });

@@ -76,6 +76,44 @@ function readGpuUsedMb(): Promise<number | null> {
   });
 }
 
+/** Used/total GPU memory in MiB, or null when nvidia-smi is unavailable. */
+function readGpuUsage(): Promise<{ usedMb: number; totalMb: number } | null> {
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn(
+        "nvidia-smi",
+        ["--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+        { windowsHide: true, stdio: ["ignore", "pipe", "ignore"] },
+      );
+    } catch {
+      resolve(null);
+      return;
+    }
+    let buffer = "";
+    const timer = setTimeout(() => {
+      child.kill();
+      resolve(null);
+    }, 4000);
+    child.stdout.on("data", (chunk: Buffer) => {
+      buffer += chunk.toString("utf8");
+    });
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolve(null);
+    });
+    child.on("exit", () => {
+      clearTimeout(timer);
+      const [used, total] = buffer.split(/\r?\n/)[0]?.split(",").map((part) => Number(part.trim())) ?? [];
+      resolve(
+        Number.isFinite(used) && Number.isFinite(total) && total > 0
+          ? { usedMb: used, totalMb: total }
+          : null,
+      );
+    });
+  });
+}
+
 /** Runs a short Windows helper and returns its text output; never throws. */
 function runCommand(
   command: string,
@@ -146,6 +184,8 @@ export class LocalLlamaEngineService {
   private logStream: WriteStream | null = null;
   private startPromise: Promise<LocalLlamaEngineStatus> | null = null;
   private stopPromise: Promise<LocalLlamaEngineStatus> | null = null;
+  private idleTimer: NodeJS.Timeout | null = null;
+  private lastActivityAt = Date.now();
 
   constructor(private readonly rootPath?: string) {}
 
@@ -159,6 +199,95 @@ export class LocalLlamaEngineService {
 
   private logPath(): string {
     return path.join(this.root(), "logs", "local-llama-engine.log");
+  }
+
+  /** Called whenever PromptHub sends a request to the local model. */
+  noteActivity(): void {
+    this.lastActivityAt = Date.now();
+  }
+
+  private stopIdleMonitor(): void {
+    if (this.idleTimer) {
+      clearInterval(this.idleTimer);
+      this.idleTimer = null;
+    }
+  }
+
+  private startIdleMonitor(config: LocalLlamaEngineConfig): void {
+    this.stopIdleMonitor();
+    this.lastActivityAt = Date.now();
+    if (config.idleUnloadMinutes <= 0) return;
+    this.idleTimer = setInterval(() => {
+      void this.checkIdle(config);
+    }, 30_000);
+    this.idleTimer.unref?.();
+  }
+
+  /** true = a slot is processing, false = idle, null = endpoint unsupported. */
+  private async slotActivity(port: number): Promise<boolean | null> {
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/slots`, {
+        headers: { accept: "application/json" },
+        signal: AbortSignal.timeout(1500),
+      });
+      if (!response.ok) return null;
+      const payload: unknown = await response.json();
+      if (!Array.isArray(payload)) return null;
+      return payload.some(
+        (slot) => isRecord(slot) && (slot.is_processing === true || slot.state === 1),
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  private async checkIdle(config: LocalLlamaEngineConfig): Promise<void> {
+    if (this.phase !== "running" || !this.child) return;
+    const active = await this.slotActivity(config.port);
+    // Without /slots there is no safe activity signal; leave the engine alone
+    // rather than risk releasing it during an active chat.
+    if (active === null) return;
+    if (active) {
+      this.lastActivityAt = Date.now();
+      return;
+    }
+    const idleMs = config.idleUnloadMinutes * 60_000;
+    if (Date.now() - this.lastActivityAt < idleMs) return;
+    const minutes = config.idleUnloadMinutes;
+    try {
+      await this.unload();
+      this.message = `Released the local engine after ${minutes} minutes without requests.`;
+    } catch {
+      // Keep the engine alive if the unload could not be verified.
+    }
+  }
+
+  /** Hard preflight: starting into occupied VRAM usually ends in a CPU fallback or OOM. */
+  private async checkVram(config: LocalLlamaEngineConfig): Promise<string | null> {
+    const usage = await readGpuUsage();
+    if (!usage) return null;
+    let modelMb = 0;
+    try {
+      const stat = await fs.stat(config.modelPath);
+      modelMb = stat.size / (1024 * 1024);
+    } catch {
+      return null;
+    }
+    if (modelMb <= 0) return null;
+    // Coarse guard: only refuse when the GPU is already heavily occupied by
+    // something else (ComfyUI and friends). A tight model-size estimate would
+    // reject configurations that llama.cpp can still fit with mmap sharing.
+    const required = Math.max(
+      1536,
+      Math.min(4096, Math.round(usage.totalMb * 0.6)),
+      Math.round(modelMb * 0.55),
+    );
+    const free = usage.totalMb - usage.usedMb;
+    if (free >= required) return null;
+    return (
+      `Not enough free VRAM: ${Math.round(free)} MiB free, about ${required} MiB needed. ` +
+      "Close ComfyUI or lower GPU layers, then start again."
+    );
   }
 
   async readConfig(): Promise<LocalLlamaEngineConfig> {
@@ -274,6 +403,14 @@ export class LocalLlamaEngineService {
     await assertRegularFile(config.modelPath, "GGUF model");
     if (config.mmprojPath) await assertRegularFile(config.mmprojPath, "mmproj projector");
 
+    const vramProblem = await this.checkVram(config);
+    if (vramProblem) {
+      this.phase = "error";
+      this.managed = false;
+      this.message = vramProblem;
+      throw new Error(vramProblem);
+    }
+
     this.phase = "starting";
     this.managed = true;
     this.message = "Loading the local model";
@@ -314,6 +451,7 @@ export class LocalLlamaEngineService {
       this.phase = "error";
     });
     child.on("exit", (code, signal) => {
+      this.stopIdleMonitor();
       this.closeLogStream();
       startupFailure ||= `llama-server exited (${code ?? signal ?? "unknown"})`;
       if (this.child === child) this.child = null;
@@ -345,6 +483,7 @@ export class LocalLlamaEngineService {
           this.gpuUsedMb = gpuAfter;
           this.onGpu =
             gpuBefore !== null && gpuAfter !== null ? gpuAfter - gpuBefore >= 1024 : null;
+          this.startIdleMonitor(config);
           return this.snapshot(config);
         } catch {
           await delay(500);
@@ -372,6 +511,7 @@ export class LocalLlamaEngineService {
   }
 
   private async stopInternal(): Promise<LocalLlamaEngineStatus> {
+    this.stopIdleMonitor();
     if (this.startPromise) await this.startPromise.catch(() => undefined);
     const config = await this.readConfig();
     const child = this.child;

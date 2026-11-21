@@ -4868,6 +4868,8 @@
       "gpuLayersHint": "Use -1 for automatic: llama.cpp fits layers to free VRAM and leaves headroom for the desktop. On an 8 GB card, 99 layers gave ~48 tok/s with 183 MB left; automatic gave ~21 tok/s with 1.2 GB left.",
       "mtpEnabled": "Enable MTP speculative decoding (requires an MTP model)",
     "mtpHint": "MTP with mmproj must be verified for the current engine build. Disable MTP for the first reverse-image test.",
+    "idleUnload": "Idle auto-release (minutes, 0 = off)",
+    "idleUnloadHint": "Tracks real requests to the local model; after the timeout PromptHub ends llama-server and returns VRAM. The next use reloads it.",
     "save": "Save settings",
     "openAiSettings": "Adjust request & sampling parameters",
     "viewLog": "View engine log",

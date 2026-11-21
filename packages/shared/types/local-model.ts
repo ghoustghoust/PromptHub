@@ -16,6 +16,8 @@ export interface LocalLlamaEngineConfig {
   mtpEnabled: boolean;
   mtpDraftMax: number;
   imageMaxTokens: number;
+  /** Release the engine after this many idle minutes; 0 keeps it resident. */
+  idleUnloadMinutes: number;
 }
 
 export type LocalLlamaEnginePhase =
@@ -70,6 +72,7 @@ export const DEFAULT_LOCAL_LLAMA_CONFIG: LocalLlamaEngineConfig = {
   mtpEnabled: false,
   mtpDraftMax: 2,
   imageMaxTokens: 2048,
+  idleUnloadMinutes: 0,
 };
 
 export function localLlamaEndpoint(port: number): string {

@@ -229,6 +229,7 @@ export function LocalModelSettings() {
             <Select ariaLabel={t("localModel.kvCacheType")} value={config.kvCacheType} onChange={(value) => update("kvCacheType", value as LocalLlamaEngineConfig["kvCacheType"])} options={["q8_0", "f16", "q4_0"].map((value) => ({ value, label: value }))} disabled={managedActive} />
           </div>
           <Input label={t("localModel.mtpDraftMax")} type="number" min={1} max={8} value={config.mtpDraftMax} onChange={(event) => update("mtpDraftMax", Number(event.target.value))} disabled={managedActive || !config.mtpEnabled} variant="outlined" />
+          <Input label={t("localModel.idleUnload")} type="number" min={0} max={240} value={config.idleUnloadMinutes} onChange={(event) => update("idleUnloadMinutes", Number(event.target.value))} disabled={managedActive} variant="outlined" />
         </div>
         <div className="flex flex-wrap gap-5 border-t border-border/60 px-4 py-3 text-sm">
           <label className="flex items-center gap-2"><input type="checkbox" checked={config.flashAttention} onChange={(event) => update("flashAttention", event.target.checked)} disabled={managedActive} />{t("localModel.flashAttention")}</label>
@@ -237,6 +238,7 @@ export function LocalModelSettings() {
         </div>
         <p className="px-4 text-xs text-muted-foreground">{t("localModel.gpuLayersHint")}</p>
         <p className="px-4 pb-4 text-xs text-muted-foreground">{t("localModel.mtpHint")}</p>
+        <p className="px-4 pb-4 text-xs text-muted-foreground">{t("localModel.idleUnloadHint")}</p>
       </SettingSection>
 
       <div className="flex flex-wrap items-center gap-2">

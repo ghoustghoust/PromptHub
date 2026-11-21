@@ -4866,6 +4866,8 @@
       "gpuLayersHint": "GPU 层数填 -1 表示自动：按空闲显存决定层数，为桌面和窗口留出余量。实测 8 GB 卡上 99 层约 48 tok/s 但只剩 183 MB，自动约 21 tok/s 可保留 1.2 GB。",
       "mtpEnabled": "启用 MTP 投机解码（需 MTP 模型）",
     "mtpHint": "MTP 与 mmproj 的组合需按当前引擎版本验证；首次反推测试建议先关闭 MTP。",
+    "idleUnload": "空闲自动释放（分钟，0=关闭）",
+    "idleUnloadHint": "按本地模型的实际请求活动计时；超时后结束 llama-server 并归还显存，下次使用需重新加载。",
     "save": "保存设置",
     "openAiSettings": "调整请求与采样参数",
     "viewLog": "查看引擎日志",

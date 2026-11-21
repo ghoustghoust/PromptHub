@@ -14,6 +14,7 @@ import type {
 } from "@prompthub/shared/types";
 import { supportsReferenceImages } from "@prompthub/shared/types";
 import { useSettingsStore } from "../../stores/settings.store";
+import { LOCAL_LLAMA_MODEL_ID } from "../../stores/settings/settings-ai-actions";
 import { usePromptStore } from "../../stores/prompt.store";
 import {
   defaultModeForSkill,
@@ -74,6 +75,7 @@ export function usePromptOrchestratorWorkbench() {
   const [domain, setDomain] = useState<"all" | PromptTermDomain>("all");
   const [seriesOptions, setSeriesOptions] = useState<string[]>([]);
   const [llmModelId, setLlmModelId] = useState("");
+  const [modelSource, setModelSource] = useState<"cloud" | "local">("cloud");
   const [modelId, setModelId] = useState("");
   const [loraIds, setLoraIds] = useState("");
   const [editInstruction, setEditInstruction] = useState("");
@@ -139,6 +141,14 @@ export function usePromptOrchestratorWorkbench() {
     ),
     [aiModels],
   );
+  const cloudModels = useMemo(
+    () => chatModels.filter((model) => model.id !== LOCAL_LLAMA_MODEL_ID),
+    [chatModels],
+  );
+  const localModel = useMemo(
+    () => chatModels.find((model) => model.id === LOCAL_LLAMA_MODEL_ID),
+    [chatModels],
+  );
 
   useEffect(() => {
     let active = true;
@@ -162,14 +172,39 @@ export function usePromptOrchestratorWorkbench() {
   }, [layoutSignature]);
 
   useEffect(() => {
-    if (chatModels.some((model) => model.id === llmModelId)) return;
+    if (modelSource === "local") {
+      if (!localModel) {
+        if (llmModelId) setLlmModelId("");
+        return;
+      }
+      if (llmModelId !== LOCAL_LLAMA_MODEL_ID) {
+        setLlmModelId(LOCAL_LLAMA_MODEL_ID);
+      }
+      return;
+    }
+    if (cloudModels.some((model) => model.id === llmModelId)) return;
     const routedId = routeDefaults.mainText ?? routeDefaults.fastText;
     const next =
-      chatModels.find((model) => model.id === routedId) ??
-      chatModels.find((model) => model.isDefault) ??
-      chatModels[0];
+      cloudModels.find((model) => model.id === routedId) ??
+      cloudModels.find((model) => model.isDefault) ??
+      cloudModels[0];
     setLlmModelId(next?.id ?? "");
-  }, [chatModels, llmModelId, routeDefaults]);
+  }, [cloudModels, localModel, llmModelId, modelSource, routeDefaults]);
+
+  function changeModelSource(next: "cloud" | "local"): void {
+    setModelSource(next);
+    setResult(null);
+    if (next === "local") {
+      setLlmModelId(localModel ? LOCAL_LLAMA_MODEL_ID : "");
+      return;
+    }
+    const routedId = routeDefaults.mainText ?? routeDefaults.fastText;
+    const preferred =
+      cloudModels.find((model) => model.id === routedId) ??
+      cloudModels.find((model) => model.isDefault) ??
+      cloudModels[0];
+    if (preferred) setLlmModelId(preferred.id);
+  }
 
   function changeMode(next: PromptOrchestrationMode): void {
     setMode(next);
@@ -612,7 +647,9 @@ export function usePromptOrchestratorWorkbench() {
     prompt, setPrompt, mode, setMode: changeMode, skill, setSkill: changeSkill,
     guidanceMode, setGuidanceMode: changeGuidance,
     outputFormat, setOutputFormat, includePayload, setIncludePayload,
-    series, setSeries, domain, setDomain, seriesOptions, llmModelId, setLlmModelId, chatModels,
+    series, setSeries, domain, setDomain, seriesOptions,
+    llmModelId, setLlmModelId, chatModels, cloudModels, localModel,
+    modelSource, changeModelSource,
     modelId, setModelId, loraIds, setLoraIds,
     editInstruction, setEditInstruction, subject, setSubject, setting, setSetting,
     seed, setSeed, mossLayout,

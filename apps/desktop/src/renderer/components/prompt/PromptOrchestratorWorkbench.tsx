@@ -164,7 +164,7 @@ function LocalEngineQuickControl({ onConnected, onUnloaded }: { onConnected: () 
               ) : (
                 <PowerOffIcon className="h-3.5 w-3.5" />
               )}
-              {confirmExternal ? t("localModel.unloadConfirm") : t("localModel.unload")}
+              {confirmExternal ? t("localModel.unloadConfirm") : t("orchestrator.localEngine.releaseMemory")}
             </Button>
           )}
           <Button size="sm" variant="ghost" aria-label={t("localModel.menu")} onClick={() => requestSettingsSection("localModel")}>
@@ -178,6 +178,9 @@ function LocalEngineQuickControl({ onConnected, onUnloaded }: { onConnected: () 
         </p>
       )}
       {external && <p className="text-[11px] text-muted-foreground">{t("localModel.unloadExternalHint")}</p>}
+      {canUnload && (
+        <p className="text-[11px] text-muted-foreground">{t("orchestrator.localEngine.releaseHint")}</p>
+      )}
       {engine.error && <p className="text-xs text-destructive">{engine.error}</p>}
       {running && engine.status?.onGpu === false && (
         <p className="text-[11px] text-destructive" data-testid="orchestrator-engine-cpu-fallback">
@@ -449,29 +452,69 @@ export function PromptOrchestratorWorkbench() {
               </p>
             </div>
           )}
-          <SelectControl
-            label={t("orchestrator.llmModel")}
-            value={state.llmModelId}
-            options={state.chatModels.map((model) => ({
-              value: model.id,
-              label: model.name || model.model,
-            }))}
-            onChange={state.setLlmModelId}
-            disabled={state.chatModels.length === 0}
-          />
-          {state.chatModels.length === 0 && (
-            <p className="text-xs text-destructive">{t("orchestrator.noModels")}</p>
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-foreground">
+              {t("orchestrator.modelSource.label")}
+            </span>
+            <div
+              className="grid grid-cols-2 gap-1 rounded-md border border-border bg-muted/30 p-1"
+              role="group"
+              aria-label={t("orchestrator.modelSource.label")}
+            >
+              {(["cloud", "local"] as const).map((source) => (
+                <button
+                  key={source}
+                  type="button"
+                  aria-pressed={state.modelSource === source}
+                  onClick={() => state.changeModelSource(source)}
+                  className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+                    state.modelSource === source
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid={`orchestrator-model-source-${source}`}
+                >
+                  {t(`orchestrator.modelSource.${source}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+          {state.modelSource === "cloud" ? (
+            <>
+              <SelectControl
+                label={t("orchestrator.llmModel")}
+                value={state.llmModelId}
+                options={state.cloudModels.map((model) => ({
+                  value: model.id,
+                  label: model.name || model.model,
+                }))}
+                onChange={state.setLlmModelId}
+                disabled={state.cloudModels.length === 0}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {t("orchestrator.modelSource.cloudHint")}
+              </p>
+              {state.cloudModels.length === 0 && (
+                <p className="text-xs text-destructive">{t("orchestrator.modelSource.noCloud")}</p>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-xs">
+                <span className="text-muted-foreground">{t("orchestrator.modelSource.localModel")}</span>
+                <span className="truncate font-medium">
+                  {state.localModel?.name || t("orchestrator.modelSource.localNotConnected")}
+                </span>
+              </div>
+              <LocalEngineQuickControl
+                onConnected={() => state.setLlmModelId(LOCAL_LLAMA_MODEL_ID)}
+                onUnloaded={() => state.changeModelSource("cloud")}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {t("orchestrator.modelSource.localHint")}
+              </p>
+            </>
           )}
-          <LocalEngineQuickControl
-            onConnected={() => state.setLlmModelId(LOCAL_LLAMA_MODEL_ID)}
-            onUnloaded={() => {
-              if (state.llmModelId !== LOCAL_LLAMA_MODEL_ID) return;
-              const fallback = state.chatModels.find(
-                (model) => model.id !== LOCAL_LLAMA_MODEL_ID,
-              );
-              if (fallback) state.setLlmModelId(fallback.id);
-            }}
-          />
           <SelectControl
             label={t("orchestrator.outputFormat")}
             value={state.outputFormat}

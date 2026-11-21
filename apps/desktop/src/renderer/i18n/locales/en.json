@@ -5021,6 +5021,16 @@
       "lockedHint": "{{count}} locked term(s) ready to insert:",
       "insertTerms": "Insert into selected box"
     },
+    "modelSource": {
+      "label": "Model source",
+      "cloud": "Cloud",
+      "local": "Local",
+      "cloudHint": "Uses the system default cloud chat model; change the default route in Settings.",
+      "localHint": "Starts the local engine with the current parameters. Use “Release VRAM and RAM” to stop it.",
+      "localModel": "Local model",
+      "localNotConnected": "Not connected — start the engine",
+      "noCloud": "No cloud chat model is configured yet. Add one in Settings."
+    },
     "localEngine": {
       "params": "Engine parameters",
       "context": "Context",
@@ -5030,7 +5040,9 @@
       "kvUnified": "Unified KV cache",
       "applyRestart": "Apply and restart",
       "restartHint": "Takes effect after restart. If VRAM runs out the engine falls back to CPU and gets an order of magnitude slower.",
-      "cpuFallback": "Fell back to CPU: not enough VRAM, so the model is not fully on the GPU and runs many times slower."
+      "cpuFallback": "Fell back to CPU: not enough VRAM, so the model is not fully on the GPU and runs many times slower.",
+      "releaseMemory": "Release VRAM and RAM",
+      "releaseHint": "Stopping requests does not unload the model; releasing ends the llama-server process and returns VRAM. The next run reloads it."
     },
     "title": "Prompt Orchestrator",
     "subtitle": "Build model-ready prompts with structured vocabulary and native rule cards.",

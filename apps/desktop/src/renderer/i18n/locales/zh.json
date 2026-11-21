@@ -5019,6 +5019,16 @@
       "lockedHint": "已锁定 {{count}} 条，可写入选中框：",
       "insertTerms": "写入选中框"
     },
+    "modelSource": {
+      "label": "模型来源",
+      "cloud": "云端",
+      "local": "本地",
+      "cloudHint": "使用系统默认的云端文本模型；可在设置中更换默认路由。",
+      "localHint": "本地引擎按当前参数启动；不用时可点“释放显存与内存”结束进程。",
+      "localModel": "本地模型",
+      "localNotConnected": "未连接，先启动引擎",
+      "noCloud": "尚未配置云端文本模型，请先在设置中添加。"
+    },
     "localEngine": {
       "params": "本地引擎参数",
       "context": "上下文",
@@ -5028,7 +5038,9 @@
       "kvUnified": "统一 KV 缓存",
       "applyRestart": "应用并重启",
       "restartHint": "重启后生效；显存不足时会退化到 CPU，速度掉一个数量级。",
-      "cpuFallback": "已降级到 CPU：显存不足，模型没有完整加载到 GPU，速度会慢十几倍。"
+      "cpuFallback": "已降级到 CPU：显存不足，模型没有完整加载到 GPU，速度会慢十几倍。",
+      "releaseMemory": "释放显存与内存",
+      "releaseHint": "停止请求不会卸载模型；释放会结束 llama-server 进程并归还显存，下次使用需重新加载。"
     },
     "title": "提示词编排助手",
     "subtitle": "使用结构化词库与原生规则卡片，生成可直接用于目标模型的提示词。",

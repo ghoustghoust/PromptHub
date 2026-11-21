@@ -42,6 +42,14 @@ interface VocabularyFilter {
   params: Array<string | number>;
 }
 
+export interface PromptTermMergeResult {
+  mergedGroups: number;
+  mergedRows: number;
+  remappedRelations: number;
+  remappedValidations: number;
+  survivors: Array<{ id: string; en: string }>;
+}
+
 interface ModelProfileRow {
   id: string;
   name: string;
@@ -289,6 +297,15 @@ function pickMeta(
     if (entry[key] !== undefined) meta[key] = entry[key];
   }
   return meta;
+}
+
+/** Normalization key for duplicate merging; mirrors the resolveTerms SQL normalization. */
+function mergeNormalizationKey(value: string): string {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\\/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 export class PromptVocabDB {
@@ -595,6 +612,88 @@ export class PromptVocabDB {
       domain: normalizeDomain(row.domain),
       validationStatus: row.validation_status,
     }));
+  }
+
+  /**
+   * Merges duplicate term rows that share category and normalized en text.
+   * The survivor is the best-validated row (non-null zh preferred, then lowest
+   * id); relations and validation records are remapped onto it before absorbed
+   * rows are deleted, so existing references never dangle. Idempotent.
+   */
+  mergeDuplicatePromptTerms(): PromptTermMergeResult {
+    const rows = this.db
+      .prepare(`SELECT * FROM prompt_terms ORDER BY id ASC`)
+      .all() as PromptTermRow[];
+    const groups = new Map<string, PromptTermRow[]>();
+    for (const row of rows) {
+      const key = `${row.category}\0${mergeNormalizationKey(row.en)}`;
+      const list = groups.get(key) ?? [];
+      list.push(row);
+      groups.set(key, list);
+    }
+    const statusRank = (status: string): number =>
+      status === "validated" ? 2 : status === "deprecated" ? 0 : 1;
+    const remap = new Map<string, string>();
+    const survivors: Array<{ id: string; en: string }> = [];
+    for (const list of groups.values()) {
+      if (list.length < 2) continue;
+      const survivor = list
+        .slice()
+        .sort(
+          (left, right) =>
+            statusRank(right.validation_status) - statusRank(left.validation_status) ||
+            Number(right.zh !== null) - Number(left.zh !== null) ||
+            left.id.localeCompare(right.id),
+        )[0];
+      survivors.push({ id: survivor.id, en: survivor.en });
+      for (const row of list) {
+        if (row.id !== survivor.id) remap.set(row.id, survivor.id);
+      }
+    }
+    if (remap.size === 0) {
+      return {
+        mergedGroups: 0,
+        mergedRows: 0,
+        remappedRelations: 0,
+        remappedValidations: 0,
+        survivors: [],
+      };
+    }
+    let remappedRelations = 0;
+    let remappedValidations = 0;
+    const merge = this.db.transaction(() => {
+      for (const [absorbedId, survivorId] of remap) {
+        remappedRelations += this.db
+          .prepare(
+            `INSERT OR IGNORE INTO term_relations (term_id, related_id, relation_type)
+             SELECT ?, related_id, relation_type FROM term_relations
+             WHERE term_id = ? AND related_id <> ?`,
+          )
+          .run(survivorId, absorbedId, survivorId).changes;
+        remappedRelations += this.db
+          .prepare(
+            `INSERT OR IGNORE INTO term_relations (term_id, related_id, relation_type)
+             SELECT term_id, ?, relation_type FROM term_relations
+             WHERE related_id = ? AND term_id <> ?`,
+          )
+          .run(survivorId, absorbedId, survivorId).changes;
+        remappedValidations += this.db
+          .prepare(`UPDATE validation_records SET term_id = ? WHERE term_id = ?`)
+          .run(survivorId, absorbedId).changes;
+        this.db
+          .prepare(`DELETE FROM term_relations WHERE term_id = ? OR related_id = ?`)
+          .run(absorbedId, absorbedId);
+        this.db.prepare(`DELETE FROM prompt_terms WHERE id = ?`).run(absorbedId);
+      }
+    });
+    merge();
+    return {
+      mergedGroups: survivors.length,
+      mergedRows: remap.size,
+      remappedRelations,
+      remappedValidations,
+      survivors,
+    };
   }
 
   addRelation(

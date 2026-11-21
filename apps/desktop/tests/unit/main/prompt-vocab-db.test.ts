@@ -733,3 +733,73 @@ describe("PromptVocabDB legacy schema migration", () => {
     expect(deprecated.map((term) => term.id)).toEqual(["legacy-watercolor"]);
   });
 });
+
+describe("PromptVocabDB duplicate merging", () => {
+  let rawDb: DatabaseAdapter.Database;
+  let db: PromptVocabDB;
+
+  beforeEach(() => {
+    rawDb = new DatabaseAdapter(":memory:");
+    rawDb.pragma("foreign_keys = ON");
+    rawDb.exec(SCHEMA_TABLES);
+    rawDb.exec(SCHEMA_INDEXES);
+    db = new PromptVocabDB(rawDb);
+  });
+
+  afterEach(() => rawDb.close());
+
+  it("merges category-scoped duplicate expressions onto the best-validated survivor and remaps relations", () => {
+    db.addTerm({ id: "a-soft", category: "lighting", en: "soft light", zh: "柔和光线", validationStatus: "validated" });
+    db.addTerm({ id: "b-soft", category: "lighting", en: "soft_light", validationStatus: "validated" });
+    db.addTerm({ id: "c-soft", category: "lighting", en: "SOFT LIGHT", validationStatus: "unvalidated" });
+    db.addTerm({ id: "other-cat", category: "camera", en: "soft light", validationStatus: "validated" });
+    db.addTerm({ id: "soft-lights", category: "lighting", en: "soft lights", validationStatus: "validated" });
+    db.addTerm({ id: "target", category: "lighting", en: "window light", validationStatus: "validated" });
+    db.addRelation("b-soft", "target", "conflict");
+    db.addRelation("target", "c-soft", "synonym");
+    db.addRelation("a-soft", "target", "conflict");
+    db.addRelation("c-soft", "a-soft", "combinable");
+    db.addValidation({ termId: "c-soft", modelId: "m1", outcome: "good" });
+
+    const result = db.mergeDuplicatePromptTerms();
+
+    expect(result.mergedGroups).toBe(1);
+    expect(result.mergedRows).toBe(2);
+    expect(result.survivors.map((survivor) => survivor.id)).toEqual(["a-soft"]);
+    expect(db.getTerm("b-soft")).toBeNull();
+    expect(db.getTerm("c-soft")).toBeNull();
+    // Same expression in another category and plural forms are distinct terms.
+    expect(db.getTerm("other-cat")).not.toBeNull();
+    expect(db.getTerm("soft-lights")).not.toBeNull();
+    // Relations were remapped onto the survivor, duplicates ignored, self loops dropped.
+    expect(db.getConflicts("a-soft")).toEqual(["target"]);
+    expect(db.getConflicts("target")).toEqual(["a-soft"]);
+    const selfLoops = rawDb
+      .prepare("SELECT COUNT(*) AS count FROM term_relations WHERE term_id = related_id")
+      .get() as { count: number };
+    expect(selfLoops.count).toBe(0);
+    const synonymRows = rawDb
+      .prepare(
+        "SELECT term_id, related_id FROM term_relations WHERE relation_type = 'synonym'",
+      )
+      .all() as Array<{ term_id: string; related_id: string }>;
+    expect(synonymRows).toEqual([{ term_id: "target", related_id: "a-soft" }]);
+    // Validation history moved with the absorbed rows.
+    expect(db.listValidation("a-soft").map((row) => row.modelId)).toContain("m1");
+    expect(db.listValidation("c-soft")).toEqual([]);
+  });
+
+  it("merges nothing when no duplicate expressions exist and stays idempotent", () => {
+    db.addTerm({ id: "solo", category: "style", en: "watercolor", validationStatus: "validated" });
+    expect(db.mergeDuplicatePromptTerms().mergedRows).toBe(0);
+
+    db.addTerm({ id: "dupe", category: "style", en: "Watercolor", validationStatus: "unvalidated" });
+    const first = db.mergeDuplicatePromptTerms();
+    expect(first.mergedRows).toBe(1);
+    const second = db.mergeDuplicatePromptTerms();
+    expect(second.mergedRows).toBe(0);
+    expect(second.remappedRelations).toBe(0);
+    expect(db.getTerm("solo")).not.toBeNull();
+    expect(db.getTerm("dupe")).toBeNull();
+  });
+});

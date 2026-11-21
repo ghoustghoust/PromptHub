@@ -30,6 +30,13 @@ export interface OrchestratorReferenceImage {
   dataUrl: string;
 }
 
+/** How the user wants a picked term to be treated by the orchestrator. */
+export type PrefabTermState = "locked" | "recommended" | "reference" | "excluded";
+
+export interface PrefabTerm extends PromptVocabularySearchItem {
+  state: PrefabTermState;
+}
+
 function splitIds(value: string): string[] {
   return [...new Set(value.split(",").map((item) => item.trim()).filter(Boolean))];
 }
@@ -79,9 +86,25 @@ export function usePromptOrchestratorWorkbench() {
     shotCount: 1,
   });
   const [referenceImages, setReferenceImages] = useState<OrchestratorReferenceImage[]>([]);
-  const [selectedTermIds, setSelectedTermIds] = useState<string[]>([]);
-  const [lockedTermIds, setLockedTermIds] = useState<string[]>([]);
-  const [prefabTerms, setPrefabTerms] = useState<PromptVocabularySearchItem[]>([]);
+  const [prefabTerms, setPrefabTerms] = useState<PrefabTerm[]>([]);
+  const selectedTermIds = useMemo(
+    () => prefabTerms
+      .filter((term) => term.state === "locked" || term.state === "recommended")
+      .map((term) => term.id),
+    [prefabTerms],
+  );
+  const lockedTermIds = useMemo(
+    () => prefabTerms.filter((term) => term.state === "locked").map((term) => term.id),
+    [prefabTerms],
+  );
+  const referenceTermIds = useMemo(
+    () => prefabTerms.filter((term) => term.state === "reference").map((term) => term.id),
+    [prefabTerms],
+  );
+  const excludedTermIds = useMemo(
+    () => prefabTerms.filter((term) => term.state === "excluded").map((term) => term.id),
+    [prefabTerms],
+  );
   const [vocabularyTokenBudget, setVocabularyTokenBudget] = useState(900);
   const [rightPanel, setRightPanel] = useState<"result" | "prefab">("result");
   const [result, setResult] = useState<PromptOrchestrationResult | null>(null);
@@ -207,21 +230,27 @@ export function usePromptOrchestratorWorkbench() {
   }
 
   function addPrefabTerm(term: PromptVocabularySearchItem): void {
-    if (selectedTermIds.includes(term.id)) return;
-    setSelectedTermIds((current) => [...current, term.id]);
-    setLockedTermIds((current) => [...current, term.id]);
-    setPrefabTerms((current) => [...current, term]);
+    setPrefabTerms((current) => {
+      const existing = current.find((item) => item.id === term.id);
+      if (existing) {
+        // Re-picking an excluded term restores it as a normal recommendation.
+        return existing.state === "excluded"
+          ? current.map((item) => (item.id === term.id ? { ...item, state: "recommended" } : item))
+          : current;
+      }
+      return [...current, { ...term, state: "recommended" }];
+    });
+  }
+
+  function setPrefabTermState(id: string, state: PrefabTermState): void {
+    setPrefabTerms((current) => current.map((term) => (term.id === id ? { ...term, state } : term)));
   }
 
   function removePrefabTerm(id: string): void {
-    setSelectedTermIds((current) => current.filter((item) => item !== id));
-    setLockedTermIds((current) => current.filter((item) => item !== id));
-    setPrefabTerms((current) => current.filter((item) => item.id !== id));
+    setPrefabTerms((current) => current.filter((term) => term.id !== id));
   }
 
   function clearPrefabTerms(): void {
-    setSelectedTermIds([]);
-    setLockedTermIds([]);
     setPrefabTerms([]);
   }
 
@@ -368,6 +397,8 @@ export function usePromptOrchestratorWorkbench() {
       loraIds: splitIds(loraIds),
       selectedTermIds,
       lockedTermIds,
+      referenceTermIds,
+      excludedTermIds,
       vocabularyTokenBudget,
       ...(mode === "edit" && editInstruction.trim()
         ? { editInstruction: editInstruction.trim() }
@@ -586,7 +617,8 @@ export function usePromptOrchestratorWorkbench() {
     editInstruction, setEditInstruction, subject, setSubject, setting, setSetting,
     seed, setSeed, mossLayout,
     video, updateVideo, referenceImages, setReferenceImages,
-    selectedTermIds, lockedTermIds, prefabTerms, addPrefabTerm, removePrefabTerm, clearPrefabTerms,
+    selectedTermIds, lockedTermIds, referenceTermIds, excludedTermIds,
+    prefabTerms, addPrefabTerm, removePrefabTerm, setPrefabTermState, clearPrefabTerms,
     vocabularyTokenBudget, setVocabularyTokenBudget,
     rightPanel, setRightPanel, result, error, isRunning, canRun, runBlockers, run,
     acceptReferenceFiles, pasteReferenceImage,

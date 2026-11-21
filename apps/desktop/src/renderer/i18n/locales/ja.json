@@ -4910,6 +4910,13 @@
     "generatingSkill": "Skill を生成中…",
     "generateSkill": "再利用可能な Skill を生成",
     "picker": {
+      "stateLabel": "語彙の状態",
+      "states": {
+        "locked": "固定",
+        "recommended": "推奨",
+        "reference": "参考",
+        "excluded": "除外"
+      },
       "all": "このページを全選択",
       "browseAll": "全語彙ライブラリ",
       "browseAllCount": "全 {{count}} 件を表示（ページ分割）",
@@ -4917,6 +4924,26 @@
         "missing": "中国語未訳",
         "originalName": "原名",
         "chineseOriginal": "中国語原文"
+      }
+    },
+    "trace": {
+      "tab": "語彙の追跡",
+      "state": "状態",
+      "term": "語彙",
+      "usage": "結果",
+      "excerpt": "プロンプトに入った断片",
+      "note": "固定・推奨は必須要件として書き込まれ、参考はモデルが判断して使います。ここには実際にプロンプトへ入った内容を表示します。",
+      "states": {
+        "locked": "固定",
+        "recommended": "推奨",
+        "reference": "参考",
+        "auto": "自動"
+      },
+      "results": {
+        "fixed": "固定挿入",
+        "verbatim": "再利用",
+        "adapted": "応用",
+        "absent": "未使用"
       }
     },
     "browser": {

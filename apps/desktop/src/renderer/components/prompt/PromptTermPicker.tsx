@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   BookOpenIcon,
-  LockIcon,
   Maximize2Icon,
   Minimize2Icon,
   XIcon,
@@ -28,17 +27,36 @@ import {
   resolvePresets,
 } from "./prompt-vocabulary-collections";
 
+type PickerTermState = "locked" | "recommended" | "reference" | "excluded";
+
+type PickerSelectedTerm = PromptVocabularySearchItem & { state?: PickerTermState };
+
 interface PromptTermPickerProps {
   series: string;
   seriesOptions: readonly string[];
-  selectedTerms: PromptVocabularySearchItem[];
+  selectedTerms: PickerSelectedTerm[];
   onSeriesChange: (value: string) => void;
   onAdd: (term: PromptVocabularySearchItem) => void;
   onRemove: (id: string) => void;
+  onStateChange?: (id: string, state: PickerTermState) => void;
   onClear: () => void;
   expanded?: boolean;
   onToggleExpanded?: () => void;
 }
+
+const TERM_STATES: readonly PickerTermState[] = [
+  "locked",
+  "recommended",
+  "reference",
+  "excluded",
+];
+
+const STATE_CHIP: Record<PickerTermState, string> = {
+  locked: "border-primary/40 bg-primary/10 text-primary",
+  recommended: "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  reference: "border-border bg-muted text-muted-foreground",
+  excluded: "border-border bg-transparent text-muted-foreground line-through",
+};
 
 const POOL_LIMIT = 5000;
 const SEARCH_LIMIT = 200;
@@ -64,6 +82,7 @@ export function PromptTermPicker({
   onSeriesChange,
   onAdd,
   onRemove,
+  onStateChange,
   onClear,
   expanded = false,
   onToggleExpanded,
@@ -279,7 +298,7 @@ export function PromptTermPicker({
   const chosen = selectedInCategory(activeCategory);
 
   const selectedGroups = useMemo(() => {
-    const grouped = new Map<string, PromptVocabularySearchItem[]>();
+    const grouped = new Map<string, PickerSelectedTerm[]>();
     for (const term of selectedTerms) {
       const bucket = grouped.get(term.category) ?? [];
       bucket.push(term);
@@ -689,24 +708,41 @@ export function PromptTermPicker({
               <span className="w-12 shrink-0 text-[10px] text-muted-foreground">
                 {t(`orchestrator.categories.${category}`, category)}
               </span>
-              {terms.map((term) => (
-                <span
-                  key={term.id}
-                  className="inline-flex max-w-full items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] text-primary"
-                >
-                  <LockIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-                  <span className="truncate">{formatTermLabel(term)}</span>
-                  <button
-                    type="button"
-                    aria-label={`${t("orchestrator.picker.remove")} ${term.en}`}
-                    onClick={() => onRemove(term.id)}
-                    className="shrink-0 opacity-70 hover:opacity-100"
-                    data-testid={`term-locked-${term.id}`}
+              {terms.map((term) => {
+                const state = term.state ?? "locked";
+                return (
+                  <span
+                    key={term.id}
+                    className={`inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-[11px] ${STATE_CHIP[state]}`}
                   >
-                    <XIcon className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
+                    <select
+                      value={state}
+                      aria-label={`${t("orchestrator.picker.stateLabel")} ${term.en}`}
+                      onChange={(event) =>
+                        onStateChange?.(term.id, event.target.value as PickerTermState)}
+                      disabled={!onStateChange}
+                      className="shrink-0 cursor-pointer bg-transparent text-[10px] uppercase tracking-wide outline-none disabled:cursor-default"
+                      data-testid={`term-state-${term.id}`}
+                    >
+                      {TERM_STATES.map((option) => (
+                        <option key={option} value={option}>
+                          {t(`orchestrator.picker.states.${option}`)}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="truncate">{formatTermLabel(term)}</span>
+                    <button
+                      type="button"
+                      aria-label={`${t("orchestrator.picker.remove")} ${term.en}`}
+                      onClick={() => onRemove(term.id)}
+                      className="shrink-0 opacity-70 hover:opacity-100"
+                      data-testid={`term-locked-${term.id}`}
+                    >
+                      <XIcon className="h-3 w-3" />
+                    </button>
+                  </span>
+                );
+              })}
             </div>
           ))}
         </div>

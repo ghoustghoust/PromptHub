@@ -4910,6 +4910,13 @@
     "generatingSkill": "Generando Skill…",
     "generateSkill": "Generar Skill reutilizable",
     "picker": {
+      "stateLabel": "Estado del término",
+      "states": {
+        "locked": "Bloqueado",
+        "recommended": "Recomendado",
+        "reference": "Referencia",
+        "excluded": "Excluido"
+      },
       "all": "Seleccionar esta página",
       "browseAll": "Vocabulario completo",
       "browseAllCount": "Ver los {{count}} términos (paginados, sin truncar)",
@@ -4917,6 +4924,26 @@
         "missing": "Aún sin chino",
         "originalName": "Nombre original",
         "chineseOriginal": "Texto original chino"
+      }
+    },
+    "trace": {
+      "tab": "Trazabilidad de términos",
+      "state": "Estado",
+      "term": "Término",
+      "usage": "Resultado",
+      "excerpt": "Fragmento en el prompt",
+      "note": "Los términos bloqueados y recomendados se insertan como requisitos fijos; los de referencia los usa el modelo a su criterio. Esta vista muestra lo que realmente entró en el prompt.",
+      "states": {
+        "locked": "Bloqueado",
+        "recommended": "Recomendado",
+        "reference": "Referencia",
+        "auto": "Automático"
+      },
+      "results": {
+        "fixed": "Fijo",
+        "verbatim": "Reutilizado",
+        "adapted": "Adaptado",
+        "absent": "No usado"
       }
     },
     "browser": {

@@ -4910,6 +4910,13 @@
     "generatingSkill": "正在產生 Skill…",
     "generateSkill": "產生可重用 Skill",
     "picker": {
+      "stateLabel": "詞條狀態",
+      "states": {
+        "locked": "鎖定",
+        "recommended": "推薦",
+        "reference": "參考",
+        "excluded": "排除"
+      },
       "all": "全選本頁",
       "browseAll": "完整詞庫",
       "browseAllCount": "瀏覽全部 {{count}} 條（分頁查看，不再截斷）",
@@ -4917,6 +4924,26 @@
         "missing": "暫無中文",
         "originalName": "原名",
         "chineseOriginal": "中文原文"
+      }
+    },
+    "trace": {
+      "tab": "詞條溯源",
+      "state": "狀態",
+      "term": "詞條",
+      "usage": "結果",
+      "excerpt": "進入提示詞的片段",
+      "note": "鎖定與推薦詞條由系統作為固定要求寫入；參考詞條是否採用由模型判斷。此處顯示實際進入提示詞的內容。",
+      "states": {
+        "locked": "鎖定",
+        "recommended": "推薦",
+        "reference": "參考",
+        "auto": "自動"
+      },
+      "results": {
+        "fixed": "固定寫入",
+        "verbatim": "重用",
+        "adapted": "借鑑",
+        "absent": "未採用"
       }
     },
     "browser": {

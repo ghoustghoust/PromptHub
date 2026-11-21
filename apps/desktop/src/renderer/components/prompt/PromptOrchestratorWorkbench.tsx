@@ -306,10 +306,11 @@ export function PromptOrchestratorWorkbench() {
     if (!humanLed) return;
     setWorkspaceTab(layoutMode ? "canvas" : "picker");
   }, [humanLed, layoutMode]);
+  const usablePrefabTerms = state.prefabTerms.filter((term) => term.state !== "excluded");
   const lockTermsIntoBox = () => {
     const box = state.mossLayout.selectedBox;
-    if (!box || state.prefabTerms.length === 0) return;
-    const addition = state.prefabTerms
+    if (!box || usablePrefabTerms.length === 0) return;
+    const addition = usablePrefabTerms
       .map((term) => term.template ?? term.en)
       .join(", ");
     state.mossLayout.updateBox(box.id, {
@@ -641,17 +642,17 @@ export function PromptOrchestratorWorkbench() {
                 <div className="flex min-h-0 flex-1 flex-col">
                   {layoutMode && workspaceTab === "canvas" ? (
                     <>
-                      {state.prefabTerms.length > 0 && (
+                      {usablePrefabTerms.length > 0 && (
                         <div
                           className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/60 bg-muted/10 px-3 py-2"
                           data-testid="orchestrator-canvas-terms"
                         >
                           <span className="text-[11px] text-muted-foreground">
                             {t("orchestrator.workspace.lockedHint", {
-                              count: state.prefabTerms.length,
+                              count: usablePrefabTerms.length,
                             })}
                           </span>
-                          {state.prefabTerms.slice(0, 8).map((term) => (
+                          {usablePrefabTerms.slice(0, 8).map((term) => (
                             <span
                               key={term.id}
                               className="max-w-[220px] truncate rounded bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary"
@@ -692,6 +693,7 @@ export function PromptOrchestratorWorkbench() {
                         onSeriesChange={state.setSeries}
                         onAdd={state.addPrefabTerm}
                         onRemove={state.removePrefabTerm}
+                        onStateChange={state.setPrefabTermState}
                         onClear={state.clearPrefabTerms}
                         expanded={pickerExpanded}
                         onToggleExpanded={() => {

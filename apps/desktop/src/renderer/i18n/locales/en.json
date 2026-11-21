@@ -4905,11 +4905,18 @@
       "meta": "Meta"
     },
     "picker": {
+      "stateLabel": "Term state",
+      "states": {
+        "locked": "Locked",
+        "recommended": "Recommended",
+        "reference": "Reference",
+        "excluded": "Excluded"
+      },
       "title": "Term picker",
-      "hint": "A selected term is locked as a direct requirement; unchecked candidates are inferred by the assistant.",
+      "hint": "A picked term starts as recommended; switch each chip to locked, reference or excluded.",
       "search": "Search terms",
       "searchPlaceholder": "English, Chinese, or a phrase fragment",
-      "selected": "{{count}} locked",
+      "selected": "{{count}} selected",
       "clear": "Clear",
       "empty": "No matching terms. Write the idea directly, or import vocabulary first.",
       "remove": "Unlock",
@@ -4964,6 +4971,26 @@
         "selectNone": "Select none",
         "loaded": "{{count}} locked",
         "empty": "No preset combos are available in this vocabulary yet"
+      }
+    },
+    "trace": {
+      "tab": "Term trace",
+      "state": "State",
+      "term": "Term",
+      "usage": "Result",
+      "excerpt": "Excerpt in prompt",
+      "note": "Locked and recommended terms are injected as fixed requirements; reference terms are used at the model's discretion. This view shows what actually entered the prompt.",
+      "states": {
+        "locked": "Locked",
+        "recommended": "Recommended",
+        "reference": "Reference",
+        "auto": "Auto"
+      },
+      "results": {
+        "fixed": "Fixed",
+        "verbatim": "Reused",
+        "adapted": "Adapted",
+        "absent": "Not used"
       }
     },
     "browser": {

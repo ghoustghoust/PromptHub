@@ -4903,11 +4903,18 @@
       "meta": "画幅"
     },
     "picker": {
+      "stateLabel": "词条状态",
+      "states": {
+        "locked": "锁定",
+        "recommended": "推荐",
+        "reference": "参考",
+        "excluded": "排除"
+      },
       "title": "选材台",
-      "hint": "勾选即锁定为直接要求；未勾选的候选由助手按意图推导。",
+      "hint": "选中词条默认标为推荐；可逐条切换为锁定、参考或排除。",
       "search": "搜索词条",
       "searchPlaceholder": "英文、中文或长句片段",
-      "selected": "已锁定 {{count}} 条",
+      "selected": "已选 {{count}} 条",
       "clear": "清空",
       "empty": "没有匹配词条。可以直接写想法，或先在词库导入词条。",
       "remove": "取消锁定",
@@ -4962,6 +4969,26 @@
         "selectNone": "全不选",
         "loaded": "已锁定 {{count}} 条",
         "empty": "当前词库还没有可用的预设组合"
+      }
+    },
+    "trace": {
+      "tab": "词条溯源",
+      "state": "状态",
+      "term": "词条",
+      "usage": "结果",
+      "excerpt": "进入提示词的片段",
+      "note": "锁定与推荐词条由系统作为固定要求写入；参考词条是否采用由模型判断。这里显示实际进入提示词的内容。",
+      "states": {
+        "locked": "锁定",
+        "recommended": "推荐",
+        "reference": "参考",
+        "auto": "自动"
+      },
+      "results": {
+        "fixed": "固定写入",
+        "verbatim": "复用",
+        "adapted": "借鉴",
+        "absent": "未采用"
       }
     },
     "browser": {

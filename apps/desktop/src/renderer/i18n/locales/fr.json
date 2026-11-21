@@ -4911,6 +4911,13 @@
     "generatingSkill": "Génération du Skill…",
     "generateSkill": "Générer un Skill réutilisable",
     "picker": {
+      "stateLabel": "État du terme",
+      "states": {
+        "locked": "Verrouillé",
+        "recommended": "Recommandé",
+        "reference": "Référence",
+        "excluded": "Exclu"
+      },
       "all": "Sélectionner cette page",
       "browseAll": "Vocabulaire complet",
       "browseAllCount": "Parcourir les {{count}} termes (pagination, sans troncature)",
@@ -4918,6 +4925,26 @@
         "missing": "Pas encore de chinois",
         "originalName": "Nom original",
         "chineseOriginal": "Texte source chinois"
+      }
+    },
+    "trace": {
+      "tab": "Traçabilité des termes",
+      "state": "État",
+      "term": "Terme",
+      "usage": "Résultat",
+      "excerpt": "Extrait dans le prompt",
+      "note": "Les termes verrouillés et recommandés sont injectés comme exigences fixes ; les termes de référence sont utilisés à la discrétion du modèle. Cette vue montre ce qui est réellement entré dans le prompt.",
+      "states": {
+        "locked": "Verrouillé",
+        "recommended": "Recommandé",
+        "reference": "Référence",
+        "auto": "Auto"
+      },
+      "results": {
+        "fixed": "Fixe",
+        "verbatim": "Réutilisé",
+        "adapted": "Adapté",
+        "absent": "Non utilisé"
       }
     },
     "browser": {

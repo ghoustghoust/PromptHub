@@ -19,7 +19,49 @@ import { PromptSkillDraftPanel } from "./PromptSkillDraftPanel";
 import { PromptMossLayoutResultView } from "./PromptMossLayoutResultView";
 import { PromptTermDecisionPanel } from "./PromptTermDecisionPanel";
 
-type ResultTab = "complete" | "decisions" | "initial" | "fields" | "skill";
+type ResultTab = "complete" | "decisions" | "terms" | "initial" | "fields" | "skill";
+
+type TermUsage = "fixed" | "verbatim" | "adapted" | "absent";
+
+interface TermTrace {
+  id: string;
+  label: string;
+  state: string;
+  usage: TermUsage;
+  excerpt: string;
+}
+
+function traceTerms(result: PromptOrchestrationResult): TermTrace[] {
+  return result.selectedTerms.map((term) => {
+    const label = term.template?.trim() || term.en;
+    const normalized = label.toLowerCase();
+    const linked = result.fields.filter((field) => field.termId === term.id);
+    const state = term.selectionReason === "reference"
+      ? "reference"
+      : term.selectionReason === "explicit"
+        ? term.locked ? "locked" : "recommended"
+        : "auto";
+    let usage: TermUsage;
+    if (term.selectionReason === "explicit") {
+      // The system injects explicit selections as fixed fields; the excerpt
+      // shows what actually entered the prompt, not what the model chose.
+      usage = linked.length > 0 ? "fixed" : "absent";
+    } else if (linked.length > 0) {
+      usage = linked.some((field) => field.value.trim().toLowerCase() === normalized)
+        ? "verbatim"
+        : "adapted";
+    } else {
+      usage = result.completePrompt.toLowerCase().includes(normalized) ? "verbatim" : "absent";
+    }
+    return {
+      id: term.id,
+      label,
+      state,
+      usage,
+      excerpt: linked[0]?.value ?? (usage === "verbatim" ? label : ""),
+    };
+  });
+}
 
 interface Props {
   result: PromptOrchestrationResult | null;
@@ -82,6 +124,11 @@ export function PromptOrchestratorResultPanel({
       label: t("orchestrator.dynamicPolish.tab"),
       disabled: !result?.termDecisions?.length,
     },
+    {
+      id: "terms",
+      label: t("orchestrator.trace.tab"),
+      disabled: !result?.selectedTerms.length,
+    },
     { id: "initial", label: t("orchestrator.initialPrompt") },
     { id: "fields", label: t("orchestrator.fields"), disabled: !result },
     { id: "skill", label: t("orchestrator.skillDraft"), disabled: !skillDraft },
@@ -136,7 +183,7 @@ export function PromptOrchestratorResultPanel({
             <Maximize2Icon className="h-3.5 w-3.5" aria-hidden="true" />
           )}
         </Button>
-        {result && tab !== "skill" && tab !== "fields" && tab !== "decisions" && (
+        {result && tab !== "skill" && tab !== "fields" && tab !== "decisions" && tab !== "terms" && (
           <Button
             size="sm"
             variant="ghost"
@@ -233,6 +280,42 @@ export function PromptOrchestratorResultPanel({
               {t("orchestrator.dynamicPolish.empty")}
             </p>
           )
+        ) : tab === "terms" ? (
+          <div className="space-y-3">
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full min-w-[520px] text-left text-xs">
+                <thead className="bg-muted/40 text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2">{t("orchestrator.trace.state")}</th>
+                    <th className="px-3 py-2">{t("orchestrator.trace.term")}</th>
+                    <th className="px-3 py-2">{t("orchestrator.trace.usage")}</th>
+                    <th className="px-3 py-2">{t("orchestrator.trace.excerpt")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {traceTerms(result).map((row) => (
+                    <tr key={row.id} className="border-b border-border align-top last:border-0">
+                      <td className="px-3 py-2">
+                        <span className="rounded bg-muted px-2 py-1 text-[11px]">
+                          {t(`orchestrator.trace.states.${row.state}`)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 font-medium">{row.label}</td>
+                      <td className="px-3 py-2">
+                        <span className="rounded bg-muted px-2 py-1 text-[11px]">
+                          {t(`orchestrator.trace.results.${row.usage}`)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 whitespace-pre-wrap text-muted-foreground">
+                        {row.excerpt}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[11px] text-muted-foreground">{t("orchestrator.trace.note")}</p>
+          </div>
         ) : tab === "initial" ? (
           <div className="space-y-2">
             <Textarea

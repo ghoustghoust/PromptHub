@@ -192,6 +192,37 @@ describe("PromptTermPicker", () => {
     fireEvent.click(screen.getByTestId("term-picker-clear"));
     expect(onClear).toHaveBeenCalledTimes(1);
   });
+
+  it("switches a picked term between locked, recommended, reference and excluded", async () => {
+    const onStateChange = vi.fn();
+    await renderWithI18n(
+      <PromptTermPicker
+        series=""
+        seriesOptions={[]}
+        selectedTerms={[
+          { ...term({ id: "s1", category: "style", en: "cinematic lighting" }), state: "recommended" },
+        ]}
+        onSeriesChange={() => undefined}
+        onAdd={() => undefined}
+        onRemove={() => undefined}
+        onStateChange={onStateChange}
+        onClear={() => undefined}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("term-state-s1")).toBeTruthy());
+    const select = screen.getByTestId("term-state-s1") as HTMLSelectElement;
+    expect(select.value).toBe("recommended");
+    expect([...select.options].map((option) => option.value)).toEqual([
+      "locked",
+      "recommended",
+      "reference",
+      "excluded",
+    ]);
+
+    fireEvent.change(select, { target: { value: "reference" } });
+    expect(onStateChange).toHaveBeenCalledWith("s1", "reference");
+  });
 });
 
 describe("PromptTermPicker collections", () => {

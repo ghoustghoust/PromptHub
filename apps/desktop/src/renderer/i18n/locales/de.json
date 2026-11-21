@@ -4910,6 +4910,13 @@
     "generatingSkill": "Skill wird generiert…",
     "generateSkill": "Wiederverwendbaren Skill generieren",
     "picker": {
+      "stateLabel": "Termstatus",
+      "states": {
+        "locked": "Gesperrt",
+        "recommended": "Empfohlen",
+        "reference": "Referenz",
+        "excluded": "Ausgeschlossen"
+      },
       "all": "Diese Seite auswählen",
       "browseAll": "Gesamtes Vokabular",
       "browseAllCount": "Alle {{count}} Begriffe ansehen (seitenweise, ungekürzt)",
@@ -4917,6 +4924,26 @@
         "missing": "Noch kein Chinesisch",
         "originalName": "Originalname",
         "chineseOriginal": "Chinesischer Quelltext"
+      }
+    },
+    "trace": {
+      "tab": "Begriff-Nachverfolgung",
+      "state": "Status",
+      "term": "Begriff",
+      "usage": "Ergebnis",
+      "excerpt": "Ausschnitt im Prompt",
+      "note": "Gesperrte und empfohlene Begriffe werden als feste Vorgaben eingesetzt; Referenzbegriffe nutzt das Modell nach eigenem Ermessen. Diese Ansicht zeigt, was tatsächlich in den Prompt gelangt ist.",
+      "states": {
+        "locked": "Gesperrt",
+        "recommended": "Empfohlen",
+        "reference": "Referenz",
+        "auto": "Automatisch"
+      },
+      "results": {
+        "fixed": "Fest",
+        "verbatim": "Übernommen",
+        "adapted": "Angepasst",
+        "absent": "Nicht verwendet"
       }
     },
     "browser": {

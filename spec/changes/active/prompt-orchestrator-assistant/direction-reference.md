@@ -136,6 +136,8 @@ typecheck/eslint/行数门禁达标。R1/R2 收敛测试于 2026-11-20 补齐：
 
 - 权威需求与验收：[design.md](design.md)
 - 本轮补充需求：[润色 · 动态检索与四策略对照](polish-dynamic-retrieval-requirements.md)
+- 人工驱动补充需求：[词条四态与决策溯源](human-led-term-states-requirements.md)
+- 检索评测基线与裁定输入：[retrieval-evaluation-results.md](retrieval-evaluation-results.md)
 - 实施交接与变更目录：[review-handoff.md](review-handoff.md)
 - 本机实测（派生·非权威）：[benchmark-results.md](../../../knowledge/understanding/ai-provider/benchmark-results.md)
 - 只读理解层：[spec/knowledge/understanding/](../../../knowledge/understanding/)

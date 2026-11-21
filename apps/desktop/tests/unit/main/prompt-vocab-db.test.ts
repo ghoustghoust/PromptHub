@@ -159,6 +159,24 @@ describe("PromptVocabDB (in-memory SQLite)", () => {
     expect(() => db.resolveTerms(["  "])).toThrow(/non-empty/);
   });
 
+  it("puts exact matches first and keeps the rest alphabetical", () => {
+    addTerm({ category: "lighting", en: "light" });
+    addTerm({ category: "lighting", en: "light rays" });
+    addTerm({ category: "lighting", en: "soft light" });
+    addTerm({ category: "lighting", en: "highlight" });
+    addTerm({ category: "lighting", en: "sunbeam", zh: "光" });
+
+    // An exact en/zh hit is guaranteed to be visible regardless of its
+    // alphabetical position; everything else keeps the stable en order.
+    expect(db.searchTerms({ query: "light" }).map((term) => term.en)).toEqual([
+      "light",
+      "highlight",
+      "light rays",
+      "soft light",
+    ]);
+    expect(db.searchTerms({ query: "光" }).map((term) => term.en)).toEqual(["sunbeam"]);
+  });
+
   it("defaults terms to shared and filters by subject domain", () => {
     const shared = addTerm({ category: "hair", en: "auburn hair" });
     addTerm({ category: "style", en: "cel shading", domain: "anime" });

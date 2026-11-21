@@ -541,11 +541,22 @@ export class PromptVocabDB {
       conditions.push("(series IS NULL OR series = ?)");
       params.push(requireText(input.series, "Search series"));
     }
-    if (input.query?.trim()) {
-      const query = requireText(input.query, "Search query").replace(/[\\%_]/g, "\\$&");
+    const hasQuery = Boolean(input.query?.trim());
+    // Exact hits first, then the existing alphabetical order. Prefix/word
+    // tiers were measured to displace mid-label matches in the picker's top
+    // rows, so only exactness is promoted here.
+    const relevanceSelect = `CASE
+        WHEN lower(en) = lower(?) OR lower(COALESCE(zh, '')) = lower(?) THEN 0
+        ELSE 1
+      END AS match_rank`;
+    const relevanceParams: string[] = [];
+    if (hasQuery) {
+      const rawQuery = requireText(input.query, "Search query");
+      const escaped = rawQuery.replace(/[\\%_]/g, "\\$&");
+      const pattern = `%${escaped}%`;
       conditions.push("(en LIKE ? ESCAPE '\\' OR zh LIKE ? ESCAPE '\\' OR template LIKE ? ESCAPE '\\')");
-      const pattern = `%${query}%`;
       params.push(pattern, pattern, pattern);
+      relevanceParams.push(rawQuery, rawQuery);
     }
     if (input.domain) {
       const domain = normalizeDomain(input.domain);
@@ -553,14 +564,14 @@ export class PromptVocabDB {
       conditions.push("(domain = ? OR domain = 'shared')");
       params.push(domain);
     }
-    params.push(limit);
     const rows = this.db
       .prepare(
-        `SELECT * FROM prompt_terms
+        `SELECT *${hasQuery ? `, ${relevanceSelect}` : ""} FROM prompt_terms
          WHERE ${conditions.join(" AND ")}
-         ORDER BY en ASC LIMIT ?`,
+         ORDER BY ${hasQuery ? "match_rank ASC, en ASC" : "en ASC"}
+         LIMIT ?`,
       )
-      .all(...params) as PromptTermRow[];
+      .all(...relevanceParams, ...params, limit) as PromptTermRow[];
     return rows.map((row) => ({
       id: row.id,
       category: row.category,

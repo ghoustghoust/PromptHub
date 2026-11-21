@@ -30,6 +30,7 @@ import { fileURLToPath } from "node:url";
 import {
   DEFAULT_LOCAL_LLAMA_CONFIG,
   buildLocalLlamaArgs,
+  normalizeLocalLlamaConfig,
 } from "../apps/desktop/src/main/services/local-llama-args";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -57,6 +58,7 @@ interface Args {
   out: string;
   label: string;
   attach: string;
+  configFile: string;
   keepServer: boolean;
 }
 
@@ -117,6 +119,7 @@ function parseArgs(argv: string[]): Args {
     out: read("out", ""),
     label: read("label", ""),
     attach: read("attach", ""),
+    configFile: read("config-file", ""),
     keepServer: argv.includes("--keep-server"),
   };
 }
@@ -441,6 +444,9 @@ function renderReport(
     add(`- 模式：attach ${args.attach}（服务端参数未由本脚本控制）`);
   }
   add(`- 提示：${args.promptFile ? `文件 ${args.promptFile}` : "内置固定提示"}`);
+  if (args.configFile) {
+    add(`- 配置来源：${args.configFile}`);
+  }
   add("");
   add("## 结果");
   add("");
@@ -508,6 +514,23 @@ async function gitHead(): Promise<string> {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
+  if (args.configFile) {
+    const parsed = JSON.parse(await fs.readFile(args.configFile, "utf8")) as unknown;
+    const config = normalizeLocalLlamaConfig(parsed);
+    const explicit = (flag: string): boolean => process.argv.includes(`--${flag}`);
+    if (!explicit("exe")) args.exe = config.executablePath;
+    if (!explicit("model")) args.model = config.modelPath;
+    if (!explicit("mmproj")) args.mmproj = config.mmprojPath;
+    if (!explicit("port")) args.port = config.port;
+    if (!explicit("ctx")) args.context = config.contextSize;
+    if (!explicit("ngl")) args.gpuLayers = config.gpuLayers;
+    if (!explicit("draft-max")) args.draftMax = config.mtpDraftMax;
+    console.log(
+      `[config] ${path.basename(args.configFile)}: model=${path.basename(args.model)} ` +
+      `ctx=${args.context} ngl=${args.gpuLayers} draft=${args.draftMax} ` +
+      `mmproj=${args.mmproj ? path.basename(args.mmproj) : "none"}`,
+    );
+  }
   if (args.attach) {
     args.out = args.out || path.join(ROOT, "outputs", `mtp-benchmark-${new Date().toISOString().slice(0, 10)}`);
     await fs.mkdir(args.out, { recursive: true });

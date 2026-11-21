@@ -594,8 +594,8 @@ describe("PromptOrchestrator dynamic polish", () => {
     expect(new Set(candidates).size).toBe(candidates.length);
   });
 
-  it("rejects dynamic candidates that conflict with locked terms", async () => {
-    const { llm } = scriptedLlm([
+  it("filters candidates that conflict with locked terms before presentation", async () => {
+    const { llm, calls } = scriptedLlm([
       planResponse([{ ...lightingQuery, query: "soft light" }]),
       finalComposition([
         {
@@ -612,10 +612,23 @@ describe("PromptOrchestrator dynamic polish", () => {
     const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(
       polishInput({ lockedTermIds: ["light-1"], selectedTermIds: ["light-1"] }),
     );
-    expect(result.status).toBe("degraded");
-    expect(result.warnings.join(" ")).toContain("conflicting vocabulary terms");
+    const group = retrievalGroups(calls[1])[0];
+    const offered = (group.candidates as Array<{ id: string }>).map((candidate) => candidate.id);
+    // The conflicting row never reaches the model, so the pick cannot turn into
+    // a whole-run fallback; it degrades to create with an explicit warning.
+    expect(offered).not.toContain("light-3");
+    expect(group.excludedConflicts).toEqual([
+      {
+        id: "light-3",
+        en: "soft light with gentle falloff across the wooden table",
+        conflictsWith: "light-1",
+      },
+    ]);
+    expect(result.status).toBe("complete");
+    expect(result.warnings.join(" ")).toContain("unavailable term id: light-3");
+    expect(result.termDecisions?.[0]?.strategy).toBe("create");
     expect(result.selectedTerms.map((term) => term.id)).toEqual(["light-1"]);
-    expect(result.completePrompt).toContain("soft light");
+    expect(result.termDecisions?.[0]?.output).toContain("soft light");
   });
 
   it("keeps layout polish on the deterministic static path", async () => {

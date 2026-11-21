@@ -411,15 +411,31 @@ function candidateCost(candidate: RankedTerm): number {
   return estimatePromptTokens(JSON.stringify(candidatePayload(candidate))) + 8;
 }
 
-function presentRetrieval(results: RetrievalResult[], budget: number): VisibleRetrieval {
+function presentRetrieval(
+  results: RetrievalResult[],
+  budget: number,
+  blockedConflicts: Map<string, string>,
+): VisibleRetrieval {
   const groups: unknown[] = [];
   const terms = new Map<string, PromptTerm>();
   let candidateCount = 0;
   const slotBudget = results.length > 0 ? Math.floor(budget / results.length) : 0;
   for (const result of results) {
     const candidates: Record<string, unknown>[] = [];
+    const excludedConflicts: Array<{ id: string; en: string; conflictsWith: string }> = [];
     let used = 0;
     for (const candidate of result.candidates) {
+      const conflictsWith = blockedConflicts.get(candidate.term.id);
+      if (conflictsWith) {
+        if (excludedConflicts.length < 8) {
+          excludedConflicts.push({
+            id: candidate.term.id,
+            en: candidate.term.en,
+            conflictsWith,
+          });
+        }
+        continue;
+      }
       const cost = candidateCost(candidate);
       if (budget <= 0 || used + cost > slotBudget) continue;
       used += cost;
@@ -437,6 +453,7 @@ function presentRetrieval(results: RetrievalResult[], budget: number): VisibleRe
       truncated: candidates.length < result.candidates.length,
       escalated: result.escalated,
       collapsedTerms: result.collapsed,
+      excludedConflicts,
       candidates,
     });
   }
@@ -452,7 +469,7 @@ function mergeResults(current: RetrievalResult[], followUp: RetrievalResult[]): 
 const QUERY_CONTRACT = `
 Each query must be {"slotId":"stable slot id","category":"allowed category","query":"semantic query","alternateQuery":"optional bilingual or alternate wording","purpose":"resolve | compare | inspire","depth":"exact | focused | exploratory"}.
 Allowed categories: ${RETRIEVAL_CATEGORIES.join(", ")}.
-Do not query artist, character or NSFW categories. Do not infer a named character or artist from appearance. Exact names and trigger words already supplied by the user must remain untouched. Short single-token queries are widened to exploratory depth automatically (the group carries escalated=true); collapsedTerms lists duplicate expressions merged into the top-ranked row, so reference only the surviving candidate ids.`;
+Do not query artist, character or NSFW categories. Do not infer a named character or artist from appearance. Exact names and trigger words already supplied by the user must remain untouched. Short single-token queries are widened to exploratory depth automatically (the group carries escalated=true); collapsedTerms lists duplicate expressions merged into the top-ranked row, so reference only the surviving candidate ids. Candidates that conflict with a user-selected or locked term are removed before presentation and listed under excludedConflicts; do not try to reintroduce them.`;
 
 function planMessages(options: DynamicPolishOptions): PromptCompositionMessages {
   const system = [
@@ -661,6 +678,15 @@ export async function runDynamicPolish(
 ): Promise<DynamicPolishResult> {
   const budget = options.input.vocabularyTokenBudget ?? 900;
   const retriever = new LexicalVocabularyRetriever(options.vocabulary, options.input);
+  // Conflicts with anything the user already selected are filtered before the
+  // model sees candidates; otherwise a plausible-looking conflicting row turns
+  // one bad pick into a full polish fallback.
+  const blockedConflicts = new Map<string, string>();
+  for (const term of options.explicitTerms) {
+    for (const conflictId of options.vocabulary.getConflicts(term.id)) {
+      blockedConflicts.set(conflictId, term.id);
+    }
+  }
   const plan = await options.llm.complete({
     messages: planMessages(options),
     mode: "polish",
@@ -678,7 +704,7 @@ export async function runDynamicPolish(
   let rounds = budget > 0 && initialQueries.length > 0 ? 1 : 0;
   let queryCount = rounds > 0 ? initialQueries.length : 0;
   let content = "";
-  let visible = presentRetrieval(results, budget);
+  let visible = presentRetrieval(results, budget, blockedConflicts);
 
   for (let round = 1; round <= 2; round += 1) {
     const allowFollowUp = round === 1 && budget > 0;
@@ -692,7 +718,7 @@ export async function runDynamicPolish(
     results = mergeResults(results, next);
     rounds += 1;
     queryCount += followUp.length;
-    visible = presentRetrieval(results, budget);
+    visible = presentRetrieval(results, budget, blockedConflicts);
   }
 
   const composition = parsePromptComposition(content, "polish", options.input.includePayload);

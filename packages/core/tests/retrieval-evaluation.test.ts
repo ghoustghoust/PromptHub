@@ -70,6 +70,7 @@ interface RetrievedCandidate {
   id: string;
   en: string;
   template: string | null;
+  relation?: string;
 }
 
 interface RetrievalGroup {
@@ -91,6 +92,17 @@ interface ClassMetrics {
   notes: string[];
   surfaceA?: Record<string, number>;
   surfaceB?: Record<string, number>;
+  /** Distribution of the top candidate relation label for this query class. */
+  relations?: Record<string, number>;
+}
+
+function countRelation(
+  counts: Record<string, number>,
+  group: RetrievalGroup | undefined,
+): void {
+  const relation = group?.candidates[0]?.relation;
+  if (!relation) return;
+  counts[relation] = (counts[relation] ?? 0) + 1;
 }
 
 let adapter: DatabaseAdapter.Database;
@@ -272,11 +284,13 @@ describe.skipIf(!dbPath)("vocabulary retrieval evaluation (isolated db)", () => 
     let recallA60 = 0;
     const failures: string[] = [];
     const antonymTop6: string[] = [];
+    const relations: Record<string, number> = {};
     for (const entry of sample) {
       const dynamic = await runDynamicRetrieval([
         { query: entry.term.en, category: entry.category, depth: "exact" },
       ]);
       const group = dynamic.groups[0];
+      countRelation(relations, group);
       const expectedKey = expressionKey(entry.term.en, entry.term.template);
       const top = group?.candidates[0];
       const topKey = top ? expressionKey(top.en, top.template) : "";
@@ -300,6 +314,7 @@ describe.skipIf(!dbPath)("vocabulary retrieval evaluation (isolated db)", () => 
       queries: sample.length,
       surfaceB: { expressionRankFirst: textRankFirst, idRankFirst, recallAt6: recallB6 },
       surfaceA: { recallAt6: recallA6, recallAt60: recallA60 },
+      relations,
       notes: [
         `antonymTermsInTop6:${antonymTop6.length}`,
         "identical expressions duplicated across import sources share rank 1 by normalized text; idRankFirst counts only the surviving deduplicated row",
@@ -320,9 +335,11 @@ describe.skipIf(!dbPath)("vocabulary retrieval evaluation (isolated db)", () => 
     }
     let recallB6 = 0;
     let recallA6 = 0;
+    const relations: Record<string, number> = {};
     for (const entry of zhSample) {
       const fragment = entry.zh.trim().slice(0, 4);
       const dynamic = await runDynamicRetrieval([{ query: fragment, category: entry.category }]);
+      countRelation(relations, dynamic.groups[0]);
       if (
         (dynamic.groups[0]?.candidates ?? []).some((candidate) => candidate.id === entry.term.id)
       ) {
@@ -334,6 +351,7 @@ describe.skipIf(!dbPath)("vocabulary retrieval evaluation (isolated db)", () => 
       queries: zhSample.length,
       surfaceB: { recallAt6: recallB6 },
       surfaceA: { recallAt6: recallA6 },
+      relations,
       notes: [`zhCoverageInSample:${zhSample.length}/${sample.length}`],
     };
     expect(zhSample.length).toBeGreaterThan(0);
@@ -348,10 +366,12 @@ describe.skipIf(!dbPath)("vocabulary retrieval evaluation (isolated db)", () => 
     }
     let recallB6 = 0;
     let recallA6 = 0;
+    const relations: Record<string, number> = {};
     for (const probe of probes) {
       const dynamic = await runDynamicRetrieval([
         { query: probe.word, category: probe.entry.category },
       ]);
+      countRelation(relations, dynamic.groups[0]);
       if (
         (dynamic.groups[0]?.candidates ?? []).some(
           (candidate) => candidate.id === probe.entry.term.id,
@@ -365,6 +385,7 @@ describe.skipIf(!dbPath)("vocabulary retrieval evaluation (isolated db)", () => 
       queries: probes.length,
       surfaceB: { recallAt6: recallB6 },
       surfaceA: { recallAt6: recallA6 },
+      relations,
       notes: [],
     };
     expect(probes.length).toBeGreaterThan(0);

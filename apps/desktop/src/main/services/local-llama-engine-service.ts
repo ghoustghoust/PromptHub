@@ -13,6 +13,7 @@ import {
 } from "@prompthub/shared/types";
 import { getUserDataPath } from "../runtime-paths";
 import { buildLocalLlamaArgs, normalizeLocalLlamaConfig } from "./local-llama-args";
+import { parseGgufMtpSupport, type GgufMtpSupport } from "./gguf-metadata";
 
 export { buildLocalLlamaArgs, normalizeLocalLlamaConfig };
 
@@ -186,6 +187,7 @@ export class LocalLlamaEngineService {
   private stopPromise: Promise<LocalLlamaEngineStatus> | null = null;
   private idleTimer: NodeJS.Timeout | null = null;
   private lastActivityAt = Date.now();
+  private readonly mtpSupportCache = new Map<string, GgufMtpSupport>();
 
   constructor(private readonly rootPath?: string) {}
 
@@ -259,6 +261,36 @@ export class LocalLlamaEngineService {
       this.message = `Released the local engine after ${minutes} minutes without requests.`;
     } catch {
       // Keep the engine alive if the unload could not be verified.
+    }
+  }
+
+  /** Detects integrated MTP heads from the GGUF metadata prefix (cached per file+mtimes). */
+  private async mtpSupport(modelPath: string): Promise<GgufMtpSupport> {
+    try {
+      const stat = await fs.stat(modelPath);
+      const key = `${modelPath}:${stat.mtimeMs}`;
+      const cached = this.mtpSupportCache.get(key);
+      if (cached) return cached;
+      const handle = await fs.open(modelPath, "r");
+      try {
+        const readPrefix = async (bytes: number): Promise<GgufMtpSupport> => {
+          const buffer = Buffer.alloc(bytes);
+          const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+          return parseGgufMtpSupport(buffer.subarray(0, bytesRead));
+        };
+        let result = await readPrefix(4 * 1024 * 1024);
+        // Tokenizer arrays can push the metadata end past 4 MB; widen once
+        // before concluding that an MTP head is absent.
+        if (result === "unknown" && stat.size > 4 * 1024 * 1024) {
+          result = await readPrefix(Math.min(64 * 1024 * 1024, stat.size));
+        }
+        this.mtpSupportCache.set(key, result);
+        return result;
+      } finally {
+        await handle.close();
+      }
+    } catch {
+      return "unknown";
     }
   }
 
@@ -402,6 +434,19 @@ export class LocalLlamaEngineService {
     await assertRegularFile(config.executablePath, "llama-server executable");
     await assertRegularFile(config.modelPath, "GGUF model");
     if (config.mmprojPath) await assertRegularFile(config.mmprojPath, "mmproj projector");
+
+    if (config.mtpEnabled) {
+      const support = await this.mtpSupport(config.modelPath);
+      if (support === "unsupported") {
+        const message =
+          "This GGUF has no MTP head (nextn_predict_layers is missing or 0). " +
+          "Disable MTP or choose an MTP-capable model.";
+        this.phase = "error";
+        this.managed = false;
+        this.message = message;
+        throw new Error(message);
+      }
+    }
 
     const vramProblem = await this.checkVram(config);
     if (vramProblem) {

@@ -25,6 +25,23 @@ export function registerNativeShellIPC(): void {
     });
   });
 
+  ipcMain.handle("shell:openExternal", async (_event, target: unknown) => {
+    if (typeof target !== "string" || !target.trim()) {
+      throw new Error("shell:openExternal requires a non-empty URL");
+    }
+    let url: URL;
+    try {
+      url = new URL(target.trim());
+    } catch {
+      throw new Error("shell:openExternal requires an absolute URL");
+    }
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new Error("shell:openExternal only opens http(s) URLs");
+    }
+    await shell.openExternal(url.toString());
+    return true;
+  });
+
   ipcMain.handle(
     "notification:show",
     async (_event, options: { title: string; body: string }) => {

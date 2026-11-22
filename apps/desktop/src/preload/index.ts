@@ -259,6 +259,7 @@ contextBridge.exposeInMainWorld("electron", {
   selectMcpConfigFile: () => ipcRenderer.invoke("dialog:selectMcpConfigFile"),
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   openPath: (path: string) => ipcRenderer.invoke("shell:openPath", path),
+  openExternal: (url: string) => ipcRenderer.invoke("shell:openExternal", url),
   showNotification: (title: string, body: string) =>
     ipcRenderer.invoke("notification:show", { title, body }),
   applicationNotifications,
@@ -602,6 +603,7 @@ declare global {
       openPath?: (
         path: string,
       ) => Promise<{ success: boolean; error?: string }>;
+      openExternal?: (url: string) => Promise<boolean>;
       showNotification?: (title: string, body: string) => Promise<boolean>;
       applicationNotifications?: typeof applicationNotifications;
       // Data directory

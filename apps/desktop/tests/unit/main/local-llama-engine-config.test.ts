@@ -62,4 +62,32 @@ describe("local llama engine config", () => {
       /Idle unload/,
     );
   });
+
+  it("validates model profiles and the ComfyUI address", () => {
+    const config = normalizeLocalLlamaConfig({
+      modelProfiles: [
+        { id: "p1", name: "MTP 9B", modelPath: "G:\\models\\mtp.gguf", mtpEnabled: true },
+      ],
+    });
+    expect(config.modelProfiles[0]).toMatchObject({
+      id: "p1",
+      name: "MTP 9B",
+      contextSize: 8192,
+      gpuLayers: 99,
+      mtpEnabled: true,
+      mtpDraftMax: 2,
+    });
+    expect(() =>
+      normalizeLocalLlamaConfig({
+        modelProfiles: [{ id: "", name: "bad", modelPath: "x.gguf" }],
+      }),
+    ).toThrow(/id and a name/);
+    expect(() =>
+      normalizeLocalLlamaConfig({
+        modelProfiles: [{ id: "p", name: "bad" }],
+      }),
+    ).toThrow(/model path/);
+    expect(normalizeLocalLlamaConfig({ comfyUrl: "" }).comfyUrl).toBe("");
+    expect(() => normalizeLocalLlamaConfig({ comfyUrl: "file:///x" })).toThrow(/http/);
+  });
 });

@@ -2,6 +2,7 @@ import {
   DEFAULT_LOCAL_LLAMA_CONFIG,
   type LocalLlamaEngineConfig,
   type LocalLlamaKvCacheType,
+  type LocalLlamaModelProfile,
 } from "@prompthub/shared/types";
 
 const LOCAL_MODEL_ALIAS = "prompthub-local";
@@ -41,6 +42,50 @@ function readBoolean(value: unknown, fallback: boolean): boolean {
   if (value === undefined) return fallback;
   if (typeof value !== "boolean") throw new Error("Invalid local engine toggle");
   return value;
+}
+
+function readUrl(value: unknown, fallback: string): string {
+  if (value === undefined) return fallback;
+  if (typeof value !== "string" || value.includes("\0")) {
+    throw new Error("ComfyUI URL must be a valid string");
+  }
+  const url = value.trim();
+  if (!url) return "";
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("ComfyUI URL must be an absolute http(s) URL");
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("ComfyUI URL must be an absolute http(s) URL");
+  }
+  return parsed.toString();
+}
+
+function readProfiles(value: unknown): LocalLlamaModelProfile[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 20) {
+    throw new Error("Model profiles must be an array of at most 20 items");
+  }
+  return value.map((entry, index) => {
+    if (!isRecord(entry)) throw new Error(`Model profile ${index} must be an object`);
+    const id = readPath(entry.id);
+    const name = readPath(entry.name);
+    if (!id || !name) throw new Error(`Model profile ${index} needs an id and a name`);
+    const modelPath = readPath(entry.modelPath);
+    if (!modelPath) throw new Error(`Model profile ${index} needs a model path`);
+    return {
+      id,
+      name,
+      modelPath,
+      mmprojPath: readPath(entry.mmprojPath),
+      contextSize: readInteger(entry.contextSize, 8192, "Profile context size", 512, 262144),
+      gpuLayers: readInteger(entry.gpuLayers, 99, "Profile GPU layers", -1, 999),
+      mtpEnabled: readBoolean(entry.mtpEnabled, false),
+      mtpDraftMax: readInteger(entry.mtpDraftMax, 2, "Profile MTP draft tokens", 1, 8),
+    };
+  });
 }
 
 export function normalizeLocalLlamaConfig(
@@ -91,6 +136,8 @@ export function normalizeLocalLlamaConfig(
       0,
       240,
     ),
+    modelProfiles: readProfiles(value.modelProfiles),
+    comfyUrl: readUrl(value.comfyUrl, defaults.comfyUrl),
   };
 }
 

@@ -1,5 +1,17 @@
 export type LocalLlamaKvCacheType = "f16" | "q8_0" | "q4_0";
 
+/** Saved model preset: paths plus the parameters that depend on the model. */
+export interface LocalLlamaModelProfile {
+  id: string;
+  name: string;
+  modelPath: string;
+  mmprojPath: string;
+  contextSize: number;
+  gpuLayers: number;
+  mtpEnabled: boolean;
+  mtpDraftMax: number;
+}
+
 export interface LocalLlamaEngineConfig {
   executablePath: string;
   modelPath: string;
@@ -18,6 +30,10 @@ export interface LocalLlamaEngineConfig {
   imageMaxTokens: number;
   /** Release the engine after this many idle minutes; 0 keeps it resident. */
   idleUnloadMinutes: number;
+  /** Saved model presets shown in Settings. */
+  modelProfiles: LocalLlamaModelProfile[];
+  /** Address opened by the "release and open ComfyUI" action. */
+  comfyUrl: string;
 }
 
 export type LocalLlamaEnginePhase =
@@ -73,6 +89,8 @@ export const DEFAULT_LOCAL_LLAMA_CONFIG: LocalLlamaEngineConfig = {
   mtpDraftMax: 2,
   imageMaxTokens: 2048,
   idleUnloadMinutes: 0,
+  modelProfiles: [],
+  comfyUrl: "http://127.0.0.1:8288",
 };
 
 export function localLlamaEndpoint(port: number): string {

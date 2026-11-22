@@ -129,3 +129,37 @@ export interface PromptKbImportResult {
   assets: number;
   skipped: number;
 }
+
+export type PromptTermAliasKind = "canonical" | "series_less" | "zh" | "curated";
+export type PromptTermAliasOrigin = "derived" | "curated";
+
+/** One alternative spelling that resolves to a stored term. */
+export interface PromptTermAlias {
+  id: number;
+  termId: string;
+  alias: string;
+  /** Normalized lookup key (`normalizeEntityKey`). */
+  aliasKey: string;
+  kind: PromptTermAliasKind;
+  origin: PromptTermAliasOrigin;
+  createdAt: string;
+}
+
+export interface CreatePromptTermAliasDTO {
+  termId: string;
+  alias: string;
+  kind: PromptTermAliasKind;
+  origin?: PromptTermAliasOrigin;
+  createdAt?: string;
+}
+
+/** Alias row joined with the term it identifies. */
+export interface PromptTermAliasMatch extends PromptTermAlias {
+  category: string;
+  subcategory: string | null;
+  en: string;
+  zh: string | null;
+  series: string | null;
+  domain: PromptTermDomain;
+  validationStatus: PromptTermValidationStatus;
+}

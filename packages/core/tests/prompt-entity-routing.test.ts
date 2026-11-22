@@ -75,6 +75,7 @@ beforeEach(() => {
   });
   seed({ id: "char-wb", category: "character", en: "ganyu", zh: "甘雨" });
   seed({ id: "char-raid", category: "character", subcategory: "原神", en: "raiden shogun", zh: "雷电将军" });
+  seed({ id: "char-dusk", category: "character", subcategory: "明日方舟", en: "dusk (arknights)", zh: "夕" });
   seed({ id: "char-tag", category: "character", subcategory: "对象", en: "1girl", zh: "1女孩" });
   seed({ id: "artist-at", category: "artist", subcategory: "厚涂/半厚涂", en: "@wlop" });
   seed({ id: "artist-dan", category: "artist", subcategory: "danbooru", en: "wlop" });
@@ -169,6 +170,18 @@ describe("prompt entity resolution", () => {
   it("never resolves deprecated rows or generic identity tags", () => {
     expect(resolvePromptEntities({ vocabulary, prompt: "retired hero" })).toEqual([]);
     expect(resolvePromptEntities({ vocabulary, prompt: "1girl solo" })).toEqual([]);
+  });
+
+  it("keeps a bare word that happens to be a character name as written", () => {
+    const entities = resolvePromptEntities({ vocabulary, prompt: "a garden at dusk" });
+    expect(entities.find((entity) => entity.mention.text === "dusk")).toBeUndefined();
+  });
+
+  it("still resolves a multi-word name without an explicit marker", () => {
+    const entities = resolvePromptEntities({ vocabulary, prompt: "raiden shogun at dusk" });
+    expect(entities.find((entity) => entity.mention.text === "raiden shogun")?.status).toBe(
+      "resolved",
+    );
   });
 });
 

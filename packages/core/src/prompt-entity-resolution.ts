@@ -175,6 +175,12 @@ function groupIdentities(rows: AliasRow[]): IdentityGroup[] {
   return [...groups.values()];
 }
 
+/** A bare lowercase-ish word can also be an ordinary noun (`dusk`). */
+function isSinglePlainToken(text: string): boolean {
+  const trimmed = text.trim();
+  return /^[A-Za-z0-9'’._-]+$/.test(trimmed);
+}
+
 function preferredRow(rows: AliasRow[]): AliasRow {
   return rows
     .slice()
@@ -257,9 +263,9 @@ export function resolvePromptEntities(
     if (accepted.length >= limit) break;
   }
 
-  return accepted
+  const resolutions = accepted
     .sort((left, right) => left.start - right.start)
-    .map((mention) => {
+    .map((mention): PromptEntityResolution | null => {
       const groups = groupIdentities(byKey.get(mention.key) ?? []);
       const candidates = groups
         .map(candidateFrom)
@@ -275,9 +281,14 @@ export function resolvePromptEntities(
       };
       const only = candidates.length === 1 ? candidates[0] : undefined;
       if (only) {
+        // `dusk garden` must not pin the Arknights character `dusk`: a plain
+        // single token has no identity signal, so it stays as written.
+        if (mention.signal === "alias" && isSinglePlainToken(mention.text)) {
+          return null;
+        }
         return {
           ...base,
-          status: "resolved",
+          status: "resolved" as const,
           termId: only.termIds[0],
           displayName: only.displayName,
           reason: `Resolved by ${mention.signal} alias lookup.`,
@@ -286,14 +297,16 @@ export function resolvePromptEntities(
       if (candidates.length === 0) {
         return {
           ...base,
-          status: "unresolved",
+          status: "unresolved" as const,
           reason: `No alias row matched "${mention.text}".`,
         };
       }
       return {
         ...base,
-        status: "ambiguous",
+        status: "ambiguous" as const,
         reason: `"${mention.text}" matches ${candidates.length} distinct identities; choose one instead of guessing.`,
       };
-    });
+    })
+    .filter((resolution): resolution is PromptEntityResolution => resolution !== null);
+  return resolutions;
 }

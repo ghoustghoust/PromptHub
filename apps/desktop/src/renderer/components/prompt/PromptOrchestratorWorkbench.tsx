@@ -431,6 +431,25 @@ export function PromptOrchestratorWorkbench() {
             options={modeOptions}
             onChange={(value) => state.setMode(value as WorkbenchState["mode"])}
           />
+          {!videoTask && (
+            <div className="space-y-1">
+              <SelectControl
+                label={t("orchestrator.targetPipeline")}
+                value={state.targetPipeline}
+                options={[
+                  { value: "", label: t("orchestrator.pipelines.follow") },
+                  { value: "anima", label: t("orchestrator.pipelines.anima") },
+                  { value: "kaloscope", label: t("orchestrator.pipelines.kaloscope") },
+                ]}
+                onChange={(value) =>
+                  state.setTargetPipeline(value as WorkbenchState["targetPipeline"])
+                }
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {t("orchestrator.targetPipelineHint")}
+              </p>
+            </div>
+          )}
           <div className="space-y-1 rounded-lg border border-primary/20 bg-primary/5 p-3" data-testid="orchestrator-mode-guide">
             <p className="text-xs font-medium text-primary">{t(`orchestrator.modeDetails.${state.mode}`)}</p>
             <p className="text-xs text-muted-foreground">{t(`orchestrator.modeInputs.${state.mode}`)}</p>

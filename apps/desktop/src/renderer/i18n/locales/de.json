@@ -4981,6 +4981,57 @@
       "fixed": "Feste Anforderung",
       "flexible": "Begründete Ableitung",
       "optional": "Kreativer Vorschlag"
+    },
+    "targetPipeline": "Künstler-Pipeline",
+    "targetPipelineHint": "Anima schreibt @artist; Kaloscope nutzt Knotenparameter; andere Regelkarten routen automatisch.",
+    "pipelines": {
+      "follow": "Regelkarte folgen",
+      "anima": "Anima (@artist)",
+      "kaloscope": "Kaloscope (Knotenparameter)"
+    },
+    "entityPanel": {
+      "tab": "Entitäten",
+      "title": "Entitäten und Stil-Injektion",
+      "entities": "Entitätenauflösung",
+      "mention": "Erwähnung",
+      "status": "Auflösung",
+      "identity": "Identität",
+      "statuses": {
+        "resolved": "Aufgelöst",
+        "ambiguous": "Auswahl nötig",
+        "unresolved": "Nicht in der Bibliothek"
+      },
+      "ambiguousHint": "Mehrere Identitäten passen; das System hat keine ausgewählt.",
+      "candidates": "Kandidaten",
+      "notInLibrary": "Nicht im Wortschatz; der Originaltext bleibt erhalten.",
+      "appearanceSeparate": "Aussehen wird nicht mit der Identität geladen",
+      "styleInjection": "Künstler-Stil-Injektion",
+      "promptToken": "Im Prompt",
+      "notInPrompt": "Nicht im Prompt",
+      "routeNote": "Der Künstler wird über die Ziel-Pipeline verarbeitet; Prompttext und Knotenparameter getrennt halten.",
+      "createAllowed": "Erstellung erlaubt",
+      "createBlocked": "Erstellung gesperrt",
+      "paths": {
+        "lexical": "Lexikalische Suche",
+        "hybrid": "Identität + Suche",
+        "entity-only": "Nur Identitäten"
+      },
+      "pipelines": {
+        "anima": "Anima",
+        "kaloscope": "Kaloscope",
+        "moss": "MOSS",
+        "k2": "Krea 2",
+        "h3": "MiniMax-H3",
+        "unknown": "Nicht angegeben"
+      },
+      "fields": {
+        "artistName": "artist_name",
+        "bank": "bank",
+        "styleGuidance": "style_guidance",
+        "adapterStrength": "adapter_strength",
+        "baseModel": "Basismodell"
+      },
+      "empty": "Dieses Ergebnis enthält keine aufgelösten Entitäten oder Künstler-Routen."
     }
   },
   "generation": {

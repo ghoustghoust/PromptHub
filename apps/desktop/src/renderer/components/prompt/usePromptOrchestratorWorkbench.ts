@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
+  PromptArtistPipeline,
   PromptGuidanceMode,
   PromptOrchestrationInput,
   PromptOrchestrationMode,
@@ -69,6 +70,7 @@ export function usePromptOrchestratorWorkbench() {
   const [prompt, setPrompt] = useState("");
   const [mode, setMode] = useState<PromptOrchestrationMode>("expand");
   const [skill, setSkill] = useState<PromptOrchestrationSkill>("moodyMoss");
+  const [targetPipeline, setTargetPipeline] = useState<PromptArtistPipeline | "">("");
   const [guidanceMode, setGuidanceMode] = useState<PromptGuidanceMode>("agent-led");
   const [outputFormat, setOutputFormat] = useState<PromptOrchestrationOutputFormat>("caption");
   const [includePayload, setIncludePayload] = useState(false);
@@ -414,6 +416,7 @@ export function usePromptOrchestratorWorkbench() {
       prompt: prompt.trim() || undefined,
       mode,
       skill,
+      ...(targetPipeline ? { targetPipeline } : {}),
       guidanceMode,
       ...(systemLayer.trim()
         ? {
@@ -655,6 +658,7 @@ export function usePromptOrchestratorWorkbench() {
 
   return {
     prompt, setPrompt, mode, setMode: changeMode, skill, setSkill: changeSkill,
+    targetPipeline, setTargetPipeline,
     guidanceMode, setGuidanceMode: changeGuidance,
     outputFormat, setOutputFormat, includePayload, setIncludePayload,
     series, setSeries, domain, setDomain, seriesOptions,

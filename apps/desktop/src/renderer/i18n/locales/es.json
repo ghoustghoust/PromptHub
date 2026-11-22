@@ -4981,6 +4981,57 @@
       "fixed": "Requisito explícito",
       "flexible": "Deducción razonable",
       "optional": "Sugerencia creativa"
+    },
+    "targetPipeline": "Canal del artista",
+    "targetPipelineHint": "Anima escribe @artist; Kaloscope usa parámetros del nodo; las demás tarjetas se enrutan automáticamente.",
+    "pipelines": {
+      "follow": "Seguir la tarjeta",
+      "anima": "Anima (@artist)",
+      "kaloscope": "Kaloscope (parámetros del nodo)"
+    },
+    "entityPanel": {
+      "tab": "Entidades",
+      "title": "Entidades e inyección de estilo",
+      "entities": "Resolución de entidades",
+      "mention": "Mención",
+      "status": "Resolución",
+      "identity": "Identidad",
+      "statuses": {
+        "resolved": "Resuelta",
+        "ambiguous": "Requiere elección",
+        "unresolved": "No está en la biblioteca"
+      },
+      "ambiguousHint": "Varias identidades coinciden; el sistema no ha elegido una.",
+      "candidates": "Candidatos",
+      "notInLibrary": "No está en el vocabulario; se conserva el texto original.",
+      "appearanceSeparate": "La apariencia no se carga con la identidad",
+      "styleInjection": "Inyección de estilo del artista",
+      "promptToken": "En el prompt",
+      "notInPrompt": "Fuera del prompt",
+      "routeNote": "El artista se gestiona en el canal de destino; mantén separados el texto y los parámetros del nodo.",
+      "createAllowed": "Creación permitida",
+      "createBlocked": "Creación bloqueada",
+      "paths": {
+        "lexical": "Búsqueda léxica",
+        "hybrid": "Identidad + búsqueda",
+        "entity-only": "Solo identidades"
+      },
+      "pipelines": {
+        "anima": "Anima",
+        "kaloscope": "Kaloscope",
+        "moss": "MOSS",
+        "k2": "Krea 2",
+        "h3": "MiniMax-H3",
+        "unknown": "Sin especificar"
+      },
+      "fields": {
+        "artistName": "artist_name",
+        "bank": "bank",
+        "styleGuidance": "style_guidance",
+        "adapterStrength": "adapter_strength",
+        "baseModel": "Modelo base"
+      },
+      "empty": "Este resultado no tiene entidades resueltas ni enrutado de artista."
     }
   },
   "generation": {

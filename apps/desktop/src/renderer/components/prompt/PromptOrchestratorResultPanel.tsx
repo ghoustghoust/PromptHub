@@ -18,8 +18,9 @@ import { PromptComparisonView } from "./PromptComparisonView";
 import { PromptSkillDraftPanel } from "./PromptSkillDraftPanel";
 import { PromptMossLayoutResultView } from "./PromptMossLayoutResultView";
 import { PromptTermDecisionPanel } from "./PromptTermDecisionPanel";
+import { PromptEntityResolutionPanel } from "./PromptEntityResolutionPanel";
 
-type ResultTab = "complete" | "decisions" | "terms" | "initial" | "fields" | "skill";
+type ResultTab = "complete" | "decisions" | "terms" | "entities" | "initial" | "fields" | "skill";
 
 type TermUsage = "fixed" | "verbatim" | "adapted" | "absent";
 
@@ -129,6 +130,14 @@ export function PromptOrchestratorResultPanel({
       label: t("orchestrator.trace.tab"),
       disabled: !result?.selectedTerms.length,
     },
+    {
+      id: "entities",
+      label: t("orchestrator.entityPanel.tab"),
+      disabled: !result
+        ? true
+        : (result.entityResolutions?.length ?? 0) === 0 &&
+          (result.artistRoutes?.length ?? 0) === 0,
+    },
     { id: "initial", label: t("orchestrator.initialPrompt") },
     { id: "fields", label: t("orchestrator.fields"), disabled: !result },
     { id: "skill", label: t("orchestrator.skillDraft"), disabled: !skillDraft },
@@ -183,7 +192,7 @@ export function PromptOrchestratorResultPanel({
             <Maximize2Icon className="h-3.5 w-3.5" aria-hidden="true" />
           )}
         </Button>
-        {result && tab !== "skill" && tab !== "fields" && tab !== "decisions" && tab !== "terms" && (
+        {result && tab !== "skill" && tab !== "fields" && tab !== "decisions" && tab !== "terms" && tab !== "entities" && (
           <Button
             size="sm"
             variant="ghost"
@@ -216,6 +225,21 @@ export function PromptOrchestratorResultPanel({
               <span className="rounded-md bg-muted px-2 py-1 text-muted-foreground">
                 {t("orchestrator.completeTokens")}: {result.tokenMetrics.completePromptTokens}
               </span>
+              {result.routePlan && (
+                <span className="rounded-md bg-muted px-2 py-1 text-muted-foreground">
+                  {t(`orchestrator.entityPanel.paths.${result.routePlan.path}`)}
+                </span>
+              )}
+              {(result.entityResolutions?.length ?? 0) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setTab("entities")}
+                  className="rounded-md bg-muted px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  data-testid="orchestrator-entity-chip"
+                >
+                  {t("orchestrator.entityPanel.entities")}: {result.entityResolutions?.length}
+                </button>
+              )}
             </div>
             {result.status === "degraded" && (
               <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-300">
@@ -316,6 +340,8 @@ export function PromptOrchestratorResultPanel({
             </div>
             <p className="text-[11px] text-muted-foreground">{t("orchestrator.trace.note")}</p>
           </div>
+        ) : tab === "entities" ? (
+          <PromptEntityResolutionPanel result={result} />
         ) : tab === "initial" ? (
           <div className="space-y-2">
             <Textarea

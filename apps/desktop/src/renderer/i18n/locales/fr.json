@@ -4982,6 +4982,57 @@
       "fixed": "Exigence explicite",
       "flexible": "Déduction raisonnable",
       "optional": "Suggestion créative"
+    },
+    "targetPipeline": "Pipeline d'artiste",
+    "targetPipelineHint": "Anima écrit @artist ; Kaloscope utilise les paramètres du nœud ; les autres fiches s'appliquent automatiquement.",
+    "pipelines": {
+      "follow": "Suivre la fiche de règles",
+      "anima": "Anima (@artist)",
+      "kaloscope": "Kaloscope (paramètres du nœud)"
+    },
+    "entityPanel": {
+      "tab": "Entités",
+      "title": "Entités et injection de style",
+      "entities": "Résolution des entités",
+      "mention": "Mention",
+      "status": "Résolution",
+      "identity": "Identité",
+      "statuses": {
+        "resolved": "Résolu",
+        "ambiguous": "Choix requis",
+        "unresolved": "Absent de la base"
+      },
+      "ambiguousHint": "Plusieurs identités correspondent ; le système n'en a pas choisi une.",
+      "candidates": "Candidats",
+      "notInLibrary": "Absent du vocabulaire ; le texte d'origine est conservé.",
+      "appearanceSeparate": "L'apparence n'est pas chargée avec l'identité",
+      "styleInjection": "Injection du style d'artiste",
+      "promptToken": "Dans le prompt",
+      "notInPrompt": "Hors du prompt",
+      "routeNote": "L'artiste est traité par le pipeline cible ; gardez le texte du prompt et les paramètres du nœud séparés.",
+      "createAllowed": "Création autorisée",
+      "createBlocked": "Création bloquée",
+      "paths": {
+        "lexical": "Recherche lexicale",
+        "hybrid": "Identité + recherche",
+        "entity-only": "Identités seules"
+      },
+      "pipelines": {
+        "anima": "Anima",
+        "kaloscope": "Kaloscope",
+        "moss": "MOSS",
+        "k2": "Krea 2",
+        "h3": "MiniMax-H3",
+        "unknown": "Non précisé"
+      },
+      "fields": {
+        "artistName": "artist_name",
+        "bank": "bank",
+        "styleGuidance": "style_guidance",
+        "adapterStrength": "adapter_strength",
+        "baseModel": "Modèle de base"
+      },
+      "empty": "Ce résultat ne contient ni entité résolue ni routage d'artiste."
     }
   },
   "generation": {

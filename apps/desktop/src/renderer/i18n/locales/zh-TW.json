@@ -4981,6 +4981,57 @@
       "fixed": "直接要求",
       "flexible": "合理推導",
       "optional": "創意建議"
+    },
+    "targetPipeline": "畫師注入管線",
+    "targetPipelineHint": "Anima 寫 @artist；Kaloscope 只用節點參數；其餘依規則卡自動處理。",
+    "pipelines": {
+      "follow": "跟隨規則卡",
+      "anima": "Anima（@artist）",
+      "kaloscope": "Kaloscope（節點參數）"
+    },
+    "entityPanel": {
+      "tab": "實體",
+      "title": "實體與風格注入",
+      "entities": "實體解析",
+      "mention": "提及",
+      "status": "解析",
+      "identity": "身分",
+      "statuses": {
+        "resolved": "已解析",
+        "ambiguous": "待選擇",
+        "unresolved": "未收錄"
+      },
+      "ambiguousHint": "比對到多個身分，系統沒有替你選擇。",
+      "candidates": "候選",
+      "notInLibrary": "詞庫未收錄，原文保留。",
+      "appearanceSeparate": "外觀不隨身分自動載入",
+      "styleInjection": "畫師風格注入",
+      "promptToken": "寫入提示詞",
+      "notInPrompt": "不寫入提示詞",
+      "routeNote": "畫師依目標管線處理，正文與節點參數分開填寫，不要兩處重複。",
+      "createAllowed": "允許創造",
+      "createBlocked": "禁止創造",
+      "paths": {
+        "lexical": "詞法檢索",
+        "hybrid": "身分 + 檢索",
+        "entity-only": "僅身分/參數"
+      },
+      "pipelines": {
+        "anima": "Anima",
+        "kaloscope": "Kaloscope",
+        "moss": "MOSS",
+        "k2": "Krea 2",
+        "h3": "MiniMax-H3",
+        "unknown": "未指定"
+      },
+      "fields": {
+        "artistName": "畫師名 artist_name",
+        "bank": "風格庫 bank",
+        "styleGuidance": "風格強度 style_guidance",
+        "adapterStrength": "適配強度 adapter_strength",
+        "baseModel": "底模要求"
+      },
+      "empty": "本次結果沒有解析到實體或畫師路由。"
     }
   },
   "generation": {

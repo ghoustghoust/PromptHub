@@ -5352,6 +5352,57 @@
       "fixed": "Fixed requirement",
       "flexible": "Reasoned inference",
       "optional": "Creative suggestion"
+    },
+    "targetPipeline": "Artist pipeline",
+    "targetPipelineHint": "Anima writes @artist; Kaloscope uses node parameters; other rule cards route automatically.",
+    "pipelines": {
+      "follow": "Follow rule card",
+      "anima": "Anima (@artist)",
+      "kaloscope": "Kaloscope (node parameters)"
+    },
+    "entityPanel": {
+      "tab": "Entities",
+      "title": "Entities and style injection",
+      "entities": "Entity resolution",
+      "mention": "Mention",
+      "status": "Resolution",
+      "identity": "Identity",
+      "statuses": {
+        "resolved": "Resolved",
+        "ambiguous": "Needs a choice",
+        "unresolved": "Not in library"
+      },
+      "ambiguousHint": "Several identities match; the system did not choose one for you.",
+      "candidates": "Candidates",
+      "notInLibrary": "Not in the vocabulary; the original text is kept.",
+      "appearanceSeparate": "Appearance is not loaded with the identity",
+      "styleInjection": "Artist style injection",
+      "promptToken": "In prompt",
+      "notInPrompt": "Not in prompt",
+      "routeNote": "The artist is handled by the target pipeline; keep prompt text and node parameters separate.",
+      "createAllowed": "Creation allowed",
+      "createBlocked": "Creation blocked",
+      "paths": {
+        "lexical": "Lexical retrieval",
+        "hybrid": "Identity + retrieval",
+        "entity-only": "Identities only"
+      },
+      "pipelines": {
+        "anima": "Anima",
+        "kaloscope": "Kaloscope",
+        "moss": "MOSS",
+        "k2": "Krea 2",
+        "h3": "MiniMax-H3",
+        "unknown": "Unspecified"
+      },
+      "fields": {
+        "artistName": "artist_name",
+        "bank": "bank",
+        "styleGuidance": "style_guidance",
+        "adapterStrength": "adapter_strength",
+        "baseModel": "Base model"
+      },
+      "empty": "This result has no resolved entities or artist routing."
     }
   },
   "generation": {

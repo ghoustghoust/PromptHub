@@ -4981,6 +4981,57 @@
       "fixed": "明示された要求",
       "flexible": "妥当な推論",
       "optional": "創作提案"
+    },
+    "targetPipeline": "画師注入パイプライン",
+    "targetPipelineHint": "Anima は @artist を書き、Kaloscope はノードパラメータのみを使います。他のルールカードは自動で振り分けます。",
+    "pipelines": {
+      "follow": "ルールカードに従う",
+      "anima": "Anima（@artist）",
+      "kaloscope": "Kaloscope（ノードパラメータ）"
+    },
+    "entityPanel": {
+      "tab": "エンティティ",
+      "title": "エンティティとスタイル注入",
+      "entities": "エンティティ解決",
+      "mention": "言及",
+      "status": "解決",
+      "identity": "同一性",
+      "statuses": {
+        "resolved": "解決済み",
+        "ambiguous": "選択待ち",
+        "unresolved": "未収録"
+      },
+      "ambiguousHint": "複数の同一性が一致しました。システムは自動選択していません。",
+      "candidates": "候補",
+      "notInLibrary": "語彙に未収録のため原文を保持します。",
+      "appearanceSeparate": "外見は同一性に自動付加されません",
+      "styleInjection": "画師スタイル注入",
+      "promptToken": "プロンプトに記載",
+      "notInPrompt": "プロンプトには記載しない",
+      "routeNote": "画師は対象パイプラインで処理されます。本文とノードパラメータは別々に入力してください。",
+      "createAllowed": "創作可",
+      "createBlocked": "創作不可",
+      "paths": {
+        "lexical": "語彙検索",
+        "hybrid": "同一性＋検索",
+        "entity-only": "同一性のみ"
+      },
+      "pipelines": {
+        "anima": "Anima",
+        "kaloscope": "Kaloscope",
+        "moss": "MOSS",
+        "k2": "Krea 2",
+        "h3": "MiniMax-H3",
+        "unknown": "未指定"
+      },
+      "fields": {
+        "artistName": "artist_name",
+        "bank": "bank",
+        "styleGuidance": "style_guidance",
+        "adapterStrength": "adapter_strength",
+        "baseModel": "ベースモデル"
+      },
+      "empty": "この結果には解決済みエンティティや画師ルートがありません。"
     }
   },
   "generation": {

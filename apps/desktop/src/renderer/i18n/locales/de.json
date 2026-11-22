@@ -5083,6 +5083,21 @@
       "submit": "Feedback speichern",
       "saving": "Speichern…",
       "saved": "Gespeichert. Begriffe und Validierungsstatus werden nicht verändert."
+    },
+    "backfill": {
+      "action": "In Auswahl übernehmen",
+      "saving": "Übernehmen…",
+      "done": "{{count}} Begriffe übernommen",
+      "empty": "Keine Begriffe zum Übernehmen",
+      "hint": "Übernimmt die tatsächlich verwendeten Begriffe als gesperrt, empfohlen oder Referenz; gesperrte und ausgeschlossene Zeilen werden nie überschrieben."
+    },
+    "shared": {
+      "label": "Über Modi geteilt",
+      "selected": "Ausgewählt {{count}}",
+      "locked": "Gesperrt {{count}}",
+      "excluded": "Ausgeschlossen {{count}}",
+      "archive": "Archiv {{count}}",
+      "hint": "Ein Wechsel von Modus oder Regelkarte behält Auswahl, Sperren, Ausschlüsse und das Modell-/LoRA-Archiv."
     }
   },
   "generation": {

@@ -38,6 +38,8 @@ interface Props {
   savedPromptId: string | null;
   isSavingToLibrary: boolean;
   onSaveToLibrary: (favorite: boolean) => void;
+  /** Merges the result's terms back into the picker; returns how many rows. */
+  onBackfillTerms: () => Promise<number>;
 }
 
 function FieldRow({ field }: { field: PromptOrchestrationField }) {
@@ -70,10 +72,16 @@ export function PromptOrchestratorResultPanel({
   savedPromptId,
   isSavingToLibrary,
   onSaveToLibrary,
+  onBackfillTerms,
 }: Props) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<ResultTab>("complete");
   const [favorite, setFavorite] = useState(false);
+  const [backfillNote, setBackfillNote] = useState("");
+  const [backfilling, setBackfilling] = useState(false);
+  useEffect(() => {
+    setBackfillNote("");
+  }, [result]);
   useEffect(() => {
     const modelDecided = result?.termDecisions?.some((decision) => decision.origin === "model");
     setTab(modelDecided ? "decisions" : "complete");
@@ -230,6 +238,35 @@ export function PromptOrchestratorResultPanel({
                     ? t("orchestrator.savingToPromptLibrary")
                     : t("orchestrator.saveToPromptLibrary")}
               </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/30 px-3 py-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={backfilling}
+                data-testid="orchestrator-backfill-terms"
+                onClick={() => {
+                  setBackfilling(true);
+                  setBackfillNote("");
+                  void onBackfillTerms()
+                    .then((count) => {
+                      setBackfillNote(
+                        count > 0
+                          ? t("orchestrator.backfill.done", { count })
+                          : t("orchestrator.backfill.empty"),
+                      );
+                    })
+                    .catch((cause: unknown) => {
+                      setBackfillNote(cause instanceof Error ? cause.message : String(cause));
+                    })
+                    .finally(() => setBackfilling(false));
+                }}
+              >
+                {backfilling ? t("orchestrator.backfill.saving") : t("orchestrator.backfill.action")}
+              </Button>
+              <span className="text-[11px] text-muted-foreground">
+                {backfillNote || t("orchestrator.backfill.hint")}
+              </span>
             </div>
             <PromptResultFeedback result={result} sourcePrompt={sourcePrompt} />
             {result.layout ? (

@@ -5083,6 +5083,21 @@
       "submit": "Guardar comentario",
       "saving": "Guardando…",
       "saved": "Guardado. No se modifican términos ni estados de validación."
+    },
+    "backfill": {
+      "action": "Devolver al selector",
+      "saving": "Devolviendo…",
+      "done": "{{count}} términos devueltos al selector",
+      "empty": "No hay términos que devolver",
+      "hint": "Devuelve los términos realmente usados como bloqueados, recomendados o referencia; las filas bloqueadas o excluidas nunca se sobrescriben."
+    },
+    "shared": {
+      "label": "Compartido entre modos",
+      "selected": "Seleccionados {{count}}",
+      "locked": "Bloqueados {{count}}",
+      "excluded": "Excluidos {{count}}",
+      "archive": "Archivo {{count}}",
+      "hint": "Cambiar de modo o de tarjeta conserva la selección, los bloqueos, las exclusiones y el archivo de modelo/LoRA."
     }
   },
   "generation": {

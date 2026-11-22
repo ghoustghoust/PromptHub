@@ -25,6 +25,11 @@ import {
   referenceImageLimit,
   supportsLayoutDraft,
 } from "./prompt-orchestrator-catalog";
+import {
+  backfillStateFor,
+  mergeBackfillTerms,
+  shouldBackfillProvenance,
+} from "./prompt-backfill";
 import { useMossLayoutEditor } from "./useMossLayoutEditor";
 
 export interface OrchestratorReferenceImage {
@@ -291,6 +296,58 @@ export function usePromptOrchestratorWorkbench() {
 
   function clearPrefabTerms(): void {
     setPrefabTerms([]);
+  }
+
+  /**
+   * Sends the result's terms back to the picker so the next run can iterate on
+   * them. Existing locked or excluded rows are never overridden by the result.
+   */
+  async function backfillResultTerms(): Promise<number> {
+    if (!result) return 0;
+    const provenance = result.provenance ?? [];
+    const rowsByTerm = new Map(
+      provenance
+        .filter((entry) => entry.termId)
+        .map((entry) => [entry.termId as string, entry]),
+    );
+    const items: PrefabTerm[] = [];
+    for (const term of result.selectedTerms) {
+      const entry = rowsByTerm.get(term.id);
+      if (entry && !shouldBackfillProvenance(entry)) continue;
+      items.push({
+        id: term.id,
+        category: term.category,
+        subcategory: null,
+        en: term.en,
+        zh: term.zh,
+        series: term.series,
+        template: term.template,
+        validationStatus: term.validationStatus,
+        state: backfillStateFor(entry),
+      });
+    }
+    const covered = new Set(items.map((item) => item.id));
+    const extraRows = provenance.filter((entry) =>
+      entry.termId && !covered.has(entry.termId) && shouldBackfillProvenance(entry));
+    if (extraRows.length > 0) {
+      // Identity and artist rows have no term object on the result; resolve the
+      // stored rows by their label (including the @artist spelling) once.
+      const reply = await window.api.promptOrchestrator.resolveTerms({
+        terms: extraRows.flatMap((entry) => [entry.label, `@${entry.label}`]),
+      });
+      if (reply.ok === true) {
+        const resolved = new Map(reply.data.map((item) => [item.id, item]));
+        for (const entry of extraRows) {
+          const item = entry.termId ? resolved.get(entry.termId) : undefined;
+          if (!item) continue;
+          items.push({ ...item, state: backfillStateFor(entry) });
+        }
+      }
+    }
+    if (items.length === 0) return 0;
+    setPrefabTerms((current) => mergeBackfillTerms(current, items));
+    setRightPanel("prefab");
+    return items.length;
   }
 
   function addReferenceImages(images: Array<{ fileName: string; dataUrl: string }>): void {
@@ -671,6 +728,7 @@ export function usePromptOrchestratorWorkbench() {
     video, updateVideo, referenceImages, setReferenceImages,
     selectedTermIds, lockedTermIds, referenceTermIds, excludedTermIds,
     prefabTerms, addPrefabTerm, removePrefabTerm, setPrefabTermState, clearPrefabTerms,
+    backfillResultTerms,
     vocabularyTokenBudget, setVocabularyTokenBudget,
     rightPanel, setRightPanel, result, error, isRunning, canRun, runBlockers, run,
     acceptReferenceFiles, pasteReferenceImage,

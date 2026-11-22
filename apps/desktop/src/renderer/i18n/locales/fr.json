@@ -5084,6 +5084,21 @@
       "submit": "Enregistrer",
       "saving": "Enregistrement…",
       "saved": "Enregistré. Aucun terme ni statut de validation n'est modifié."
+    },
+    "backfill": {
+      "action": "Renvoyer au sélecteur",
+      "saving": "Envoi…",
+      "done": "{{count}} termes renvoyés au sélecteur",
+      "empty": "Aucun terme à renvoyer",
+      "hint": "Renvoyez les termes réellement utilisés comme verrouillés, recommandés ou références ; les lignes verrouillées ou exclues ne sont jamais écrasées."
+    },
+    "shared": {
+      "label": "Partagé entre modes",
+      "selected": "Sélectionnés {{count}}",
+      "locked": "Verrouillés {{count}}",
+      "excluded": "Exclus {{count}}",
+      "archive": "Archive {{count}}",
+      "hint": "Changer de mode ou de fiche conserve la sélection, les verrous, les exclusions et l'archive modèle/LoRA."
     }
   },
   "generation": {

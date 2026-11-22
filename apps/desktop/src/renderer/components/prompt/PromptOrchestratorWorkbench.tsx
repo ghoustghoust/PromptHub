@@ -331,6 +331,12 @@ export function PromptOrchestratorWorkbench() {
   const humanLed = state.guidanceMode === "human-led" && !videoTask;
   const layoutMode = !videoTask && state.outputFormat === "layout";
   const dynamicPolish = state.mode === "polish" && state.guidanceMode === "agent-led" && !layoutMode;
+  const selectedCount = state.prefabTerms.filter((term) => term.state !== "excluded").length;
+  const lockedCount = state.prefabTerms.filter((term) => term.state === "locked").length;
+  const excludedCount = state.prefabTerms.filter((term) => term.state === "excluded").length;
+  const archiveCount =
+    (state.modelId.trim() ? 1 : 0) +
+    state.loraIds.split(",").map((item) => item.trim()).filter(Boolean).length;
   const hasResultContent = Boolean(state.result || state.skillDraft);
   useEffect(() => {
     setResultExpanded(false);
@@ -425,6 +431,19 @@ export function PromptOrchestratorWorkbench() {
             ]}
             onChange={(value) => state.setSkill(value as WorkbenchState["skill"])}
           />
+          <div
+            className="space-y-1 rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
+            data-testid="orchestrator-shared-selection"
+          >
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+              <span className="font-medium text-foreground">{t("orchestrator.shared.label")}</span>
+              <span>{t("orchestrator.shared.selected", { count: selectedCount })}</span>
+              <span>{t("orchestrator.shared.locked", { count: lockedCount })}</span>
+              <span>{t("orchestrator.shared.excluded", { count: excludedCount })}</span>
+              <span>{t("orchestrator.shared.archive", { count: archiveCount })}</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">{t("orchestrator.shared.hint")}</p>
+          </div>
           <SelectControl
             label={t("orchestrator.mode")}
             value={state.mode}
@@ -958,6 +977,7 @@ export function PromptOrchestratorWorkbench() {
               savedPromptId={state.savedPromptId}
               isSavingToLibrary={state.isSavingToLibrary}
               onSaveToLibrary={(favorite) => void saveToLibrary(favorite)}
+              onBackfillTerms={state.backfillResultTerms}
             />
           </div>
         )}

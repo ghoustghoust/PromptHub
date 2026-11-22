@@ -5452,6 +5452,21 @@
       "submit": "记录反馈",
       "saving": "记录中…",
       "saved": "已记录；反馈不会自动改写词条或验证状态。"
+    },
+    "backfill": {
+      "action": "回填选材台",
+      "saving": "回填中…",
+      "done": "已回填 {{count}} 条到选材台",
+      "empty": "本次结果没有可回填的词条",
+      "hint": "把本次实际使用的词条按锁定/推荐/参考回填；已锁定和已排除不会被覆盖。"
+    },
+    "shared": {
+      "label": "跨模式共享",
+      "selected": "已选 {{count}}",
+      "locked": "锁定 {{count}}",
+      "excluded": "排除 {{count}}",
+      "archive": "档案 {{count}}",
+      "hint": "切换模式或规则卡不会清空选中、锁定、排除与模型/LoRA 档案。"
     }
   },
   "generation": {

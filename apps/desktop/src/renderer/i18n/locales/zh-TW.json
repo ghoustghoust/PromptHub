@@ -5083,6 +5083,21 @@
       "submit": "記錄回饋",
       "saving": "記錄中…",
       "saved": "已記錄；回饋不會自動改寫詞條或驗證狀態。"
+    },
+    "backfill": {
+      "action": "回填選材台",
+      "saving": "回填中…",
+      "done": "已回填 {{count}} 條到選材台",
+      "empty": "本次結果沒有可回填的詞條",
+      "hint": "把本次實際使用的詞條按鎖定/推薦/參考回填；已鎖定和已排除不會被覆蓋。"
+    },
+    "shared": {
+      "label": "跨模式共享",
+      "selected": "已選 {{count}}",
+      "locked": "鎖定 {{count}}",
+      "excluded": "排除 {{count}}",
+      "archive": "檔案 {{count}}",
+      "hint": "切換模式或規則卡不會清空選中、鎖定、排除與模型/LoRA 檔案。"
     }
   },
   "generation": {

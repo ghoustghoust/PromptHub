@@ -5454,6 +5454,21 @@
       "submit": "Save feedback",
       "saving": "Saving…",
       "saved": "Saved. Feedback never edits terms or validation on its own."
+    },
+    "backfill": {
+      "action": "Backfill picker",
+      "saving": "Backfilling…",
+      "done": "Backfilled {{count}} terms",
+      "empty": "This result has no terms to backfill",
+      "hint": "Returns the terms actually used as locked, recommended or reference; locked and excluded rows are never overridden."
+    },
+    "shared": {
+      "label": "Shared across modes",
+      "selected": "Selected {{count}}",
+      "locked": "Locked {{count}}",
+      "excluded": "Excluded {{count}}",
+      "archive": "Archive {{count}}",
+      "hint": "Switching mode or rule card keeps selections, locks, exclusions and the model/LoRA archive."
     }
   },
   "generation": {

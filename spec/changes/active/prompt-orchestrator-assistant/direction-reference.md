@@ -124,7 +124,7 @@ typecheck/eslint/行数门禁达标。R1/R2 收敛测试于 2026-11-20 补齐：
 - 完成前保持 `needs-convergence`；A/B/C 与全量回归未执行前不宣称发布验收。
 - D8 部分落地（2026-11-21）：本地引擎支持「空闲 N 分钟自动释放」（`/slots` 活动检测，0=关闭）与启动前显存预检（GPU 被其它进程重度占用时拒绝启动并给出提示）。不做“进入生图自动释放”：PromptHub 无法观察外部 ComfyUI 的生图事件。
 - D8 续（2026-11-22）：新增模型档案（路径 + 上下文/ngl/MTP 参数，可保存/应用）、GGUF MTP 能力校验（读 `nextn_predict_layers`，不支持时立即拒绝而不是等启动超时）、“释放并打开 ComfyUI”按钮（只打开 URL，不控制对方进程）；本地 provider 空 key 不再被聊天链路拒绝，且不再发送空的 Authorization 头。R6 随机类别池同步关闭（见 §6）。
-- P1 类型路由与实体解析（2026-11-22，core 已落地）：新增 `term_aliases` 与精确别名解析、输入分型（实体/触发词/受约束参数/原子标签/长描述/否定/关系）、`lexical|hybrid|entity-only` 三路径、画师按 anima/kaloscope/moss/k2/h3 路由（MOSS 显式画师保留为不带 `@` 的标签）、`targetPipeline` 输入与 `entityResolutions`/`routePlan`/`artistRoutes` 结果载荷；自动选词剔除 artist。隔离库回填 7,520 个身份、18,197 条别名、1,818 个歧义键，重跑 0 新增。界面实体/注入面板、7 语言文案、真实窗口验收与 91k 实体命中率评测未做，见 design.md 第五轮。
+- P1 类型路由与实体解析（2026-11-22，core 与界面已落地）：新增 `term_aliases` 与精确别名解析、输入分型（实体/触发词/受约束参数/原子标签/长描述/否定/关系）、`lexical|hybrid|entity-only` 三路径、画师按 anima/kaloscope/moss/k2/h3 路由（MOSS 显式画师保留为不带 `@` 的标签）、`targetPipeline` 输入与 `entityResolutions`/`routePlan`/`artistRoutes` 结果载荷；自动选词剔除 artist，单个普通英文词不再锚定角色。隔离库正式回填 7,511 个身份、18,185 条别名、1,817 个歧义键，重跑 0 新增；结果区“实体”页与条件栏管线选择器完成真实 Electron 点击验收（3 张截图）。真实生图、A/B/C 与 91k 实体命中率评测未做，见 design.md 第五轮。
 
 ## 8. 第四轮用户确认补充（2026-11-19）
 

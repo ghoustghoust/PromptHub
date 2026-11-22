@@ -638,28 +638,41 @@ Electron 验证；“选材台”已完成多字段池、多选、锁定与普�
   `ambiguous`（≥2 个身份，最多 5 个候选）、`unresolved`（名字原样保留）。
   `PromptRoutePlan` 决定 `lexical / hybrid / entity-only` 路径、是否允许创造和禁用类别。
 - 纯身份/参数输入走 `entity-only`：跳过查询规划与检索（0 轮 0 查询），只组织固定身份与参数。
-- 结果新增 `entityResolutions`、`routePlan`、`artistRoutes`，不新增 IPC 通道；界面面板与
-  7 语言文案待下一批交付。
+- 结果新增 `entityResolutions`、`routePlan`、`artistRoutes`，不新增 IPC 通道。结果区新增
+  **“实体”** 标签：逐条显示提及、解析状态、身份 id、歧义候选，以及画师注入参数
+  （管线、是否写入提示词、`artist_name`/`bank`/`style_guidance`/`adapter_strength`/底模）。
+  条件栏新增 **“画师注入管线”**（跟随规则卡 / Anima / Kaloscope），只有非规则卡可推导的
+  两条管线需要显式选择。
+- 普通词守卫：不带引号、`@`、系列限定或中文的单个英文词，即使命中唯一角色名也不锚定身份
+  （`dusk garden` 不再被当成明日方舟的 `dusk`）；多词名、`@`、引号、`name (series)` 与中文名
+  仍然解析。歧义命中保持候选，不做唯一化。
+- 7 份 locale 同步新增 `targetPipeline` / `pipelines` / `entityPanel` 文案；界面不含硬编码中文。
 
-### 隔离库回填实测（只读复制后写入，原库未动）
+### 隔离库回填实测（正式跑在隔离 profile，原库先备份）
 
-- 扫描 `character` + `artist` 共 67,088 行，身份合格 7,520 行，生成别名 18,197 条；
-  同一别名的多身份键 1,818 个（`贞德` 9、`爱丽丝` 5、`雷电将军` 3 等）。
-- 幂等重跑：新增 0。
+- 运行前 `VACUUM INTO` 备份到 `profile/data/prompthub.db.aliases-<timestamp>.bak`；正式库未触碰。
+- 扫描 `character` + `artist` 共 67,088 行，身份合格 7,511 行，生成别名 18,185 条；
+  同一别名的多身份键 1,817 个（`贞德` 9、`爱丽丝` 5、`雷电将军` 3 等）。
+- 幂等重跑：新增 0，总条数不变。
 - 抽查：`ganyu` → 3 行 / 2 个身份（歧义）；`ganyu (genshin impact)` → 2 行 / 1 个身份
   （resolved，首选纯名字行）；`wlop` → 1 行（@wlop，resolved），danbooru 同名行未参与；
   `风格` 修正后不再产生别名。
 
 ### 验证边界
 
-- 已通过：`packages/core/tests/prompt-entity-routing.test.ts` 19 例（归一化、身份判定、
-  歧义、bundle 归并、@ 画师归并、弃用与通用标签排斥、四类管线路由、orchestrator 固定身份字段、
-  Krea2 画师剔除、entity-only 零检索）；既有选词 14 例与动态润色 18 例回归通过；
-  `apps/desktop/tests/unit/main/prompt-vocab-alias-migration.test.ts` 4 例（旧库补表、幂等、
-  多写法解析、弃用隐藏、级联删除）与词库 DB 26 例回归通过。
-- 四包 typecheck、desktop `typecheck:tests`、`pnpm lint`（含行数门禁）通过。
-- **未做**：界面「实体与风格注入」面板、7 语言文案、真实窗口点击验收、真实 91k 库上的
-  实体解析命中率评测（仅做了回填与 SQL 抽查）、A/B/C 出图对照。
+- 已通过：`packages/core/tests/prompt-entity-routing.test.ts` 21 例（归一化、身份判定、
+  歧义、bundle 归并、@ 画师归并、弃用与通用标签排斥、普通单词守卫、四类管线路由、
+  orchestrator 固定身份字段、Krea2 画师剔除、entity-only 零检索）；既有选词 14 例与动态润色
+  18 例回归通过；`apps/desktop/tests/unit/main/prompt-vocab-alias-migration.test.ts` 4 例与
+  词库 DB 26 例回归通过；四包 typecheck、desktop `typecheck:tests`、`pnpm lint`（含行数门禁）、
+  `pnpm build` 与 i18n 冒烟通过。
+- 真实 Electron 点击验收：隔离 profile 启动，切本地模型（OpenAI 兼容 mock 响应）与
+  “词条驱动 · 人工定稿”，选择 `@wlop`、管线 Kaloscope、输入 `ganyu (genshin impact), 85mm,
+  dusk garden`；结果“实体”页显示 ganyu 已解析（3 个来源行、首选纯名字行）、画师参数卡，
+  第二次输入 `ganyu, portrait` 显示“待选择”与两个候选。截图见
+  `outputs/prompt-orchestrator-entity-panel-20261122/`（3 张）。
+- **未做**：真实生图效果、A/B/C 出图对照、云端模型路径（本次编排文本用 mock OpenAI 响应，
+  不是真实模型输出）、91k 库上的实体解析命中率统计（只做了回填计数与 SQL 抽查）。
 
 ## 评估方式
 

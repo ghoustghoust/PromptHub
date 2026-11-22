@@ -26,6 +26,7 @@ import { PromptVideoFields } from "./PromptVideoFields";
 import { PromptTermPicker } from "./PromptTermPicker";
 import { PromptMossLayoutCanvas } from "./PromptMossLayoutCanvas";
 import {
+  PREFAB_CATEGORIES,
   taskModesForSkill,
   isVideoTask,
   outputFormatOptions,
@@ -120,6 +121,36 @@ function LocalEngineQuickControl({ onConnected, onUnloaded }: { onConnected: () 
     onUnloaded();
   };
 
+  const openComfy = async () => {
+    const url = engine.config?.comfyUrl?.trim();
+    if (!url) {
+      setUnloadNote(t("localModel.comfyUrlMissing"));
+      return;
+    }
+    if (running) {
+      // Never end an external engine without the same confirmation as unload.
+      if (external && !confirmExternal) {
+        setConfirmExternal(true);
+        return;
+      }
+      setConfirmExternal(false);
+      const result = await engine.unload();
+      if (!result) return;
+      setUnloadNote(
+        result.freedGpuMb === null
+          ? t("localModel.unloaded")
+          : t("localModel.unloadedWithMemory", {
+              size: `${(result.freedGpuMb / 1024).toFixed(1)} GB`,
+            }),
+      );
+      onUnloaded();
+    }
+    const opened = await window.electron?.openExternal?.(url);
+    if (opened !== true) {
+      setUnloadNote(t("localModel.comfyOpenFailed"));
+    }
+  };
+
   const applyParams = async () => {
     const ctx = Number(contextSize);
     const image = Number(imageTokens);
@@ -138,35 +169,42 @@ function LocalEngineQuickControl({ onConnected, onUnloaded }: { onConnected: () 
   };
   return (
     <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3" data-testid="orchestrator-local-engine">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2 text-xs">
           <span className={`h-2 w-2 shrink-0 rounded-full ${running ? "bg-emerald-500" : "bg-muted-foreground"}`} />
           <span className="truncate">
             {t("localModel.menu")} · {engine.status ? t(`localModel.phase.${engine.status.phase}`) : t("localModel.checking")}
           </span>
         </div>
-        <div className="flex shrink-0 gap-1">
+        <div className="flex flex-wrap items-center justify-end gap-1">
           {!running && (
             <Button size="sm" variant="secondary" onClick={() => void start()} disabled={engine.busy} data-testid="orchestrator-engine-start">
               <PlayIcon className="h-3.5 w-3.5" />{t("localModel.start")}
             </Button>
           )}
-          {canUnload && (
-            <Button
-              size="sm"
-              variant={confirmExternal ? "danger" : "secondary"}
-              onClick={() => void unload()}
-              disabled={engine.busy}
-              data-testid="orchestrator-engine-unload"
-            >
-              {engine.busy ? (
-                <LoaderCircleIcon className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <PowerOffIcon className="h-3.5 w-3.5" />
-              )}
-              {confirmExternal ? t("localModel.unloadConfirm") : t("orchestrator.localEngine.releaseMemory")}
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant={confirmExternal ? "danger" : "secondary"}
+            onClick={() => void unload()}
+            disabled={!canUnload || engine.busy}
+            data-testid="orchestrator-engine-unload"
+          >
+            {engine.busy ? (
+              <LoaderCircleIcon className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <PowerOffIcon className="h-3.5 w-3.5" />
+            )}
+            {confirmExternal ? t("localModel.unloadConfirm") : t("orchestrator.localEngine.releaseMemory")}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => void openComfy()}
+            disabled={engine.busy}
+            data-testid="orchestrator-engine-open-comfy"
+          >
+            {t("orchestrator.localEngine.openComfy")}
+          </Button>
           <Button size="sm" variant="ghost" aria-label={t("localModel.menu")} onClick={() => requestSettingsSection("localModel")}>
             <Settings2Icon className="h-3.5 w-3.5" />
           </Button>
@@ -639,6 +677,32 @@ export function PromptOrchestratorWorkbench() {
                   <Input label={t("orchestrator.subject")} value={state.subject} onChange={(event) => state.setSubject(event.target.value)} variant="outlined" />
                   <Input label={t("orchestrator.setting")} value={state.setting} onChange={(event) => state.setSetting(event.target.value)} variant="outlined" />
                   <Input label={t("orchestrator.seed")} value={state.seed} onChange={(event) => state.setSeed(event.target.value)} variant="outlined" />
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t("orchestrator.randomCategories")}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {PREFAB_CATEGORIES.map((category) => {
+                        const active = state.randomCategories.includes(category);
+                        return (
+                          <button
+                            key={category}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => state.toggleRandomCategory(category)}
+                            className={`rounded border px-2 py-0.5 text-[11px] transition-colors ${
+                              active
+                                ? "border-primary/50 bg-primary/10 text-primary"
+                                : "border-border text-muted-foreground hover:text-foreground"
+                            }`}
+                            data-testid={`random-category-${category}`}
+                          >
+                            {t(`orchestrator.categories.${category}`, category)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
               {videoTask && <PromptVideoFields mode={state.mode} value={state.video} onChange={state.updateVideo} />}

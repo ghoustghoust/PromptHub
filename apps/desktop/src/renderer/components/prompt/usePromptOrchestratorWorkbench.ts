@@ -17,6 +17,7 @@ import { useSettingsStore } from "../../stores/settings.store";
 import { LOCAL_LLAMA_MODEL_ID } from "../../stores/settings/settings-ai-actions";
 import { usePromptStore } from "../../stores/prompt.store";
 import {
+  PREFAB_CATEGORIES,
   defaultModeForSkill,
   defaultOutputFormat,
   isVideoTask,
@@ -81,6 +82,7 @@ export function usePromptOrchestratorWorkbench() {
   const [editInstruction, setEditInstruction] = useState("");
   const [subject, setSubject] = useState("");
   const [setting, setSetting] = useState("");
+  const [randomCategories, setRandomCategories] = useState<string[]>([...PREFAB_CATEGORIES]);
   const [seed, setSeed] = useState("");
   const mossLayout = useMossLayoutEditor();
   const [video, setVideo] = useState<PromptVideoOrchestrationInput>({
@@ -371,6 +373,7 @@ export function usePromptOrchestratorWorkbench() {
       }
     } else if (mode === "random") {
       if (!subject.trim() || !setting.trim()) blockers.push(t("orchestrator.blocker.random"));
+      if (randomCategories.length === 0) blockers.push(t("orchestrator.blocker.randomCategories"));
     } else if (mode === "reverse") {
       if (!prompt.trim() && referenceImages.length === 0) {
         blockers.push(t("orchestrator.blocker.reverse"));
@@ -399,6 +402,12 @@ export function usePromptOrchestratorWorkbench() {
   })();
 
   const canRun = runBlockers.length === 0 && !isRunning && !isGeneratingSkill;
+
+  function toggleRandomCategory(category: string): void {
+    setRandomCategories((current) => current.includes(category)
+      ? current.filter((item) => item !== category)
+      : [...current, category]);
+  }
 
   function buildInput(): PromptOrchestrationInput {
     return {
@@ -440,6 +449,7 @@ export function usePromptOrchestratorWorkbench() {
         : {}),
       ...(mode === "random"
         ? {
+            categories: randomCategories,
             random: {
               subject: subject.trim(),
               setting: setting.trim(),
@@ -652,6 +662,7 @@ export function usePromptOrchestratorWorkbench() {
     modelSource, changeModelSource,
     modelId, setModelId, loraIds, setLoraIds,
     editInstruction, setEditInstruction, subject, setSubject, setting, setSetting,
+    randomCategories, toggleRandomCategory,
     seed, setSeed, mossLayout,
     video, updateVideo, referenceImages, setReferenceImages,
     selectedTermIds, lockedTermIds, referenceTermIds, excludedTermIds,

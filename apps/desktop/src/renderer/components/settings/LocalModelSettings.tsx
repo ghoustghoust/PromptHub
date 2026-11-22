@@ -40,6 +40,8 @@ export function LocalModelSettings() {
   const [log, setLog] = useState("");
   const [confirmExternal, setConfirmExternal] = useState(false);
   const [unloadNote, setUnloadNote] = useState("");
+  const [profileName, setProfileName] = useState("");
+  const [selectedProfileId, setSelectedProfileId] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -86,6 +88,44 @@ export function LocalModelSettings() {
     if (!(await engine.stop())) return;
     if (!(await save())) return;
     await engine.start();
+  };
+
+  const applyProfile = () => {
+    const profile = config.modelProfiles.find((item) => item.id === selectedProfileId);
+    if (!profile) return;
+    setConfig((current) => ({
+      ...current,
+      modelPath: profile.modelPath,
+      mmprojPath: profile.mmprojPath,
+      contextSize: profile.contextSize,
+      gpuLayers: profile.gpuLayers,
+      mtpEnabled: profile.mtpEnabled,
+      mtpDraftMax: profile.mtpDraftMax,
+    }));
+    setDirty(true);
+  };
+
+  const saveProfile = () => {
+    if (!config.modelPath.trim()) return;
+    const fallback = config.modelPath.split(/[\\/]/).pop()?.replace(/\.gguf$/i, "") ?? "profile";
+    const profile = {
+      id: crypto.randomUUID(),
+      name: profileName.trim() || fallback,
+      modelPath: config.modelPath,
+      mmprojPath: config.mmprojPath,
+      contextSize: config.contextSize,
+      gpuLayers: config.gpuLayers,
+      mtpEnabled: config.mtpEnabled,
+      mtpDraftMax: config.mtpDraftMax,
+    };
+    update("modelProfiles", [...config.modelProfiles, profile]);
+    setProfileName("");
+    setSelectedProfileId(profile.id);
+  };
+
+  const deleteProfile = () => {
+    update("modelProfiles", config.modelProfiles.filter((item) => item.id !== selectedProfileId));
+    setSelectedProfileId("");
   };
 
   const running = engine.status?.phase === "running";
@@ -214,6 +254,73 @@ export function LocalModelSettings() {
             );
           })}
           <p className="text-xs text-muted-foreground">{t("localModel.mmprojHint")}</p>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium" htmlFor="local-comfy-url">
+              {t("localModel.comfyUrl")}
+            </label>
+            <Input
+              id="local-comfy-url"
+              value={config.comfyUrl}
+              onChange={(event) => update("comfyUrl", event.target.value)}
+              disabled={managedActive}
+              variant="outlined"
+              placeholder="http://127.0.0.1:8288"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">{t("localModel.comfyUrlHint")}</p>
+          </div>
+        </div>
+      </SettingSection>
+
+      <SettingSection title={t("localModel.profiles")}>
+        <div className="space-y-3 p-4">
+          <p className="text-xs text-muted-foreground">{t("localModel.profilesHint")}</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[220px] flex-1">
+              <Select
+                ariaLabel={t("localModel.profiles")}
+                value={selectedProfileId}
+                onChange={setSelectedProfileId}
+                options={config.modelProfiles.map((profile) => ({
+                  value: profile.id,
+                  label: profile.name,
+                }))}
+                disabled={managedActive || config.modelProfiles.length === 0}
+              />
+            </div>
+            <Button
+              variant="secondary"
+              onClick={applyProfile}
+              disabled={managedActive || !selectedProfileId}
+            >
+              {t("localModel.profileApply")}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={deleteProfile}
+              disabled={managedActive || !selectedProfileId}
+            >
+              {t("localModel.profileDelete")}
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[220px] flex-1">
+              <Input
+                value={profileName}
+                onChange={(event) => setProfileName(event.target.value)}
+                placeholder={t("localModel.profileName")}
+                disabled={managedActive}
+                variant="outlined"
+              />
+            </div>
+            <Button
+              variant="secondary"
+              onClick={saveProfile}
+              disabled={managedActive || !config.modelPath.trim()}
+            >
+              {t("localModel.profileSave")}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">{t("localModel.profileMtpHint")}</p>
         </div>
       </SettingSection>
 

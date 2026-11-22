@@ -674,6 +674,55 @@ Electron 验证；“选材台”已完成多字段池、多选、锁定与普�
 - **未做**：真实生图效果、A/B/C 出图对照、云端模型路径（本次编排文本用 mock OpenAI 响应，
   不是真实模型输出）、91k 库上的实体解析命中率统计（只做了回填计数与 SQL 抽查）。
 
+## 第六轮：工具化检索（模型做决策，2026-11-22，core 已落地）
+
+### 为什么开发
+
+前几轮的检索仍由程序先规划：润色是“先问模型要查询、程序检索、再让模型定稿”，扩写/专业/
+反推则完全不经过动态检索。同一个词库因此有两套使用方式，模型也不能自己决定“再查一次”
+或“这次不用词库”。本轮把检索变成模型可调用的工具，四种文本任务共用同一层。
+
+### 两个工具
+
+- `resolve_vocabulary({terms, category?})`：按用户原样写法做精确/别名解析，返回
+  `resolved` / `ambiguous` / `unresolved`。`ambiguous` 只给候选，模型不得自行选择；
+  身份结果不含外观，`hasAppearanceBundle` 仅作提示。`nsfw` 永不返回。
+- `search_vocabulary({queries[]})`：每个槽位带 `slotId / category / query /
+  alternateQuery? / purpose / depth / avoid?`，一次最多 4 个槽位。`avoid` 同时接受
+  term id 与文本，跨调用去重由 Core 完成。artist/character/nsfw 直接拒绝并说明原因。
+
+### 循环与 Core 的职责
+
+- 真正的多轮：模型返回 `tool_calls` → Core 执行 → 以 `role:"tool"` 回填 →
+  模型继续调用或给出最终 JSON。最多 4 个助手轮次、6 次工具调用；达到上限后
+  下一轮强制 `tool_choice:"none"` 并记录警告，不静默截断。
+- Core 只做预算、类别策略、冲突过滤、近重复折叠、跨调用去重和最终格式校验；
+  “查不查、查几次、何时停”由模型决定。零调用、无匹配、整段不用词库都是合法结果。
+- 预算沿用一个 `vocabularyTokenBudget`（默认 900），身份解析与检索共用；超预算返回
+  `budget_exceeded`，模型可改用创造，不得重复同一查询刷预算。
+- 最终答案必须同时给出 `initialPrompt / completePrompt / fields / termDecisions`；
+  `termDecisions` 只允许引用实际返回过的 id，非法引用降级为创造并记警告。
+
+### 接入方式
+
+- `PromptOrchestratorLlm` 新增可选 `completeWithTools`；OpenAI 兼容实现发送
+  `tools` + `tool_choice`，首条 user 消息携带参考图，后续轮次不重复发送图片。
+- agent-led 下的扩写、专业、润色、反推（非 layout、非视频）统一走工具层；开启工具时
+  关闭自动预选词，避免程序替模型“先答一半”。人工定稿、受控随机、Layout、视频保持原路径。
+- 端点不支持 `tools` 或循环失败时，退回上一轮的路径（润色回动态润色，其余回静态选词），
+  并在结果里写明“工具检索失败，已使用旧路径”，不把失败伪装成完整工具结果。
+
+### 验证边界
+
+- 已通过：`packages/core/tests/prompt-tool-retrieval.test.ts` 9 例（检索+身份两工具同轮、
+  润色/反推共用、图片只发一次、禁查类别、avoid 与跨调用去重、预算耗尽、6 次调用后强制定稿、
+  非法参数不中断会话、工具失败回退、零调用直出）；`prompt-orchestrator-llm.test.ts` 4 例
+  （tools/tool_choice 请求体、assistant tool_calls 与 tool 回填、图片仅首条、截断拒绝）；
+  既有实体路由 21、选词 14、动态润色 18 全部回归；四包 typecheck、`typecheck:tests`、lint 通过。
+- **未验证**：真实本地/云端模型的工具调用兼容性（llama.cpp 需 `--jinja`；不兼容时只能观察到
+  回退警告）、真实工具循环的端到端时延与 token 成本、界面策略对照在四模式下的实际观感、
+  生图效果与 A/B/C。
+
 ## 评估方式
 
 A/B/C 三版对比：A 原始输入、B 普通大模型扩写、C 编排结果。固定底模、LoRA、

@@ -69,4 +69,8 @@ export function registerPromptOrchestratorIPC(
     IPC_CHANNELS.PROMPT_ORCHESTRATOR_LAYOUT_REVERSE,
     (_, input: unknown) => reply(() => service.reverseLayout(input)),
   );
+  ipcMain.handle(
+    IPC_CHANNELS.PROMPT_ORCHESTRATOR_FEEDBACK,
+    (_, input: unknown) => reply(() => service.submitFeedback(input)),
+  );
 }

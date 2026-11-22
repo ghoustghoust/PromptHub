@@ -112,6 +112,7 @@ function parseDecision(
     })),
     output,
     rationale: optionalText(value.rationale, `termDecisions[${index}].rationale`, 2000) ?? "",
+    origin: "model",
   };
 }
 

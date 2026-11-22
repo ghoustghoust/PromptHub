@@ -5,9 +5,10 @@ import {
   coreAIConfigService,
   type CoreAIModelConfig,
 } from "@prompthub/core";
-import { PromptVocabDB } from "@prompthub/db";
+import { PromptFeedbackDB, PromptVocabDB } from "@prompthub/db";
 import type Database from "@prompthub/db/adapter";
 import type {
+  DesktopPromptFeedbackRequest,
   DesktopPromptOrchestrationRequest,
   DesktopPromptSkillGenerationRequest,
   PromptMossCaptionRefinement,
@@ -15,6 +16,8 @@ import type {
   PromptMossLayoutReverse,
   PromptOrchestrationInput,
   PromptOrchestrationResult,
+  PromptResultFeedbackInput,
+  PromptResultFeedbackRecord,
   PromptSkillDraft,
   PromptVocabularyBrowseInput,
   PromptVocabularyBrowseResult,
@@ -111,11 +114,55 @@ function selectModel(
   return model;
 }
 
+function parseFeedbackRequest(value: unknown): DesktopPromptFeedbackRequest {
+  if (
+    !isRecord(value) ||
+    !isRecord(value.input) ||
+    !isRecord(value.result) ||
+    !isRecord(value.feedback)
+  ) {
+    throw new Error("Feedback input must contain input, result and feedback objects");
+  }
+  const rating = value.feedback.rating;
+  if (rating !== "usable" && rating !== "unusable") {
+    throw new Error("Feedback rating must be usable or unusable");
+  }
+  const reasons = value.feedback.reasons;
+  if (reasons !== undefined && !Array.isArray(reasons)) {
+    throw new Error("Feedback reasons must be an array");
+  }
+  const note = value.feedback.note;
+  if (note !== undefined && typeof note !== "string") {
+    throw new Error("Feedback note must be a string");
+  }
+  const status = value.result.status;
+  if (status !== "complete" && status !== "degraded") {
+    throw new Error("Feedback result status must be complete or degraded");
+  }
+  if (typeof value.result.completePrompt !== "string" || !value.result.completePrompt.trim()) {
+    throw new Error("Feedback requires a non-empty result prompt");
+  }
+  const feedback: PromptResultFeedbackInput = {
+    rating,
+    reasons: (reasons ?? []) as PromptResultFeedbackInput["reasons"],
+    ...(typeof note === "string" ? { note } : {}),
+  };
+  return {
+    input: value.input as PromptOrchestrationInput,
+    // Structured-clone results cross IPC as unknown; required fields were
+    // checked above, and the feedback writer only reads known properties.
+    result: value.result as unknown as PromptOrchestrationResult,
+    feedback,
+  };
+}
+
 export class DesktopPromptOrchestratorService {
   private readonly vocabulary: PromptVocabDB;
+  private readonly feedback: PromptFeedbackDB;
 
   constructor(db: Database.Database) {
     this.vocabulary = new PromptVocabDB(db);
+    this.feedback = new PromptFeedbackDB(db);
   }
 
   listSeries(): string[] {
@@ -158,6 +205,49 @@ export class DesktopPromptOrchestratorService {
       llm: this.createLlm(request.llmModelId),
     });
     return orchestrator.orchestrate(request.input);
+  }
+
+  /**
+ * Stores one result-level feedback row. The snapshot deliberately excludes
+ * reference images and layout payloads: feedback is about the result, and those
+ * fields are large and reproducible from the request.
+ */
+  submitFeedback(value: unknown): PromptResultFeedbackRecord {
+    const request = parseFeedbackRequest(value);
+    const { input, result, feedback } = request;
+    const promptText =
+      [input.prompt, input.random?.subject, input.random?.setting]
+        .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+        .join(" / ")
+        .slice(0, 4000) || "untitled result";
+    return this.feedback.add({
+      mode: result.mode,
+      skill: result.skill,
+      outputFormat: result.outputFormat ?? null,
+      guidanceMode: input.guidanceMode ?? result.guidanceMode ?? null,
+      status: result.status,
+      rating: feedback.rating,
+      reasons: feedback.reasons,
+      note: feedback.note ?? null,
+      promptExcerpt: promptText,
+      resultExcerpt: result.completePrompt.slice(0, 4000),
+      snapshot: {
+        mode: result.mode,
+        skill: result.skill,
+        outputFormat: result.outputFormat ?? null,
+        guidanceMode: input.guidanceMode ?? result.guidanceMode ?? null,
+        modelId: input.modelId ?? null,
+        prompt: promptText,
+        completePrompt: result.completePrompt,
+        termDecisions: result.termDecisions ?? [],
+        provenance: result.provenance ?? [],
+        retrievalSummary: result.retrievalSummary ?? null,
+        entityResolutions: result.entityResolutions ?? [],
+        artistRoutes: result.artistRoutes ?? [],
+        warnings: result.warnings,
+        tokenMetrics: result.tokenMetrics,
+      },
+    });
   }
 
   async generateSkill(value: unknown): Promise<PromptSkillDraft> {

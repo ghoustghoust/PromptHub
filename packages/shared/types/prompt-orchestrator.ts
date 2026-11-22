@@ -255,6 +255,11 @@ export interface PromptTermDecision {
   /** Empty only for ignore; create intentionally has no vocabulary terms. */
   output: string;
   rationale: string;
+  /**
+   * `model` means the LLM chose the strategy; `policy` means Core derived it
+   * from explicit selections and field usage in modes without model decisions.
+   */
+  origin?: "model" | "policy";
 }
 
 export interface PromptRetrievalSummary {
@@ -441,6 +446,102 @@ export interface PromptAlignment {
   method: "sentence-match" | "none";
 }
 
+export type PromptDecisionOrigin = "user" | "model" | "policy";
+
+export type PromptProvenanceState =
+  | "locked"
+  | "recommended"
+  | "reference"
+  | "excluded"
+  | "auto"
+  | "random"
+  | "resolved"
+  | "ambiguous"
+  | "unresolved";
+
+export type PromptProvenanceOutcome =
+  | "fixed"
+  | "verbatim"
+  | "adapted"
+  | "absent"
+  | "injected";
+
+/**
+ * One row of the cross-mode decision trail: every vocabulary term, resolved
+ * identity, artist route and user constraint gets a state and an outcome, no
+ * matter which mode produced the result.
+ */
+export interface PromptProvenanceEntry {
+  /** Stable key: term id, `entity:<mention>`, `artist:<termId>` or `field:<name>`. */
+  id: string;
+  kind: "term" | "entity" | "artist" | "constraint";
+  label: string;
+  state: PromptProvenanceState;
+  outcome: PromptProvenanceOutcome;
+  /** What actually entered the prompt; empty when absent or injected. */
+  excerpt: string;
+  origin: PromptDecisionOrigin;
+  termId?: string;
+  slotId?: string;
+  strategy?: PromptTermDecisionStrategy;
+  reason?: string;
+}
+
+export type PromptResultRating = "usable" | "unusable";
+
+export type PromptResultFeedbackReason =
+  | "intent-drift"
+  | "subject-wrong"
+  | "too-generic"
+  | "too-specific"
+  | "conflicting"
+  | "style-off"
+  | "format-broken"
+  | "other";
+
+export interface PromptResultFeedbackInput {
+  rating: PromptResultRating;
+  reasons: PromptResultFeedbackReason[];
+  note?: string;
+}
+
+/** Stored result-level feedback; never upgrades term validation by itself. */
+export interface PromptResultFeedbackRecord {
+  id: string;
+  createdAt: string;
+  mode: string;
+  skill: string;
+  outputFormat: string | null;
+  guidanceMode: string | null;
+  status: "complete" | "degraded";
+  rating: PromptResultRating;
+  reasons: PromptResultFeedbackReason[];
+  note: string | null;
+  promptExcerpt: string;
+  resultExcerpt: string;
+}
+
+export interface CreatePromptResultFeedbackDTO {
+  mode: string;
+  skill: string;
+  outputFormat?: string | null;
+  guidanceMode?: string | null;
+  status: "complete" | "degraded";
+  rating: PromptResultRating;
+  reasons?: PromptResultFeedbackReason[];
+  note?: string | null;
+  promptExcerpt: string;
+  resultExcerpt: string;
+  /** Full result snapshot for later analysis; never contains credentials. */
+  snapshot: unknown;
+}
+
+export interface DesktopPromptFeedbackRequest {
+  input: PromptOrchestrationInput;
+  result: PromptOrchestrationResult;
+  feedback: PromptResultFeedbackInput;
+}
+
 export interface PromptOrchestrationResult {
   mode: PromptOrchestrationMode;
   skill: PromptOrchestrationSkill;
@@ -455,6 +556,8 @@ export interface PromptOrchestrationResult {
   tokenMetrics: PromptTokenMetrics;
   /** Degraded means the deterministic fallback was used after an LLM failure. */
   status: "complete" | "degraded";
+  /** Guidance mode that produced this result, for result-level feedback. */
+  guidanceMode?: PromptGuidanceMode;
   /** Additional directly consumable payload returned in JSON mode. */
   payload?: unknown;
   /** Sentence-level pairing between the user's input and the final prompt. */
@@ -470,6 +573,8 @@ export interface PromptOrchestrationResult {
   routePlan?: PromptRoutePlan;
   /** Artist names split out of the prompt body according to the target pipeline. */
   artistRoutes?: PromptArtistRoute[];
+  /** Cross-mode decision trail for terms, identities, artists and constraints. */
+  provenance?: PromptProvenanceEntry[];
 }
 
 export function isVideoOrchestrationMode(

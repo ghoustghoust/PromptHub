@@ -59,6 +59,7 @@ function createWindowApiDefaults() {
       resolveTerms: vi.fn().mockResolvedValue({ ok: true, data: [] }),
       refineLayoutCaptions: vi.fn(),
       reverseLayout: vi.fn(),
+      submitFeedback: vi.fn().mockResolvedValue({ ok: true, data: {} }),
     },
     localLlama: {
       getConfig: vi.fn(),

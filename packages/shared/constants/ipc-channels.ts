@@ -37,6 +37,7 @@ export const IPC_CHANNELS = {
   PROMPT_ORCHESTRATOR_VOCABULARY_RESOLVE: "prompt:orchestrator:vocabulary:resolve",
   PROMPT_ORCHESTRATOR_LAYOUT_CAPTIONS: "prompt:orchestrator:layout:captions",
   PROMPT_ORCHESTRATOR_LAYOUT_REVERSE: "prompt:orchestrator:layout:reverse",
+  PROMPT_ORCHESTRATOR_FEEDBACK: "prompt:orchestrator:feedback",
   /**
    * Atomic batch migration from legacy IndexedDB data.
    * All inserts are wrapped in a single SQLite transaction.

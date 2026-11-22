@@ -5401,6 +5401,57 @@
         "baseModel": "底模要求"
       },
       "empty": "本次结果没有解析到实体或画师路由。"
+    },
+    "provenance": {
+      "source": "来源",
+      "states": {
+        "locked": "锁定",
+        "recommended": "推荐",
+        "reference": "参考",
+        "excluded": "排除",
+        "auto": "自动",
+        "random": "随机",
+        "resolved": "已解析",
+        "ambiguous": "待选择",
+        "unresolved": "未收录"
+      },
+      "outcomes": {
+        "fixed": "固定写入",
+        "verbatim": "复用",
+        "adapted": "借鉴",
+        "absent": "未采用",
+        "injected": "参数注入"
+      },
+      "origins": {
+        "user": "用户",
+        "model": "模型",
+        "policy": "规则"
+      },
+      "decisionOrigin": {
+        "model": "模型决策",
+        "policy": "规则推导"
+      }
+    },
+    "feedback": {
+      "title": "结果反馈",
+      "hint": "只记录本次结果，不改动词条验证状态。",
+      "usable": "可用",
+      "unusable": "不可用",
+      "reasonsLabel": "可选原因",
+      "reasons": {
+        "intent-drift": "偏离意图",
+        "subject-wrong": "主体不对",
+        "too-generic": "太笼统",
+        "too-specific": "过度具体",
+        "conflicting": "元素冲突",
+        "style-off": "风格不对",
+        "format-broken": "格式坏了",
+        "other": "其他"
+      },
+      "notePlaceholder": "补充说明（可选）",
+      "submit": "记录反馈",
+      "saving": "记录中…",
+      "saved": "已记录；反馈不会自动改写词条或验证状态。"
     }
   },
   "generation": {

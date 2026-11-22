@@ -5403,6 +5403,57 @@
         "baseModel": "Base model"
       },
       "empty": "This result has no resolved entities or artist routing."
+    },
+    "provenance": {
+      "source": "Source",
+      "states": {
+        "locked": "Locked",
+        "recommended": "Recommended",
+        "reference": "Reference",
+        "excluded": "Excluded",
+        "auto": "Automatic",
+        "random": "Random",
+        "resolved": "Resolved",
+        "ambiguous": "Needs a choice",
+        "unresolved": "Not in library"
+      },
+      "outcomes": {
+        "fixed": "Fixed",
+        "verbatim": "Reused",
+        "adapted": "Adapted",
+        "absent": "Not used",
+        "injected": "Injected as parameters"
+      },
+      "origins": {
+        "user": "User",
+        "model": "Model",
+        "policy": "Policy"
+      },
+      "decisionOrigin": {
+        "model": "Model decision",
+        "policy": "Policy-derived"
+      }
+    },
+    "feedback": {
+      "title": "Result feedback",
+      "hint": "Records this result only; it does not change term validation.",
+      "usable": "Usable",
+      "unusable": "Not usable",
+      "reasonsLabel": "Optional reasons",
+      "reasons": {
+        "intent-drift": "Intent drift",
+        "subject-wrong": "Wrong subject",
+        "too-generic": "Too generic",
+        "too-specific": "Too specific",
+        "conflicting": "Conflicting elements",
+        "style-off": "Wrong style",
+        "format-broken": "Broken format",
+        "other": "Other"
+      },
+      "notePlaceholder": "Additional note (optional)",
+      "submit": "Save feedback",
+      "saving": "Saving…",
+      "saved": "Saved. Feedback never edits terms or validation on its own."
     }
   },
   "generation": {

@@ -10,6 +10,7 @@ import {
 import type {
   PromptOrchestrationField,
   PromptOrchestrationResult,
+  PromptProvenanceEntry,
   PromptSkillDraft,
 } from "@prompthub/shared/types";
 import { Button } from "../ui/Button";
@@ -19,50 +20,9 @@ import { PromptSkillDraftPanel } from "./PromptSkillDraftPanel";
 import { PromptMossLayoutResultView } from "./PromptMossLayoutResultView";
 import { PromptTermDecisionPanel } from "./PromptTermDecisionPanel";
 import { PromptEntityResolutionPanel } from "./PromptEntityResolutionPanel";
+import { PromptResultFeedback } from "./PromptResultFeedback";
 
 type ResultTab = "complete" | "decisions" | "terms" | "entities" | "initial" | "fields" | "skill";
-
-type TermUsage = "fixed" | "verbatim" | "adapted" | "absent";
-
-interface TermTrace {
-  id: string;
-  label: string;
-  state: string;
-  usage: TermUsage;
-  excerpt: string;
-}
-
-function traceTerms(result: PromptOrchestrationResult): TermTrace[] {
-  return result.selectedTerms.map((term) => {
-    const label = term.template?.trim() || term.en;
-    const normalized = label.toLowerCase();
-    const linked = result.fields.filter((field) => field.termId === term.id);
-    const state = term.selectionReason === "reference"
-      ? "reference"
-      : term.selectionReason === "explicit"
-        ? term.locked ? "locked" : "recommended"
-        : "auto";
-    let usage: TermUsage;
-    if (term.selectionReason === "explicit") {
-      // The system injects explicit selections as fixed fields; the excerpt
-      // shows what actually entered the prompt, not what the model chose.
-      usage = linked.length > 0 ? "fixed" : "absent";
-    } else if (linked.length > 0) {
-      usage = linked.some((field) => field.value.trim().toLowerCase() === normalized)
-        ? "verbatim"
-        : "adapted";
-    } else {
-      usage = result.completePrompt.toLowerCase().includes(normalized) ? "verbatim" : "absent";
-    }
-    return {
-      id: term.id,
-      label,
-      state,
-      usage,
-      excerpt: linked[0]?.value ?? (usage === "verbatim" ? label : ""),
-    };
-  });
-}
 
 interface Props {
   result: PromptOrchestrationResult | null;
@@ -115,7 +75,8 @@ export function PromptOrchestratorResultPanel({
   const [tab, setTab] = useState<ResultTab>("complete");
   const [favorite, setFavorite] = useState(false);
   useEffect(() => {
-    setTab(result?.termDecisions?.length ? "decisions" : "complete");
+    const modelDecided = result?.termDecisions?.some((decision) => decision.origin === "model");
+    setTab(modelDecided ? "decisions" : "complete");
   }, [result]);
 
   const tabs: Array<{ id: ResultTab; label: string; disabled?: boolean }> = [
@@ -123,12 +84,12 @@ export function PromptOrchestratorResultPanel({
     {
       id: "decisions",
       label: t("orchestrator.dynamicPolish.tab"),
-      disabled: !result?.termDecisions?.length,
+      disabled: !result,
     },
     {
       id: "terms",
       label: t("orchestrator.trace.tab"),
-      disabled: !result?.selectedTerms.length,
+      disabled: !result || (result.provenance?.length ?? 0) === 0,
     },
     {
       id: "entities",
@@ -270,6 +231,7 @@ export function PromptOrchestratorResultPanel({
                     : t("orchestrator.saveToPromptLibrary")}
               </Button>
             </div>
+            <PromptResultFeedback result={result} sourcePrompt={sourcePrompt} />
             {result.layout ? (
               <PromptMossLayoutResultView result={result} />
             ) : (
@@ -307,31 +269,45 @@ export function PromptOrchestratorResultPanel({
         ) : tab === "terms" ? (
           <div className="space-y-3">
             <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[520px] text-left text-xs">
+              <table className="w-full min-w-[680px] text-left text-xs">
                 <thead className="bg-muted/40 text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2">{t("orchestrator.trace.state")}</th>
                     <th className="px-3 py-2">{t("orchestrator.trace.term")}</th>
                     <th className="px-3 py-2">{t("orchestrator.trace.usage")}</th>
                     <th className="px-3 py-2">{t("orchestrator.trace.excerpt")}</th>
+                    <th className="px-3 py-2">{t("orchestrator.provenance.source")}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {traceTerms(result).map((row) => (
+                  {(result.provenance ?? []).map((row: PromptProvenanceEntry) => (
                     <tr key={row.id} className="border-b border-border align-top last:border-0">
                       <td className="px-3 py-2">
                         <span className="rounded bg-muted px-2 py-1 text-[11px]">
-                          {t(`orchestrator.trace.states.${row.state}`)}
+                          {t(`orchestrator.provenance.states.${row.state}`)}
                         </span>
                       </td>
-                      <td className="px-3 py-2 font-medium">{row.label}</td>
+                      <td className="px-3 py-2 font-medium">
+                        {row.label}
+                        <span className="ml-1.5 text-[10px] text-muted-foreground">{row.kind}</span>
+                      </td>
                       <td className="px-3 py-2">
                         <span className="rounded bg-muted px-2 py-1 text-[11px]">
-                          {t(`orchestrator.trace.results.${row.usage}`)}
+                          {t(`orchestrator.provenance.outcomes.${row.outcome}`)}
                         </span>
+                        {row.strategy && (
+                          <span className="ml-1 text-[10px] text-muted-foreground">
+                            {t(`orchestrator.dynamicPolish.strategy.${row.strategy}`)}
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-2 whitespace-pre-wrap text-muted-foreground">
-                        {row.excerpt}
+                        {row.excerpt || row.reason || ""}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className="rounded bg-muted/60 px-2 py-1 text-[11px] text-muted-foreground">
+                          {t(`orchestrator.provenance.origins.${row.origin}`)}
+                        </span>
                       </td>
                     </tr>
                   ))}

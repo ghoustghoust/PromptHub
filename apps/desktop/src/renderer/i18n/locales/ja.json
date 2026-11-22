@@ -5032,6 +5032,57 @@
         "baseModel": "ベースモデル"
       },
       "empty": "この結果には解決済みエンティティや画師ルートがありません。"
+    },
+    "provenance": {
+      "source": "由来",
+      "states": {
+        "locked": "固定",
+        "recommended": "推奨",
+        "reference": "参考",
+        "excluded": "除外",
+        "auto": "自動",
+        "random": "ランダム",
+        "resolved": "解決済み",
+        "ambiguous": "選択待ち",
+        "unresolved": "未収録"
+      },
+      "outcomes": {
+        "fixed": "固定で書き込み",
+        "verbatim": "再利用",
+        "adapted": "翻案",
+        "absent": "未採用",
+        "injected": "パラメータ注入"
+      },
+      "origins": {
+        "user": "ユーザー",
+        "model": "モデル",
+        "policy": "ルール"
+      },
+      "decisionOrigin": {
+        "model": "モデル判断",
+        "policy": "ルール導出"
+      }
+    },
+    "feedback": {
+      "title": "結果フィードバック",
+      "hint": "今回の結果だけを記録し、語彙の検証状態は変更しません。",
+      "usable": "使える",
+      "unusable": "使えない",
+      "reasonsLabel": "任意の理由",
+      "reasons": {
+        "intent-drift": "意図からずれた",
+        "subject-wrong": "主体が違う",
+        "too-generic": "抽象的すぎる",
+        "too-specific": "具体的すぎる",
+        "conflicting": "要素が衝突",
+        "style-off": "スタイルが違う",
+        "format-broken": "形式が壊れた",
+        "other": "その他"
+      },
+      "notePlaceholder": "補足（任意）",
+      "submit": "記録する",
+      "saving": "記録中…",
+      "saved": "記録しました。語彙や検証状態は自動変更されません。"
     }
   },
   "generation": {

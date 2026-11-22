@@ -5033,6 +5033,57 @@
         "baseModel": "Modèle de base"
       },
       "empty": "Ce résultat ne contient ni entité résolue ni routage d'artiste."
+    },
+    "provenance": {
+      "source": "Origine",
+      "states": {
+        "locked": "Verrouillé",
+        "recommended": "Recommandé",
+        "reference": "Référence",
+        "excluded": "Exclu",
+        "auto": "Automatique",
+        "random": "Aléatoire",
+        "resolved": "Résolu",
+        "ambiguous": "Choix requis",
+        "unresolved": "Absent de la base"
+      },
+      "outcomes": {
+        "fixed": "Inscrit en fixe",
+        "verbatim": "Réutilisé",
+        "adapted": "Adapté",
+        "absent": "Non utilisé",
+        "injected": "Injecté en paramètres"
+      },
+      "origins": {
+        "user": "Utilisateur",
+        "model": "Modèle",
+        "policy": "Règle"
+      },
+      "decisionOrigin": {
+        "model": "Décision du modèle",
+        "policy": "Déduite par règle"
+      }
+    },
+    "feedback": {
+      "title": "Retour sur le résultat",
+      "hint": "Enregistre ce résultat uniquement ; ne modifie pas la validation des termes.",
+      "usable": "Utilisable",
+      "unusable": "Inutilisable",
+      "reasonsLabel": "Raisons facultatives",
+      "reasons": {
+        "intent-drift": "Dérive de l'intention",
+        "subject-wrong": "Sujet incorrect",
+        "too-generic": "Trop générique",
+        "too-specific": "Trop précis",
+        "conflicting": "Éléments en conflit",
+        "style-off": "Style incorrect",
+        "format-broken": "Format cassé",
+        "other": "Autre"
+      },
+      "notePlaceholder": "Remarque complémentaire (facultatif)",
+      "submit": "Enregistrer",
+      "saving": "Enregistrement…",
+      "saved": "Enregistré. Aucun terme ni statut de validation n'est modifié."
     }
   },
   "generation": {

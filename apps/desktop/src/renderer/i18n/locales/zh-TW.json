@@ -5032,6 +5032,57 @@
         "baseModel": "底模要求"
       },
       "empty": "本次結果沒有解析到實體或畫師路由。"
+    },
+    "provenance": {
+      "source": "來源",
+      "states": {
+        "locked": "鎖定",
+        "recommended": "推薦",
+        "reference": "參考",
+        "excluded": "排除",
+        "auto": "自動",
+        "random": "隨機",
+        "resolved": "已解析",
+        "ambiguous": "待選擇",
+        "unresolved": "未收錄"
+      },
+      "outcomes": {
+        "fixed": "固定寫入",
+        "verbatim": "複用",
+        "adapted": "借鑑",
+        "absent": "未採用",
+        "injected": "參數注入"
+      },
+      "origins": {
+        "user": "使用者",
+        "model": "模型",
+        "policy": "規則"
+      },
+      "decisionOrigin": {
+        "model": "模型決策",
+        "policy": "規則推導"
+      }
+    },
+    "feedback": {
+      "title": "結果回饋",
+      "hint": "只記錄本次結果，不改動詞條驗證狀態。",
+      "usable": "可用",
+      "unusable": "不可用",
+      "reasonsLabel": "可選原因",
+      "reasons": {
+        "intent-drift": "偏離意圖",
+        "subject-wrong": "主體不對",
+        "too-generic": "太籠統",
+        "too-specific": "過度具體",
+        "conflicting": "元素衝突",
+        "style-off": "風格不對",
+        "format-broken": "格式壞了",
+        "other": "其他"
+      },
+      "notePlaceholder": "補充說明（可選）",
+      "submit": "記錄回饋",
+      "saving": "記錄中…",
+      "saved": "已記錄；回饋不會自動改寫詞條或驗證狀態。"
     }
   },
   "generation": {

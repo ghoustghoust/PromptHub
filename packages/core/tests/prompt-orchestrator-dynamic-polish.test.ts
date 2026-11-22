@@ -266,7 +266,7 @@ describe("PromptOrchestrator dynamic polish", () => {
     expect(result.status).toBe("degraded");
     expect(calls).toHaveLength(3);
     expect(result.warnings.join(" ")).toContain("LLM composition failed");
-    expect(result.termDecisions).toBeUndefined();
+    expect(result.termDecisions?.some((decision) => decision.origin === "model")).toBe(false);
   });
 
   it("rejects plans with more than four queries or duplicate slot ids", async () => {
@@ -662,7 +662,7 @@ describe("PromptOrchestrator dynamic polish", () => {
       },
     });
     expect(result.status).toBe("complete");
-    expect(result.termDecisions).toBeUndefined();
+    expect(result.termDecisions?.some((decision) => decision.origin === "model")).toBe(false);
     expect(result.retrievalSummary).toBeUndefined();
     expect(calls).toHaveLength(1);
   });

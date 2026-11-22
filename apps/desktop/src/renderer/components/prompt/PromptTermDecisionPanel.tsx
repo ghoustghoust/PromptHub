@@ -35,6 +35,11 @@ function DecisionCard({ decision }: { decision: PromptTermDecision }) {
         <span className="text-[11px] font-medium text-muted-foreground">
           {decision.category} · {decision.slotId}
         </span>
+        {decision.origin && (
+          <span className="rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+            {t(`orchestrator.provenance.decisionOrigin.${decision.origin}`)}
+          </span>
+        )}
       </div>
       <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border/70">
         <div className="border-r border-border/70 bg-muted/20 p-2.5">

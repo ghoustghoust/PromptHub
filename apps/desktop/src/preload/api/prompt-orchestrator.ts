@@ -1,6 +1,7 @@
 import { ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "@prompthub/shared/constants/ipc-channels";
 import type {
+  DesktopPromptFeedbackRequest,
   DesktopPromptLayoutCaptionRequest,
   DesktopPromptLayoutReverseRequest,
   DesktopPromptOrchestrationRequest,
@@ -9,6 +10,7 @@ import type {
   PromptMossLayoutReverse,
   PromptOrchestrationResult,
   PromptOrchestratorIPCReply,
+  PromptResultFeedbackRecord,
   PromptSkillDraft,
   PromptVocabularyBrowseInput,
   PromptVocabularyBrowseResult,
@@ -56,4 +58,9 @@ export const promptOrchestratorApi = {
       IPC_CHANNELS.PROMPT_ORCHESTRATOR_LAYOUT_REVERSE,
       request,
     ) as Promise<PromptOrchestratorIPCReply<PromptMossLayoutReverse>>,
+  submitFeedback: (request: DesktopPromptFeedbackRequest) =>
+    ipcRenderer.invoke(
+      IPC_CHANNELS.PROMPT_ORCHESTRATOR_FEEDBACK,
+      request,
+    ) as Promise<PromptOrchestratorIPCReply<PromptResultFeedbackRecord>>,
 };

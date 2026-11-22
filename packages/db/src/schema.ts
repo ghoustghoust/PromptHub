@@ -1,5 +1,6 @@
 import { GENERATION_SCHEMA } from "./generation-schema";
 import { PROMPT_TEST_HISTORY_SCHEMA } from "./prompt-test-history";
+import { PROMPT_FEEDBACK_SCHEMA } from "./prompt-feedback";
 import { PLUGIN_SCHEMA } from "./plugin";
 import { PROMPT_VOCAB_SCHEMA } from "./prompt-vocab-schema";
 import { RULE_SCHEMA } from "./rule-schema";
@@ -216,6 +217,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
 
 ${GENERATION_SCHEMA}
 ${PROMPT_TEST_HISTORY_SCHEMA}
+${PROMPT_FEEDBACK_SCHEMA}
 ${PROMPT_VOCAB_SCHEMA}
 
 CREATE TABLE IF NOT EXISTS agent_provider_profiles (

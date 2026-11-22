@@ -40,6 +40,7 @@ import {
 import { resolvePromptEntities } from "./prompt-entity-resolution";
 import { buildPromptRoutePlan } from "./prompt-input-routing";
 import { resolveArtistPipeline, routeArtistTerms } from "./prompt-artist-routing";
+import { buildPolicyDecisions, buildProvenance } from "./prompt-provenance";
 import {
   runToolRetrieval,
   supportsToolRetrieval,
@@ -706,6 +707,23 @@ export class PromptOrchestrator {
         completed.selectedTerms,
       );
       const tokenMetrics = await this.tokenMetrics(composition, completed.selectedTerms);
+      const decisions = completed.termDecisions ?? buildPolicyDecisions({
+        terms: completed.selectedTerms,
+        fields: composition.fields,
+        completePrompt: composition.completePrompt,
+        vocabulary: this.options.vocabulary,
+        excludedTermIds: input.excludedTermIds,
+      });
+      const provenance = buildProvenance({
+        input,
+        vocabulary: this.options.vocabulary,
+        terms: completed.selectedTerms,
+        decisions,
+        entities,
+        artistRoutes: artistRouting.routes,
+        fields: composition.fields,
+        completePrompt: composition.completePrompt,
+      });
       const warnings = this.warnings(
         input,
         [...routingWarnings, ...completed.warnings],
@@ -728,9 +746,9 @@ export class PromptOrchestrator {
         warnings,
         tokenMetrics,
         status: "complete",
-        ...(completed.termDecisions
-          ? { termDecisions: completed.termDecisions }
-          : {}),
+        guidanceMode: input.guidanceMode ?? "agent-led",
+        termDecisions: decisions,
+        provenance,
         ...(completed.retrievalSummary
           ? { retrievalSummary: completed.retrievalSummary }
           : {}),
@@ -752,6 +770,23 @@ export class PromptOrchestrator {
         composition.completePrompt,
         compositionTerms,
       );
+      const decisions = buildPolicyDecisions({
+        terms: compositionTerms,
+        fields: composition.fields,
+        completePrompt: composition.completePrompt,
+        vocabulary: this.options.vocabulary,
+        excludedTermIds: input.excludedTermIds,
+      });
+      const provenance = buildProvenance({
+        input,
+        vocabulary: this.options.vocabulary,
+        terms: compositionTerms,
+        decisions,
+        entities,
+        artistRoutes: artistRouting.routes,
+        fields: composition.fields,
+        completePrompt: composition.completePrompt,
+      });
       return {
         mode,
         skill: input.skill ?? "moodyMoss",
@@ -775,6 +810,9 @@ export class PromptOrchestrator {
         ],
         tokenMetrics,
         status: "degraded",
+        guidanceMode: input.guidanceMode ?? "agent-led",
+        termDecisions: decisions,
+        provenance,
         ...(entities.length > 0 ? { entityResolutions: entities } : {}),
         routePlan,
         ...(artistRouting.routes.length > 0

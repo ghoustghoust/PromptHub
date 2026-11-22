@@ -171,6 +171,8 @@ describe("tool-assisted retrieval", () => {
 
     expect(result.retrievalSummary).toMatchObject({ rounds: 2, queryCount: 1 });
     expect(result.termDecisions?.[0].strategy).toBe("reuse");
+    expect(result.termDecisions?.[0].origin).toBe("model");
+    expect(result.provenance?.some((entry) => entry.termId === "light-1")).toBe(true);
     expect(result.termDecisions?.[0].terms.map((term) => term.id)).toEqual(["light-1"]);
     expect(result.selectedTerms.map((term) => term.id)).toContain("light-1");
   });
@@ -314,7 +316,7 @@ describe("tool-assisted retrieval", () => {
     expect(requests).toHaveLength(1);
     expect(result.status).toBe("complete");
     expect(result.warnings.join(" ")).toContain("Tool retrieval failed");
-    expect(result.termDecisions).toBeUndefined();
+    expect(result.termDecisions?.some((decision) => decision.origin === "model")).toBe(false);
   });
 
   it("allows a final answer without any tool call", async () => {

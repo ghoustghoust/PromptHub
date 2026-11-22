@@ -5032,6 +5032,57 @@
         "baseModel": "Basismodell"
       },
       "empty": "Dieses Ergebnis enthält keine aufgelösten Entitäten oder Künstler-Routen."
+    },
+    "provenance": {
+      "source": "Quelle",
+      "states": {
+        "locked": "Gesperrt",
+        "recommended": "Empfohlen",
+        "reference": "Referenz",
+        "excluded": "Ausgeschlossen",
+        "auto": "Automatisch",
+        "random": "Zufällig",
+        "resolved": "Aufgelöst",
+        "ambiguous": "Auswahl nötig",
+        "unresolved": "Nicht in der Bibliothek"
+      },
+      "outcomes": {
+        "fixed": "Fest geschrieben",
+        "verbatim": "Wiederverwendet",
+        "adapted": "Angepasst",
+        "absent": "Nicht verwendet",
+        "injected": "Als Parameter injiziert"
+      },
+      "origins": {
+        "user": "Nutzer",
+        "model": "Modell",
+        "policy": "Regel"
+      },
+      "decisionOrigin": {
+        "model": "Modellentscheidung",
+        "policy": "Regelbasiert"
+      }
+    },
+    "feedback": {
+      "title": "Ergebnis-Feedback",
+      "hint": "Zeichnet nur dieses Ergebnis auf; die Begriffsvalidierung bleibt unverändert.",
+      "usable": "Brauchbar",
+      "unusable": "Nicht brauchbar",
+      "reasonsLabel": "Optionale Gründe",
+      "reasons": {
+        "intent-drift": "Absicht verfehlt",
+        "subject-wrong": "Falsches Motiv",
+        "too-generic": "Zu allgemein",
+        "too-specific": "Zu konkret",
+        "conflicting": "Widersprüchliche Elemente",
+        "style-off": "Falscher Stil",
+        "format-broken": "Format defekt",
+        "other": "Sonstiges"
+      },
+      "notePlaceholder": "Ergänzende Notiz (optional)",
+      "submit": "Feedback speichern",
+      "saving": "Speichern…",
+      "saved": "Gespeichert. Begriffe und Validierungsstatus werden nicht verändert."
     }
   },
   "generation": {

@@ -92,6 +92,11 @@ export {
   PROMPT_VOCAB_SCHEMA,
   migratePromptVocabSchema,
 } from "./prompt-vocab-schema";
+export {
+  PromptFeedbackDB,
+  PROMPT_FEEDBACK_SCHEMA,
+  migratePromptFeedback,
+} from "./prompt-feedback";
 export { FolderDB } from "./folder";
 export { SkillDB } from "./skill";
 export { SkillMetadataDB } from "./skill-metadata";

@@ -5032,6 +5032,57 @@
         "baseModel": "Modelo base"
       },
       "empty": "Este resultado no tiene entidades resueltas ni enrutado de artista."
+    },
+    "provenance": {
+      "source": "Origen",
+      "states": {
+        "locked": "Bloqueado",
+        "recommended": "Recomendado",
+        "reference": "Referencia",
+        "excluded": "Excluido",
+        "auto": "Automático",
+        "random": "Aleatorio",
+        "resolved": "Resuelta",
+        "ambiguous": "Requiere elección",
+        "unresolved": "No está en la biblioteca"
+      },
+      "outcomes": {
+        "fixed": "Escrito como fijo",
+        "verbatim": "Reutilizado",
+        "adapted": "Adaptado",
+        "absent": "No usado",
+        "injected": "Inyectado como parámetros"
+      },
+      "origins": {
+        "user": "Usuario",
+        "model": "Modelo",
+        "policy": "Regla"
+      },
+      "decisionOrigin": {
+        "model": "Decisión del modelo",
+        "policy": "Derivada por regla"
+      }
+    },
+    "feedback": {
+      "title": "Comentario del resultado",
+      "hint": "Solo registra este resultado; no cambia la validación de términos.",
+      "usable": "Utilizable",
+      "unusable": "No utilizable",
+      "reasonsLabel": "Motivos opcionales",
+      "reasons": {
+        "intent-drift": "Se desvía de la intención",
+        "subject-wrong": "Sujeto incorrecto",
+        "too-generic": "Demasiado genérico",
+        "too-specific": "Demasiado concreto",
+        "conflicting": "Elementos en conflicto",
+        "style-off": "Estilo incorrecto",
+        "format-broken": "Formato roto",
+        "other": "Otro"
+      },
+      "notePlaceholder": "Nota adicional (opcional)",
+      "submit": "Guardar comentario",
+      "saving": "Guardando…",
+      "saved": "Guardado. No se modifican términos ni estados de validación."
     }
   },
   "generation": {

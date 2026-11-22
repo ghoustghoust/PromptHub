@@ -49,6 +49,8 @@ interface Args {
   context: number;
   gpuLayers: number;
   draftMax: number;
+  draftNgl: number | null;
+  draftDevice: string;
   configs: string[];
   runs: number;
   warmup: number;
@@ -60,6 +62,7 @@ interface Args {
   attach: string;
   configFile: string;
   keepServer: boolean;
+  noMmproj: boolean;
 }
 
 interface RunRecord {
@@ -110,6 +113,8 @@ function parseArgs(argv: string[]): Args {
     context: number("ctx", DEFAULT_LOCAL_LLAMA_CONFIG.contextSize),
     gpuLayers: Number(read("ngl", String(DEFAULT_LOCAL_LLAMA_CONFIG.gpuLayers))),
     draftMax: number("draft-max", DEFAULT_LOCAL_LLAMA_CONFIG.mtpDraftMax),
+    draftNgl: read("draft-ngl", "") === "" ? null : Number(read("draft-ngl", "")),
+    draftDevice: read("draft-device", ""),
     configs: read("configs", "baseline,mtp").split(",").map((item) => item.trim()).filter(Boolean),
     runs: number("runs", 3),
     warmup: number("warmup", 1, true),
@@ -121,6 +126,7 @@ function parseArgs(argv: string[]): Args {
     attach: read("attach", ""),
     configFile: read("config-file", ""),
     keepServer: argv.includes("--keep-server"),
+    noMmproj: argv.includes("--no-mmproj"),
   };
 }
 
@@ -162,6 +168,17 @@ async function memoryUsed(): Promise<number | null> {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Waits until the previous server has actually returned its VRAM. */
+async function waitForCleanGpu(limitMb = 3000): Promise<number | null> {
+  let last: number | null = null;
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    last = await memoryUsed();
+    if (last !== null && last <= limitMb) return last;
+    await sleep(500);
+  }
+  return last;
 }
 
 async function serverReady(url: string): Promise<boolean> {
@@ -289,6 +306,12 @@ async function runConfig(
     mtpDraftMax: args.draftMax,
   };
   const flags = buildLocalLlamaArgs(config);
+  if (mtpEnabled && args.draftNgl !== null) {
+    flags.push("--spec-draft-ngl", String(args.draftNgl));
+  }
+  if (mtpEnabled && args.draftDevice) {
+    flags.push("--spec-draft-device", args.draftDevice);
+  }
   const result: ConfigResult = {
     name,
     flags,
@@ -310,6 +333,7 @@ async function runConfig(
     return result;
   }
 
+  await waitForCleanGpu();
   result.baselineMemoryMb = await memoryUsed();
   const logPath = path.join(args.out, `${name}-server.log`);
   const log = createWriteStream(logPath);
@@ -438,7 +462,9 @@ function renderReport(
   add(`- 时间：${new Date().toISOString()}`);
   add(`- 提交：\`${meta.head}\``);
   add(`- GPU：${meta.gpu}`);
-  add(`- 参数：ctx ${args.context} / ngl ${args.gpuLayers} / draft-max ${args.draftMax} / ` +
+  add(`- 参数：ctx ${args.context} / ngl ${args.gpuLayers} / draft-max ${args.draftMax}` +
+      `${args.draftNgl === null ? "" : ` / draft-ngl ${args.draftNgl}`}` +
+      `${args.draftDevice ? ` / draft-device ${args.draftDevice}` : ""} / ` +
       `runs ${args.runs} / n-predict ${args.nPredict} / 端口 ${args.port}`);
   if (args.attach) {
     add(`- 模式：attach ${args.attach}（服务端参数未由本脚本控制）`);
@@ -514,6 +540,7 @@ async function gitHead(): Promise<string> {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
+  if (args.noMmproj) args.mmproj = "";
   if (args.configFile) {
     const parsed = JSON.parse(await fs.readFile(args.configFile, "utf8")) as unknown;
     const config = normalizeLocalLlamaConfig(parsed);

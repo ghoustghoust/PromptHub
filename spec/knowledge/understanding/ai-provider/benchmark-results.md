@@ -170,6 +170,26 @@
 - 用该 profile 启动（含 mmproj）：日志出现 `creating MTP draft context`，不再出现 `model doesn't contain MTP layers`；128 token 生成 65.7 t/s，峰值显存 7796 MiB（8 GB 卡上余量约 355 MiB）。
 - 含 mmproj 的 MTP 配置显存很紧，桌面占用升高时有 OOM 风险；纯文本场景可不挂 mmproj（峰值 6909 MiB）。
 
+### MTP 草稿上 CPU（混合）验证（2026-11-22）
+
+官方文档（llama.cpp `docs/speculative.md`）中 `--spec-draft-ngl` / `--spec-draft-device` 只作用于**独立草稿模型**（`--model-draft`）。本机模型是集成 MTP（MTP 头在主 GGUF 内），因此“把 MTP 卸载到 CPU”没有独立权重可搬。
+
+| 配置（MTP 模型，纯文本，ctx 8192，ngl99） | 生成 t/s | 峰值显存 MiB | 结论 |
+| --- | ---: | ---: | --- |
+| MTP 全 GPU，512 token | 56.8 | 7783 | 基线（本次会话） |
+| `--spec-draft-ngl 0`，512 token | 64.9 | 7766 | 显存不降，速度在会话噪声内 |
+| `--spec-draft-device none`，128 token | 41.7 | 7846 | 可启动，显存不降，明显变慢 |
+| `--spec-draft-device CPU` | 启动失败 | — | `invalid device: CPU` |
+| `--spec-draft-ngl 0` + mmproj，512 token | 9.6 | 7863 | 不可用 |
+| MTP 全 GPU + mmproj，512 token | 65.0 | 7820 | 可用的多模态配置 |
+
+- **显存没有下降**：三种草稿卸载写法都在 7.76–7.86 GB，与全 GPU 基本一致；MTP 头与主模型共享权重，单独搬不走。
+- **速度代价不确定**：纯文本下 `-ngld 0` 与全 GPU 差异落在会话噪声内（本次 64.9 vs 56.8）；但一旦挂 mmproj，`-ngld 0` 掉到 9.6 t/s，明确不可用。
+- **可行的“省显存”混合是卸载主模型层**：ngl28（主模型部分上 CPU）+ MTP GPU，28.2 → 36.9 t/s（1.31×），代价是比全 GPU（56–77）慢得多。
+- 会话间 GPU 时钟/桌面占用波动明显，单次数字只作方向判断；正式比较需固定温度并多次取中位。
+
+**结论**：集成 MTP 无法通过 `-ngld` 把草稿头搬到 CPU 来省显存；显存不足时应减少主模型 `ngl`、去掉 mmproj 或直接释放引擎，而不是指望 MTP 混合。所谓“MTP 4.6–5.5 t/s”的记录与 `-ngld 0` + mmproj 的表现一致，可作为该配置不可用的旁证。
+
 ## 待测（后续）
 
 - T3 KV 量化质量（q8_0 vs f16）、T4 KVMem 9B identity+needle、T5 长上下文、T6 卸载/重载 handoff、T7 tok/s 指标面、T8 前缀复用、T9 长推理稳定性。

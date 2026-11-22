@@ -38,6 +38,110 @@ export type PromptOrchestrationOutputFormat =
   | "agent-system";
 export type PromptGuidanceMode = "agent-led" | "human-led";
 
+/** Where an artist name can actually take effect. */
+export type PromptArtistPipeline =
+  | "anima"
+  | "kaloscope"
+  | "moss"
+  | "k2"
+  | "h3"
+  | "unknown";
+
+export type PromptEntitySignal =
+  | "at-prefix"
+  | "series-qualified"
+  | "quoted"
+  | "cjk"
+  | "alias";
+
+export type PromptEntityStatus = "resolved" | "ambiguous" | "unresolved";
+
+/**
+ * One recognized identity. Multiple stored rows (a name-only row and a
+ * name+appearance bundle) collapse into one identity; the bundle is never used
+ * as the identity value.
+ */
+export interface PromptEntityCandidate {
+  identityKey: string;
+  displayName: string;
+  category: string;
+  subcategory: string | null;
+  series: string | null;
+  zh: string | null;
+  termIds: string[];
+  /** True when a stored row appends an appearance list after the name. */
+  hasAppearanceBundle: boolean;
+  validationStatus: PromptTermValidationStatus;
+}
+
+export interface PromptEntityMention {
+  text: string;
+  /** Character offsets into the original prompt. */
+  start: number;
+  end: number;
+  /** How the mention was recognized; `alias` means a plain dictionary hit. */
+  signal: PromptEntitySignal;
+}
+
+/**
+ * Exact/alias identity lookup for one mention. `ambiguous` carries candidates
+ * instead of a guess; `unresolved` keeps the user's text verbatim.
+ */
+export interface PromptEntityResolution {
+  mention: PromptEntityMention;
+  status: PromptEntityStatus;
+  /** Preferred stored row; absent when ambiguous or unresolved. */
+  termId?: string;
+  displayName?: string;
+  candidates: PromptEntityCandidate[];
+  reason: string;
+}
+
+export type PromptRouteSegmentKind =
+  | "named-entity"
+  | "trigger"
+  | "constrained"
+  | "atomic-tag"
+  | "prose";
+
+export interface PromptRouteSegment {
+  kind: PromptRouteSegmentKind;
+  text: string;
+  /** Identity, trigger and parameter text must survive verbatim. */
+  verbatim: boolean;
+  allowCreate: boolean;
+  negated: boolean;
+  relation: boolean;
+}
+
+/** Which retrieval path the input needs, and what the model may not invent. */
+export interface PromptRoutePlan {
+  path: "lexical" | "entity-only" | "hybrid";
+  segments: PromptRouteSegment[];
+  allowCreate: boolean;
+  /** Categories automatic retrieval must never query for this input. */
+  forbiddenCategories: string[];
+  warnings: string[];
+}
+
+export interface PromptArtistInjection {
+  artistName: string;
+  bank: string;
+  styleGuidance: number;
+  adapterStrength: number;
+  baseModel: string;
+}
+
+export interface PromptArtistRoute {
+  pipeline: PromptArtistPipeline;
+  termId: string;
+  artistName: string;
+  /** Token written into the prompt body; null means it must stay out of text. */
+  promptToken: string | null;
+  injection: PromptArtistInjection | null;
+  reason: string;
+}
+
 export interface PromptOrchestrationCanvas {
   width: number;
   height: number;
@@ -70,6 +174,12 @@ export interface PromptOrchestrationInput {
   mode?: PromptOrchestrationMode;
   /** Image model id used for applicable_models filtering. */
   modelId?: string;
+  /**
+   * Target pipeline for artist routing. Anima consumes `@artist`; Kaloscope
+   * takes the artist as node parameters; MOSS/Krea2 do not parse `@`.
+   * Omitted derives from `skill` and falls back to `unknown`.
+   */
+  targetPipeline?: PromptArtistPipeline;
   /** Optional series filter; generic terms remain eligible. */
   series?: string;
   /** Specific subject domain also includes shared descriptors. */
@@ -354,6 +464,12 @@ export interface PromptOrchestrationResult {
   /** Present for the dynamic polish prototype; ignored candidates remain auditable. */
   termDecisions?: PromptTermDecision[];
   retrievalSummary?: PromptRetrievalSummary;
+  /** Named identities recognized in the input, including ambiguous candidates. */
+  entityResolutions?: PromptEntityResolution[];
+  /** Deterministic input classification used to choose the retrieval path. */
+  routePlan?: PromptRoutePlan;
+  /** Artist names split out of the prompt body according to the target pipeline. */
+  artistRoutes?: PromptArtistRoute[];
 }
 
 export function isVideoOrchestrationMode(

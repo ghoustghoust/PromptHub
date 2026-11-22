@@ -1,5 +1,6 @@
 import type {
   PromptCreativityLayer,
+  PromptEntityResolution,
   PromptModelDirective,
   PromptOrchestrationField,
   PromptOrchestrationInput,
@@ -97,9 +98,15 @@ Vocabulary states:
 - reference: optional material supplied by the user; reuse, adapt or ignore it per slot. It is never a requirement.
 - excludedTermIds: never use these terms, even if they would fit.`.trim();
 
+const ENTITY_CONTRACT = `
+Named identities:
+- A resolved entity name is a fixed fact taken from the user's input. Keep that exact spelling; never swap in a different character, series or artist.
+- A resolved name identifies the subject only. Do not expand it into an assumed appearance, outfit or personality unless the user asked for appearance details.
+- An ambiguous mention lists candidate identities. Do not choose one and do not merge their attributes; keep the user's text as written.
+- An unresolved name stays verbatim. Never replace it with a similar-looking library entry.`.trim();
+
 const OUTPUT_CONTRACT = `
-Return one valid JSON object and nothing else. Do not use Markdown fences.
-Schema:
+Return one valid JSON object and nothing else. Do not use Markdown fences.Schema:
 {
   "initialPrompt": "concise prompt containing only required core elements",
   "completePrompt": "ready-to-use prompt containing required and inferred elements; include optional suggestions only when the guidance and model rules permit them",
@@ -317,6 +324,7 @@ export function buildCompositionMessages(
   input: PromptOrchestrationInput,
   selectedTerms: PromptSelectedTerm[],
   modelDirectives: PromptModelDirective[],
+  entities: PromptEntityResolution[] = [],
 ): PromptCompositionMessages {
   const mode = input.mode ?? "expand";
   const system = [
@@ -327,6 +335,7 @@ export function buildCompositionMessages(
       ? "Human-led mode: the user's searched vocabulary is organized by state. locked terms must be kept verbatim; recommended terms must appear but their wording may be adjusted to fit the sentence; reference terms are optional material that may be reused, adapted or ignored. Preserve the user's structure, make only restrained coherence/polish changes, and do not add automatic vocabulary or unrelated entities. Put any nonessential creative idea only in optional fields, never merge it into the final prompt without user approval."
       : "Agent-led mode: guide the initial idea actively while respecting the selected rule card and the user's fixed facts. Useful creative additions must remain explicitly optional.",
     VOCABULARY_STATE_CONTRACT,
+    ENTITY_CONTRACT,
     systemPromptLayerSection(input),
     OUTPUT_CONTRACT,
     taskOutputContract(input),
@@ -346,6 +355,16 @@ export function buildCompositionMessages(
     guidanceMode: input.guidanceMode ?? "agent-led",
     includePayload: input.includePayload === true || mode === "json",
     video: input.video ?? null,
+    entities: entities.map((entity) => ({
+      text: entity.mention.text,
+      signal: entity.mention.signal,
+      status: entity.status,
+      displayName: entity.displayName ?? null,
+      candidates:
+        entity.status === "ambiguous"
+          ? entity.candidates.map((candidate) => candidate.displayName)
+          : [],
+    })),
     vocabulary: selectedTerms.filter((term) => term.selectionReason !== "reference"),
     referenceVocabulary: selectedTerms.filter((term) => term.selectionReason === "reference"),
     excludedTermIds: input.excludedTermIds ?? [],

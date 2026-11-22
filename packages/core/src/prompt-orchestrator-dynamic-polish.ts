@@ -1,8 +1,10 @@
 import { PromptVocabDB } from "@prompthub/db";
 import type {
   PromptModelDirective,
+  PromptEntityResolution,
   PromptOrchestrationInput,
   PromptRetrievalSummary,
+  PromptRoutePlan,
   PromptSelectedTerm,
   PromptTerm,
   PromptTermDecision,
@@ -84,6 +86,10 @@ interface DynamicPolishOptions {
   llm: PromptOrchestratorLlm;
   explicitTerms: PromptSelectedTerm[];
   modelDirectives: PromptModelDirective[];
+  /** Identity lookups resolved before planning; the model never guesses these. */
+  entities?: PromptEntityResolution[];
+  /** Input classification that decides whether retrieval runs at all. */
+  routePlan?: PromptRoutePlan;
 }
 
 export interface DynamicPolishResult {
@@ -476,6 +482,7 @@ function planMessages(options: DynamicPolishOptions): PromptCompositionMessages 
     "You plan conservative vocabulary retrieval for a prompt-polishing task.",
     "Return one JSON object with a queries array and nothing else.",
     "Use zero to four queries, only for semantic slots where vocabulary may improve accuracy or expression. Do not query every category. An empty queries array is correct when the source needs no vocabulary.",
+    "Resolved entity names are fixed facts. An ambiguous entity lists candidates and must not be decided here. Return zero queries when the input only names identities or fixed parameters.",
     "Preserve the original scope and all negations. Use exact for a precise expression, focused for a small comparison, and exploratory only for genuine creative exploration.",
     QUERY_CONTRACT,
   ].join("\n\n");
@@ -487,6 +494,12 @@ function planMessages(options: DynamicPolishOptions): PromptCompositionMessages 
     domain: options.input.domain ?? null,
     explicitTerms: options.explicitTerms,
     modelDirectives: options.modelDirectives,
+    entities: (options.entities ?? []).map((entity) => ({
+      text: entity.mention.text,
+      status: entity.status,
+      displayName: entity.displayName ?? null,
+    })),
+    retrievalPath: options.routePlan?.path ?? "lexical",
   });
   return { system, user };
 }
@@ -500,11 +513,28 @@ function compositionMessages(
     options.input,
     options.explicitTerms,
     options.modelDirectives,
+    options.entities ?? [],
   );
   const parsed: unknown = JSON.parse(base.user);
   if (!isRecord(parsed)) throw new Error("Base composition payload must be an object");
   parsed.retrieval = visible.groups;
   parsed.allowFollowUp = allowFollowUp;
+  parsed.retrievalPath = options.routePlan?.path ?? "lexical";
+  parsed.allowCreate = options.routePlan?.allowCreate ?? true;
+  parsed.entities = (options.entities ?? []).map((entity) => ({
+    text: entity.mention.text,
+    status: entity.status,
+    displayName: entity.displayName ?? null,
+    candidates:
+      entity.status === "ambiguous"
+        ? entity.candidates.map((candidate) => ({
+            displayName: candidate.displayName,
+            category: candidate.category,
+            series: candidate.series,
+            zh: candidate.zh,
+          }))
+        : [],
+  }));
   const followUp = allowFollowUp
     ? `If the candidates are genuinely insufficient, you may instead return only {"followUpQueries":[...]} with at most two revised or additional queries. This is the only permitted follow-up round. Do not also return a composition in that case. ${QUERY_CONTRACT}`
     : "Do not request another retrieval round; produce the final composition and decisions now.";
@@ -515,6 +545,8 @@ Dynamic polish knowledge contract:
 - Add a termDecisions array with one to 32 entries. Each entry must be {"slotId":"stable slot id","category":"semantic category","sourceText":"source semantic","strategy":"reuse | adapt | create | ignore","termIds":["supplied candidate ids"],"output":"result for this slot","rationale":"short reason"}.
 - reuse: use a supplied term when it is semantically accurate and compatible. adapt: use supplied term IDs as anchors while adding necessary context or relationships. create: write an original expression with termIds=[] when no candidate is suitable. ignore: reject unsuitable or unnecessary vocabulary with output=""; rejected candidate IDs may remain in termIds for audit.
 - Never invent candidate IDs. Do not infer named characters or artists. Do not turn a broader observation into a more specific visual fact. Do not add unrelated details merely to use vocabulary.
+- Resolved entity names are fixed facts; keep their spelling. Ambiguous entities must not be decided: keep the user's wording and do not merge candidate attributes. Unresolved names stay verbatim.
+- When retrievalPath is entity-only, no vocabulary was supplied and none may be invented; organize only the fixed identities and parameters. When allowCreate is false for a slot, do not invent a new visual fact for it.
 - Return initialPrompt, completePrompt, fields and termDecisions together, while also following the existing output contract. ${followUp}`;
   return {
     system: `${base.system}\n\n${dynamicContract}`,
@@ -649,6 +681,30 @@ function noMatchWarnings(results: RetrievalResult[], budget: number): string[] {
     `No vocabulary candidates matched dynamic polish slot: ${result.slotId}.`);
 }
 
+/** A resolved identity that vanished from the output breaks the identity anchor. */
+function missingIdentityWarnings(
+  entities: PromptEntityResolution[],
+  completePrompt: string,
+): string[] {
+  const text = normalizeText(completePrompt);
+  const warnings: string[] = [];
+  for (const entity of entities) {
+    if (entity.status !== "resolved") continue;
+    const variants = [
+      entity.displayName,
+      entity.mention.text,
+      entity.candidates[0]?.zh ?? null,
+    ]
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      .map(normalizeText);
+    if (variants.some((variant) => text.includes(variant))) continue;
+    warnings.push(
+      `Resolved identity "${entity.displayName ?? entity.mention.text}" is missing from the polished prompt.`,
+    );
+  }
+  return warnings;
+}
+
 function assertNoConflicts(
   vocabulary: PromptVocabDB,
   explicitTerms: PromptSelectedTerm[],
@@ -688,12 +744,16 @@ export async function runDynamicPolish(
       blockedConflicts.set(conflictId, term.id);
     }
   }
-  const plan = await options.llm.complete({
-    messages: planMessages(options),
-    mode: "polish",
-    maxTokens: 1600,
-  });
-  const initialQueries = parseQueryList(parseJson(plan).queries, MAX_INITIAL_QUERIES);
+  const entityOnly = options.routePlan?.path === "entity-only";
+  const initialQueries: RetrievalQuery[] = [];
+  if (!entityOnly) {
+    const plan = await options.llm.complete({
+      messages: planMessages(options),
+      mode: "polish",
+      maxTokens: 1600,
+    });
+    initialQueries.push(...parseQueryList(parseJson(plan).queries, MAX_INITIAL_QUERIES));
+  }
   let results = budget > 0
     ? initialQueries.map((query) => retriever.search(query))
     : initialQueries.map((query) => ({
@@ -708,7 +768,7 @@ export async function runDynamicPolish(
   let visible = presentRetrieval(results, budget, blockedConflicts);
 
   for (let round = 1; round <= 2; round += 1) {
-    const allowFollowUp = round === 1 && budget > 0;
+    const allowFollowUp = round === 1 && budget > 0 && !entityOnly;
     content = await options.llm.complete({
       messages: compositionMessages(options, visible, allowFollowUp),
       mode: "polish",
@@ -744,6 +804,10 @@ export async function runDynamicPolish(
     selectedTerms: [...selected.values()],
     termDecisions: parsed.decisions,
     retrievalSummary,
-    warnings: [...noMatchWarnings(results, budget), ...parsed.warnings],
+    warnings: [
+      ...noMatchWarnings(results, budget),
+      ...parsed.warnings,
+      ...missingIdentityWarnings(options.entities ?? [], composition.completePrompt),
+    ],
   };
 }

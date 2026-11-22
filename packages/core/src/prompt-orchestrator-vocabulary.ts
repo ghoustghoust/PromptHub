@@ -257,6 +257,10 @@ function addCategoryTerms(
     (input.guidanceMode === "human-led" ? 0 : 2);
   const query = searchText(input);
   for (const category of categories) {
+    // Artist names are identities with pipeline-specific syntax (`@artist`,
+    // Kaloscope node params). Automatic relevance selection must never write
+    // them into prompt text; explicit user selections are routed separately.
+    if (category === "artist") continue;
     const terms = db.listTermsByCategory(
       category,
       input.modelId,

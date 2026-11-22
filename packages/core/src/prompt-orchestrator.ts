@@ -4,10 +4,13 @@ import type {
   PromptMossLayoutDraft,
   PromptMossLayoutReverse,
   PromptModelDirective,
+  PromptEntityResolution,
+  PromptOrchestrationField,
   PromptOrchestrationInput,
   PromptOrchestrationMode,
   PromptOrchestrationResult,
   PromptRetrievalSummary,
+  PromptRoutePlan,
   PromptSelectedTerm,
   PromptTermDecision,
   PromptTokenMetrics,
@@ -34,6 +37,9 @@ import {
   isDynamicPolish,
   runDynamicPolish,
 } from "./prompt-orchestrator-dynamic-polish";
+import { resolvePromptEntities } from "./prompt-entity-resolution";
+import { buildPromptRoutePlan } from "./prompt-input-routing";
+import { resolveArtistPipeline, routeArtistTerms } from "./prompt-artist-routing";
 import { buildPromptAlignment } from "./prompt-alignment";
 import {
   estimateResultTokenMetrics,
@@ -61,6 +67,15 @@ const MODES: ReadonlySet<string> = new Set([
   "video-long",
   "video-short-drama",
   "video-beat",
+]);
+
+const ARTIST_PIPELINES: ReadonlySet<string> = new Set([
+  "anima",
+  "kaloscope",
+  "moss",
+  "k2",
+  "h3",
+  "unknown",
 ]);
 
 export interface PromptOrchestratorOptions {
@@ -127,6 +142,12 @@ function validateInput(input: PromptOrchestrationInput): void {
     throw new PromptOrchestratorError(
       "INVALID_INPUT",
       `Unsupported orchestration mode: ${String(input.mode)}`,
+    );
+  }
+  if (input.targetPipeline !== undefined && !ARTIST_PIPELINES.has(input.targetPipeline)) {
+    throw new PromptOrchestratorError(
+      "INVALID_INPUT",
+      `Unsupported target pipeline: ${String(input.targetPipeline)}`,
     );
   }
   const arrays = [
@@ -466,6 +487,27 @@ function errorMessage(error: unknown): string {
   return message.length > 500 ? `${message.slice(0, 500)}...` : message;
 }
 
+/** Resolved character names become fixed facts; artists are routed separately. */
+function resolvedIdentityFields(
+  entities: PromptEntityResolution[],
+): PromptOrchestrationField[] {
+  const fields: PromptOrchestrationField[] = [];
+  for (const entity of entities) {
+    if (entity.status !== "resolved" || !entity.termId || !entity.displayName) continue;
+    const category = entity.candidates[0]?.category;
+    if (category === "artist") continue;
+    fields.push({
+      name: category ?? "character",
+      value: entity.displayName,
+      layer: "fixed",
+      source: "user",
+      rationale: "Named identity taken verbatim from the input.",
+      termId: entity.termId,
+    });
+  }
+  return fields;
+}
+
 export class PromptOrchestrator {
   constructor(private readonly options: PromptOrchestratorOptions) {}
 
@@ -525,6 +567,8 @@ export class PromptOrchestrator {
     input: PromptOrchestrationInput,
     selection: PromptVocabularySelection,
     directives: PromptModelDirective[],
+    entities: PromptEntityResolution[],
+    routePlan: PromptRoutePlan,
   ): Promise<CompositionRun> {
     if (isDynamicPolish(input)) {
       const dynamic = await runDynamicPolish({
@@ -533,10 +577,17 @@ export class PromptOrchestrator {
         llm: this.options.llm,
         explicitTerms: selection.terms,
         modelDirectives: directives,
+        entities,
+        routePlan,
       });
       return { ...dynamic, warnings: [...selection.warnings, ...dynamic.warnings] };
     }
-    const messages = buildCompositionMessages(input, selection.terms, directives);
+    const messages = buildCompositionMessages(
+      input,
+      selection.terms,
+      directives,
+      entities,
+    );
     const content = await this.options.llm.complete({
       messages,
       mode: input.mode ?? "expand",
@@ -567,18 +618,48 @@ export class PromptOrchestrator {
         : input,
     );
     const directives = modelDirectives(this.options.vocabulary, input);
-    const fixedFields = buildFixedFields(input, selection.terms, directives);
+    const pipeline = resolveArtistPipeline(input);
+    const artistRouting = routeArtistTerms(selection.terms, pipeline);
+    const entities = resolvePromptEntities({
+      vocabulary: this.options.vocabulary,
+      prompt: input.prompt ?? "",
+    });
+    const routePlan = buildPromptRoutePlan({
+      prompt: input.prompt ?? "",
+      entities,
+      pipeline,
+    });
+    // Artist rows leave the automatic vocabulary path; only the routed token
+    // (Anima/MOSS) may enter the prompt body.
+    const compositionTerms = artistRouting.terms;
+    const routingWarnings = [
+      ...selection.warnings,
+      ...artistRouting.warnings,
+      ...routePlan.warnings,
+    ];
+    const fixedFields = buildFixedFields(input, compositionTerms, directives);
+    const identityFields = resolvedIdentityFields(entities);
     try {
-      const completed = await this.compose(input, selection, directives);
+      const completed = await this.compose(
+        input,
+        { ...selection, terms: compositionTerms },
+        directives,
+        entities,
+        routePlan,
+      );
       validateTaskComposition(input, completed.composition);
       const finalized = finalizeMossLayoutComposition(input, completed.composition);
       const composition = mergeFixedFields(
         finalized,
-        fixedFields,
+        [...fixedFields, ...identityFields],
         completed.selectedTerms,
       );
       const tokenMetrics = await this.tokenMetrics(composition, completed.selectedTerms);
-      const warnings = this.warnings(input, completed.warnings, tokenMetrics);
+      const warnings = this.warnings(
+        input,
+        [...routingWarnings, ...completed.warnings],
+        tokenMetrics,
+      );
       const pendingCaptions = composition.layout?.pendingCaptions ?? [];
       if (pendingCaptions.length > 0) {
         warnings.push(
@@ -602,18 +683,23 @@ export class PromptOrchestrator {
         ...(completed.retrievalSummary
           ? { retrievalSummary: completed.retrievalSummary }
           : {}),
+        ...(entities.length > 0 ? { entityResolutions: entities } : {}),
+        routePlan,
+        ...(artistRouting.routes.length > 0
+          ? { artistRoutes: artistRouting.routes }
+          : {}),
         alignment: buildPromptAlignment(input.prompt ?? "", composition.completePrompt),
       };
     } catch (error) {
       const composition = buildFallbackComposition(
         input,
-        selection.terms,
+        compositionTerms,
         directives,
       );
       const tokenMetrics = estimateResultTokenMetrics(
         composition.initialPrompt,
         composition.completePrompt,
-        selection.terms,
+        compositionTerms,
       );
       return {
         mode,
@@ -630,14 +716,19 @@ export class PromptOrchestrator {
               },
             }
           : {}),
-        selectedTerms: selection.terms,
+        selectedTerms: compositionTerms,
         modelDirectives: directives,
         warnings: [
-          ...this.warnings(input, selection.warnings, tokenMetrics),
+          ...this.warnings(input, routingWarnings, tokenMetrics),
           `LLM composition failed; deterministic fallback used: ${errorMessage(error)}`,
         ],
         tokenMetrics,
         status: "degraded",
+        ...(entities.length > 0 ? { entityResolutions: entities } : {}),
+        routePlan,
+        ...(artistRouting.routes.length > 0
+          ? { artistRoutes: artistRouting.routes }
+          : {}),
         alignment: buildPromptAlignment(
           input.prompt ?? "",
           composition.completePrompt,

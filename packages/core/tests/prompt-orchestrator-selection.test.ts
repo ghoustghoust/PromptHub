@@ -442,4 +442,19 @@ describe("PromptOrchestrator selection contracts", () => {
     expect(linked?.layer).toBe("fixed");
     expect(linked?.termId).toBe("style-a");
   });
+
+  it("keeps controlled random inside the requested category pool", async () => {
+    const result = await new PromptOrchestrator({
+      vocabulary,
+      llm: llmReturning(compositionJson()),
+    }).orchestrate({
+      prompt: "a rooftop study",
+      mode: "random",
+      random: { subject: "girl", setting: "rooftop", seed: "pool-test" },
+      categories: ["style"],
+      candidateLimitPerCategory: 2,
+    });
+    expect(result.selectedTerms.length).toBeGreaterThan(0);
+    expect(result.selectedTerms.every((term) => term.category === "style")).toBe(true);
+  });
 });

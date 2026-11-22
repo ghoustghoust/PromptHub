@@ -40,6 +40,10 @@ import {
 import { resolvePromptEntities } from "./prompt-entity-resolution";
 import { buildPromptRoutePlan } from "./prompt-input-routing";
 import { resolveArtistPipeline, routeArtistTerms } from "./prompt-artist-routing";
+import {
+  runToolRetrieval,
+  supportsToolRetrieval,
+} from "./prompt-tool-retrieval";
 import { buildPromptAlignment } from "./prompt-alignment";
 import {
   estimateResultTokenMetrics,
@@ -563,7 +567,7 @@ export class PromptOrchestrator {
     return [...new Set(warnings)];
   }
 
-  private async compose(
+  private async composePlain(
     input: PromptOrchestrationInput,
     selection: PromptVocabularySelection,
     directives: PromptModelDirective[],
@@ -605,15 +609,62 @@ export class PromptOrchestrator {
     };
   }
 
+  /**
+   * Tool calling is the primary path when the provider supports it; a failing
+   * tool loop degrades to the previous deterministic/candidate path instead of
+   * losing the whole orchestration.
+   */
+  private async compose(
+    input: PromptOrchestrationInput,
+    selection: PromptVocabularySelection,
+    directives: PromptModelDirective[],
+    entities: PromptEntityResolution[],
+    routePlan: PromptRoutePlan,
+  ): Promise<CompositionRun> {
+    if (supportsToolRetrieval(input, this.options.llm)) {
+      try {
+        const tool = await runToolRetrieval({
+          input,
+          vocabulary: this.options.vocabulary,
+          llm: this.options.llm,
+          explicitTerms: selection.terms,
+          modelDirectives: directives,
+          entities,
+          routePlan,
+        });
+        return { ...tool, warnings: [...selection.warnings, ...tool.warnings] };
+      } catch (error) {
+        const fallback = await this.composePlain(
+          input,
+          selection,
+          directives,
+          entities,
+          routePlan,
+        );
+        return {
+          ...fallback,
+          warnings: [
+            ...fallback.warnings,
+            `Tool retrieval failed; the former selection path was used instead: ${errorMessage(error)}`,
+          ],
+        };
+      }
+    }
+    return this.composePlain(input, selection, directives, entities, routePlan);
+  }
+
   async orchestrate(
     input: PromptOrchestrationInput,
   ): Promise<PromptOrchestrationResult> {
     validateInput(input);
     const mode = input.mode ?? "expand";
     const dynamicPolish = isDynamicPolish(input);
+    const toolRetrieval = supportsToolRetrieval(input, this.options.llm);
+    // Tool calling lets the model choose vocabulary; pre-selecting automatic
+    // rows here would hand it answers it did not ask for.
     const selection = selectPromptTerms(
       this.options.vocabulary,
-      dynamicPolish
+      dynamicPolish || toolRetrieval
         ? { ...input, candidateLimitPerCategory: 0, categories: [] }
         : input,
     );

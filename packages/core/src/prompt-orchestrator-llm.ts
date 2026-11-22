@@ -17,6 +17,54 @@ export interface PromptLlmCompletionRequest {
 export interface PromptOrchestratorLlm {
   complete(request: PromptLlmCompletionRequest): Promise<string>;
   countTokens?(text: string): Promise<number>;
+  /**
+   * Multi-turn tool calling. Optional: providers without tool support keep the
+   * older single-shot path, and Core falls back instead of forcing a format the
+   * endpoint cannot reliably produce.
+   */
+  completeWithTools?(request: PromptLlmToolRequest): Promise<PromptLlmToolResponse>;
+}
+
+export interface PromptLlmToolFunctionDefinition {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+export interface PromptLlmTool {
+  type: "function";
+  function: PromptLlmToolFunctionDefinition;
+}
+
+export interface PromptLlmToolCall {
+  id: string;
+  name: string;
+  /** Raw JSON string exactly as the provider returned it. */
+  arguments: string;
+}
+
+export type PromptLlmRole = "system" | "user" | "assistant" | "tool";
+
+export interface PromptLlmMessage {
+  role: PromptLlmRole;
+  content: string | null;
+  toolCalls?: PromptLlmToolCall[];
+  toolCallId?: string;
+}
+
+export interface PromptLlmToolRequest {
+  messages: PromptLlmMessage[];
+  tools: PromptLlmTool[];
+  mode: PromptOrchestrationMode;
+  /** Attached to the first user message only. */
+  imageUrls?: string[];
+  maxTokens?: number;
+  toolChoice?: "auto" | "none";
+}
+
+export interface PromptLlmToolResponse {
+  content: string;
+  toolCalls: PromptLlmToolCall[];
 }
 
 export interface OpenAiPromptLlmConfig {
@@ -140,6 +188,84 @@ function parseResponse(response: AITransportResponse): string {
   throw new Error("Prompt LLM returned empty message content");
 }
 
+function parseToolCalls(message: Record<string, unknown>): PromptLlmToolCall[] {
+  if (!Array.isArray(message.tool_calls)) return [];
+  return message.tool_calls.flatMap((raw, index) => {
+    if (!isRecord(raw) || !isRecord(raw.function)) return [];
+    const name = raw.function.name;
+    if (typeof name !== "string" || !name.trim()) return [];
+    const id = typeof raw.id === "string" && raw.id.trim() ? raw.id : `call_${index}`;
+    const args = raw.function.arguments;
+    const serialized = typeof args === "string" ? args : JSON.stringify(args ?? {});
+    return [{ id, name: name.trim(), arguments: serialized }];
+  });
+}
+
+function parseToolResponse(response: AITransportResponse): PromptLlmToolResponse {
+  if (!response.ok) throw new Error(providerError(response));
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(response.body);
+  } catch (error) {
+    throw new Error(
+      `Prompt LLM returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (!isRecord(parsed) || !Array.isArray(parsed.choices)) {
+    throw new Error("Prompt LLM response does not contain choices");
+  }
+  const choice: unknown = parsed.choices[0];
+  if (!isRecord(choice)) throw new Error("Prompt LLM returned an empty choice");
+  if (choice.finish_reason === "length") {
+    throw new Error("Prompt LLM output was truncated; increase maxTokens or context size");
+  }
+  if (!isRecord(choice.message)) {
+    throw new Error("Prompt LLM choice does not contain a message");
+  }
+  const toolCalls = parseToolCalls(choice.message);
+  const content =
+    typeof choice.message.content === "string" ? choice.message.content : "";
+  if (toolCalls.length > 0) return { content, toolCalls };
+  if (content.trim()) return { content, toolCalls: [] };
+  if (typeof choice.message.reasoning_content === "string") {
+    throw new Error(
+      "Prompt LLM returned reasoning instead of content; disable thinking on the local engine",
+    );
+  }
+  throw new Error("Prompt LLM returned empty message content");
+}
+
+function toolMessages(
+  messages: PromptLlmMessage[],
+  imageUrls: string[],
+): Array<Record<string, unknown>> {
+  const firstUser = messages.findIndex((message) => message.role === "user");
+  return messages.map((message, index) => {
+    if (message.role === "assistant" && message.toolCalls?.length) {
+      return {
+        role: "assistant",
+        content: message.content ?? null,
+        tool_calls: message.toolCalls.map((call) => ({
+          id: call.id,
+          type: "function",
+          function: { name: call.name, arguments: call.arguments },
+        })),
+      };
+    }
+    if (message.role === "tool") {
+      return {
+        role: "tool",
+        tool_call_id: message.toolCallId ?? "",
+        content: message.content ?? "",
+      };
+    }
+    if (message.role === "user" && index === firstUser) {
+      return { role: "user", content: userContent(message.content ?? "", imageUrls) };
+    }
+    return { role: message.role, content: message.content ?? "" };
+  });
+}
+
 function validateImageUrl(value: string): void {
   if (value.startsWith("data:image/")) return;
   try {
@@ -234,5 +360,35 @@ export class OpenAiCompatiblePromptLlm implements PromptOrchestratorLlm {
       timeoutMs: this.config.timeoutMs ?? AI_REQUEST_TIMEOUT_MS,
     });
     return parseResponse(response);
+  }
+
+  async completeWithTools(request: PromptLlmToolRequest): Promise<PromptLlmToolResponse> {
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+      accept: "application/json",
+    };
+    if (this.config.apiKey?.trim()) {
+      headers.authorization = `Bearer ${this.config.apiKey.trim()}`;
+    }
+    const body = {
+      model: this.config.model,
+      messages: toolMessages(request.messages, request.imageUrls ?? []),
+      temperature: request.mode === "random" ? 0.8 : 0.3,
+      max_tokens: request.maxTokens ?? this.config.maxTokens ?? 4096,
+      stream: false,
+      tools: request.tools,
+      tool_choice: request.toolChoice ?? "auto",
+      ...(this.config.disableThinking !== false
+        ? { chat_template_kwargs: { enable_thinking: false } }
+        : {}),
+    };
+    const response = await this.transport({
+      method: "POST",
+      url: this.endpoint,
+      headers,
+      body: JSON.stringify(body),
+      timeoutMs: this.config.timeoutMs ?? AI_REQUEST_TIMEOUT_MS,
+    });
+    return parseToolResponse(response);
   }
 }

@@ -592,6 +592,75 @@ Electron 验证；“选材台”已完成多字段池、多选、锁定与普�
 - 回归边界：真实 SQLite 构造超过 5000 条数据，验证第 4980 条之后仍可读、总数与分类
   计数不截断、二级分类与中文状态筛选正确；组件验证全量大页、筛选、翻页、锁定及中文状态。
 
+## 第五轮：输入类型路由与实体解析（2026-11-22，core 已落地，界面待验收）
+
+### 为什么开发
+
+第四轮之后，词库已经能按分类精确选词，但**输入本身没有类型**：角色名、画师名、LoRA 触发词、
+镜头参数和普通描述被一视同仁地交给词法检索。隔离库实测暴露三个具体问题：
+
+- 自动选词默认包含 `artist`（`prompt-orchestrator-vocabulary.ts` 的默认类别表），提示词里
+  出现 `wlop` 时会把 danbooru 画师行当“相关词条”写成字段，违反“MOSS/Krea2 不解析 `@`、
+  画师不得进入自动选词文本”的既有约束。
+- `character` 分类混着三类内容：真名（`raiden shogun`）、**名字+外观整串**（1,007 行，
+  如 `ganyu \(genshin impact\), blue hair, ...`）和通用标签（`1girl`、`动漫角色`、`风格`）。
+  只按分类取行，会把外观当身份，或把通用词当人名。
+- 同一身份存在多行（`ganyu` 有 3 行、`raiden shogun` 有 2 行、`雷电将军` 跨 3 个来源），
+  按文本相似度选一行等于替用户猜身份。
+
+### 已确认的边界（2026-11-22 用户裁定）
+
+- 命名实体走**精确/别名解析**，不做模糊、前缀或向量相似度；歧义时返回候选并标注不确定，
+  **不阻塞主流程**，也不猜。
+- 画师按目标管线路由：Anima 输出 `@artist`；Kaloscope 只给节点参数
+  （`artist_name` / `bank=artist-v1.safetensors` / `style_guidance=6` / `adapter_strength=1`，
+  底模须 MOSS-Image Base）；Krea2/H3 不写画师；**MOSS 官方支持画师标签**，因此用户显式选择的
+  画师在 MOSS 下保留为不带 `@` 的普通标签，自动选词仍然禁用。
+- 目标管线由新增可选输入 `targetPipeline` 声明，缺省由规则卡推导（`moss`/`moodyMoss`→moss、
+  `k2`→k2、`minimaxH3`→h3），`anima`/`kaloscope` 必须显式选择。不改动 `PromptOrchestrationSkill`
+  枚举与规则卡文案。
+- 角色名是身份锚点：只固定名字与系列限定，**不默认加载外观**；外观只在用户明确要求时作为
+  参考材料。`nsfw` 与高风险属性不自动加入。
+- 别名回填先窄后宽：只覆盖通过身份判定的角色与非 danbooru 画师；59k danbooru 画师段因大量
+  符号噪声（`!!`、`#b7282e`、`$hu`）暂不回填。
+
+### 数据与契约
+
+- 新增 `term_aliases`（`term_id`、`alias`、`alias_key`、`kind`：canonical/series_less/zh/curated、
+  `origin`：derived/curated），`alias_key` 建索引；`migratePromptVocabSchema` 幂等补表，
+  旧库升级不改动 `prompt_terms` 数据。
+- 别名键归一化：NFKC、小写、去 `@`、去权重语法与强调括号、去转义、下划线转空格、去引号。
+  一个 bundle 行同时产出“原始整串”“身份串（name + series）”“省略系列名”三种键，
+  因此 bundle 行与纯名字行会归并到**同一身份**。
+- 身份判定 `isNamedEntityTerm`：排除 `对象`/`身份` 子类、计数标签、`nkoma`/年代风格标签、
+  纯符号与过短名称；`character` 分类本身不是身份证据。
+- 解析结果 `PromptEntityResolution`：`resolved`（唯一身份，给出首选行 id 与显示名）、
+  `ambiguous`（≥2 个身份，最多 5 个候选）、`unresolved`（名字原样保留）。
+  `PromptRoutePlan` 决定 `lexical / hybrid / entity-only` 路径、是否允许创造和禁用类别。
+- 纯身份/参数输入走 `entity-only`：跳过查询规划与检索（0 轮 0 查询），只组织固定身份与参数。
+- 结果新增 `entityResolutions`、`routePlan`、`artistRoutes`，不新增 IPC 通道；界面面板与
+  7 语言文案待下一批交付。
+
+### 隔离库回填实测（只读复制后写入，原库未动）
+
+- 扫描 `character` + `artist` 共 67,088 行，身份合格 7,520 行，生成别名 18,197 条；
+  同一别名的多身份键 1,818 个（`贞德` 9、`爱丽丝` 5、`雷电将军` 3 等）。
+- 幂等重跑：新增 0。
+- 抽查：`ganyu` → 3 行 / 2 个身份（歧义）；`ganyu (genshin impact)` → 2 行 / 1 个身份
+  （resolved，首选纯名字行）；`wlop` → 1 行（@wlop，resolved），danbooru 同名行未参与；
+  `风格` 修正后不再产生别名。
+
+### 验证边界
+
+- 已通过：`packages/core/tests/prompt-entity-routing.test.ts` 19 例（归一化、身份判定、
+  歧义、bundle 归并、@ 画师归并、弃用与通用标签排斥、四类管线路由、orchestrator 固定身份字段、
+  Krea2 画师剔除、entity-only 零检索）；既有选词 14 例与动态润色 18 例回归通过；
+  `apps/desktop/tests/unit/main/prompt-vocab-alias-migration.test.ts` 4 例（旧库补表、幂等、
+  多写法解析、弃用隐藏、级联删除）与词库 DB 26 例回归通过。
+- 四包 typecheck、desktop `typecheck:tests`、`pnpm lint`（含行数门禁）通过。
+- **未做**：界面「实体与风格注入」面板、7 语言文案、真实窗口点击验收、真实 91k 库上的
+  实体解析命中率评测（仅做了回填与 SQL 抽查）、A/B/C 出图对照。
+
 ## 评估方式
 
 A/B/C 三版对比：A 原始输入、B 普通大模型扩写、C 编排结果。固定底模、LoRA、

@@ -137,7 +137,7 @@ export function buildHeadersForProtocol(
     headers["anthropic-version"] = "2023-06-01";
   } else if (protocol === "gemini" && options?.useNativeGeminiAuth) {
     headers["x-goog-api-key"] = apiKey;
-  } else {
+  } else if (apiKey.trim()) {
     headers.Authorization = `Bearer ${apiKey}`;
   }
   return headers;

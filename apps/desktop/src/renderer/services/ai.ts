@@ -103,7 +103,7 @@ export async function chatCompletion(
   const normalizedModel = isGemini ? model.replace(/^models\//, "") : model;
   const requestTimeoutMs = options?.timeoutMs ?? AI_REQUEST_TIMEOUT_MS;
 
-  if (!apiKey) {
+  if (!apiKey && !isLoopbackApiUrl(apiUrl)) {
     throw new Error("API Key is not configured");
   }
 

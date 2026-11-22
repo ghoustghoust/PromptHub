@@ -262,6 +262,7 @@ export async function runDynamicPolish(
         slotId: query.slotId,
         candidates: [],
         collapsed: [],
+        excludedRelations: [],
         escalated: false,
       }));
   let rounds = budget > 0 && initialQueries.length > 0 ? 1 : 0;

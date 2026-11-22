@@ -149,6 +149,7 @@ function termCost(term: PromptTerm): number {
     term,
     score: 0,
     match: "lexical",
+    relation: "related",
     tokens: new Set(),
   }))) + 8;
 }

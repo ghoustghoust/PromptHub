@@ -1,4 +1,8 @@
-import type { PromptOrchestrationInput, PromptTerm } from "@prompthub/shared/types";
+import type {
+  PromptOrchestrationInput,
+  PromptOrchestrationMode,
+  PromptTerm,
+} from "@prompthub/shared/types";
 import type { PromptVocabDB } from "@prompthub/db";
 import { estimatePromptTokens } from "./prompt-token-budget";
 
@@ -29,6 +33,20 @@ export type RetrievalPurpose = "resolve" | "compare" | "inspire";
 export type RetrievalDepth = "exact" | "focused" | "exploratory";
 export type MatchKind = "exact" | "phrase" | "lexical";
 
+/** How a candidate relates to the queried slot, independent of score. */
+export type CandidateRelation =
+  | "equivalent"
+  | "narrower"
+  | "broader"
+  | "related"
+  | "opposite";
+
+export interface RelationPolicy {
+  allowed: ReadonlySet<CandidateRelation>;
+  /** Additive ranking weight; exactness still dominates through `matchBonus`. */
+  bonus: Readonly<Record<CandidateRelation, number>>;
+}
+
 export interface RetrievalQuery {
   slotId: string;
   category: string;
@@ -44,6 +62,7 @@ export interface RankedTerm {
   term: PromptTerm;
   score: number;
   match: MatchKind;
+  relation: CandidateRelation;
   tokens: Set<string>;
 }
 
@@ -51,6 +70,8 @@ export interface RetrievalResult {
   slotId: string;
   candidates: RankedTerm[];
   collapsed: Array<{ id: string; en: string }>;
+  /** Rows dropped by the task policy, kept for audit. */
+  excludedRelations: Array<{ id: string; en: string; relation: CandidateRelation }>;
   escalated: boolean;
 }
 
@@ -99,6 +120,181 @@ export function tokenize(value: string): string[] {
     }
   }
   return tokens;
+}
+
+const NEGATION_WORDS = new Set([
+  "no",
+  "not",
+  "without",
+  "avoid",
+  "exclude",
+  "不要",
+  "避免",
+  "没有",
+  "不使用",
+]);
+
+/** A deliberately small antonym table: lexical recall must not pretend to be semantics. */
+const ANTONYM_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ["soft", "hard"],
+  ["light", "dark"],
+  ["bright", "dim"],
+  ["warm", "cool"],
+  ["warm", "cold"],
+  ["day", "night"],
+  ["dawn", "dusk"],
+  ["front", "back"],
+  ["left", "right"],
+  ["top", "bottom"],
+  ["above", "below"],
+  ["near", "far"],
+  ["big", "small"],
+  ["large", "small"],
+  ["long", "short"],
+  ["wide", "narrow"],
+  ["open", "closed"],
+  ["young", "old"],
+  ["new", "old"],
+  ["sit", "stand"],
+  ["indoor", "outdoor"],
+  ["inside", "outside"],
+  ["summer", "winter"],
+  ["black", "white"],
+  ["full", "empty"],
+  ["亮", "暗"],
+  ["暖", "冷"],
+  ["白天", "夜晚"],
+  ["前", "后"],
+  ["左", "右"],
+  ["上", "下"],
+  ["远", "近"],
+  ["大", "小"],
+  ["长", "短"],
+  ["宽", "窄"],
+  ["开", "关"],
+  ["年轻", "年老"],
+  ["新", "旧"],
+  ["内", "外"],
+  ["夏", "冬"],
+  ["黑", "白"],
+  ["满", "空"],
+];
+
+function isSubset(left: Set<string>, right: Set<string>): boolean {
+  for (const token of left) {
+    if (!right.has(token)) return false;
+  }
+  return true;
+}
+
+function hasAntonym(left: Set<string>, right: Set<string>): boolean {
+  return ANTONYM_PAIRS.some(
+    ([first, second]) =>
+      (left.has(first) && right.has(second)) ||
+      (left.has(second) && right.has(first)),
+  );
+}
+
+function negationMismatch(left: Set<string>, right: Set<string>): boolean {
+  let leftNegated = false;
+  let rightNegated = false;
+  for (const token of left) if (NEGATION_WORDS.has(token)) leftNegated = true;
+  for (const token of right) if (NEGATION_WORDS.has(token)) rightNegated = true;
+  return leftNegated !== rightNegated;
+}
+
+function relationRank(relation: CandidateRelation): number {
+  if (relation === "equivalent") return 4;
+  if (relation === "narrower") return 3;
+  if (relation === "broader") return 2;
+  if (relation === "related") return 1;
+  return 0;
+}
+
+/**
+ * Compares one query with one candidate. Token-set relations keep this
+ * explainable: equal sets are equivalent, a strict superset is more specific
+ * (narrower), a strict subset is more general (broader), overlap without
+ * containment is merely related, and negation/antonym mismatch is opposite.
+ */
+export function classifyRelation(query: string, texts: string[]): CandidateRelation {
+  const normalizedQuery = normalizeText(query);
+  const queryTokens = new Set(tokenize(normalizedQuery));
+  if (!normalizedQuery || queryTokens.size === 0) return "related";
+  let best: CandidateRelation = "related";
+  let bestRank = -1;
+  let sawOpposite = false;
+  for (const text of texts) {
+    const normalizedText = normalizeText(text);
+    if (!normalizedText) continue;
+    const textTokens = new Set(tokenize(normalizedText));
+    if (textTokens.size === 0) continue;
+    let relation: CandidateRelation;
+    if (normalizedText === normalizedQuery || isSubset(queryTokens, textTokens) && isSubset(textTokens, queryTokens)) {
+      relation = "equivalent";
+    } else if (negationMismatch(queryTokens, textTokens) || hasAntonym(queryTokens, textTokens)) {
+      relation = "opposite";
+    } else if (isSubset(queryTokens, textTokens)) {
+      relation = "narrower";
+    } else if (isSubset(textTokens, queryTokens)) {
+      relation = "broader";
+    } else {
+      relation = "related";
+    }
+    if (relation === "opposite") {
+      sawOpposite = true;
+      continue;
+    }
+    const rank = relationRank(relation);
+    if (rank > bestRank) {
+      best = relation;
+      bestRank = rank;
+    }
+  }
+  // Opposite only wins when nothing positive described the candidate.
+  if (bestRank < 0 && sawOpposite) return "opposite";
+  return best;
+}
+
+const ALL_RELATIONS: ReadonlySet<CandidateRelation> = new Set([
+  "equivalent",
+  "narrower",
+  "broader",
+  "related",
+  "opposite",
+]);
+
+/**
+ * Task policy. Reverse accepts equivalent rows only; expansion prefers more
+ * specific rows because it is supposed to add detail; polish keeps equivalence
+ * first but still tolerates related material.
+ */
+export function relationPolicyFor(
+  mode: PromptOrchestrationMode | undefined,
+): RelationPolicy {
+  const selected = mode ?? "expand";
+  if (selected === "reverse") {
+    return {
+      allowed: new Set<CandidateRelation>(["equivalent"]),
+      bonus: { equivalent: 40, narrower: 0, broader: 0, related: 0, opposite: 0 },
+    };
+  }
+  if (selected === "polish") {
+    return {
+      allowed: new Set<CandidateRelation>(["equivalent", "narrower", "broader", "related"]),
+      bonus: { equivalent: 36, narrower: 6, broader: -8, related: 0, opposite: 0 },
+    };
+  }
+  if (selected === "expand" || selected === "professional") {
+    return {
+      allowed: new Set<CandidateRelation>(["equivalent", "narrower", "broader", "related"]),
+      bonus: { equivalent: 30, narrower: 12, broader: -6, related: 2, opposite: 0 },
+    };
+  }
+  return {
+    allowed: ALL_RELATIONS,
+    bonus: { equivalent: 0, narrower: 0, broader: 0, related: 0, opposite: 0 },
+  };
 }
 
 function documentTexts(term: PromptTerm): string[] {
@@ -173,7 +369,11 @@ function matchKind(document: RetrievalDocument, query: string): MatchKind {
   return "lexical";
 }
 
-export function rankDocuments(documents: RetrievalDocument[], queries: string[]): RankedTerm[] {
+export function rankDocuments(
+  documents: RetrievalDocument[],
+  queries: string[],
+  policy: RelationPolicy,
+): RankedTerm[] {
   const variants = [...new Set(queries.map(normalizeText).filter(Boolean))];
   const tokenVariants = variants.map((query) => new Set(tokenize(query)));
   const averageLength = documents.reduce((total, document) => total + document.length, 0)
@@ -181,7 +381,11 @@ export function rankDocuments(documents: RetrievalDocument[], queries: string[])
   const frequencies = tokenVariants.map((tokens) =>
     documentFrequency(documents, tokens));
   const ranked = documents.map((document) => {
-    let best = { score: 0, match: "lexical" as MatchKind };
+    let best = {
+      score: 0,
+      match: "lexical" as MatchKind,
+      relation: "related" as CandidateRelation,
+    };
     variants.forEach((variant, index) => {
       const lexical = lexicalScore(
         document,
@@ -191,19 +395,28 @@ export function rankDocuments(documents: RetrievalDocument[], queries: string[])
         averageLength,
       );
       const match = matchKind(document, variant);
+      const relation = classifyRelation(variant, document.texts);
       const bonus = match === "exact" ? 40 : match === "phrase" ? 6 : 0;
-      const score = lexical.score + lexical.coverage * 4 + bonus;
-      if (score > best.score) best = { score, match };
+      const score = lexical.score + lexical.coverage * 4 + bonus + policy.bonus[relation];
+      if (
+        score > best.score ||
+        (score === best.score && relationRank(relation) > relationRank(best.relation))
+      ) {
+        best = { score, match, relation };
+      }
     });
     return {
       term: document.term,
       score: best.score,
       match: best.match,
+      relation: best.relation,
       tokens: new Set(document.tokens.keys()),
     };
   });
   return ranked.filter((item) => item.score > 0).sort((left, right) =>
-    right.score - left.score || left.term.en.localeCompare(right.term.en));
+    right.score - left.score ||
+    relationRank(right.relation) - relationRank(left.relation) ||
+    left.term.en.localeCompare(right.term.en));
 }
 
 function jaccard(left: Set<string>, right: Set<string>): number {
@@ -276,17 +489,33 @@ export class VocabularyRetriever {
 
   search(query: RetrievalQuery): RetrievalResult {
     if (!CATEGORY_SET.has(query.category)) {
-      return { slotId: query.slotId, candidates: [], collapsed: [], escalated: false };
+      return {
+        slotId: query.slotId,
+        candidates: [],
+        collapsed: [],
+        excludedRelations: [],
+        escalated: false,
+      };
     }
     const queries = [query.query, ...(query.alternateQuery ? [query.alternateQuery] : [])];
-    const ranked = rankDocuments(buildDocuments(this.terms(query.category)), queries);
+    const policy = relationPolicyFor(this.input.mode);
+    const ranked = rankDocuments(buildDocuments(this.terms(query.category)), queries, policy);
+    const allowed = ranked.filter((candidate) => policy.allowed.has(candidate.relation));
+    const excludedRelations = ranked
+      .filter((candidate) => !policy.allowed.has(candidate.relation))
+      .slice(0, 8)
+      .map((candidate) => ({
+        id: candidate.term.id,
+        en: candidate.term.en,
+        relation: candidate.relation,
+      }));
     // A single token (or a two-CJK-character label) matches too many unrelated
     // rows to stay useful at focused depth; widen it deterministically instead
     // of trusting the model to pick the right depth for it.
     const escalated = isShortQuery(query.query);
     const effective: RetrievalQuery = escalated ? { ...query, depth: "exploratory" } : query;
-    const { candidates, collapsed } = selectDiverse(ranked, effective);
-    return { slotId: query.slotId, candidates, collapsed, escalated };
+    const { candidates, collapsed } = selectDiverse(allowed, effective);
+    return { slotId: query.slotId, candidates, collapsed, excludedRelations, escalated };
   }
 }
 
@@ -302,6 +531,7 @@ export function candidatePayload(candidate: RankedTerm): Record<string, unknown>
     domain: term.domain,
     validationStatus: term.validationStatus,
     match: candidate.match,
+    relation: candidate.relation,
   };
 }
 
@@ -357,6 +587,7 @@ export function presentRetrieval(
       truncated: candidates.length < result.candidates.length,
       escalated: result.escalated,
       collapsedTerms: result.collapsed,
+      excludedRelations: result.excludedRelations,
       excludedConflicts,
       candidates,
     });

@@ -1,14 +1,20 @@
 import Database from "./adapter";
 import { v4 as uuidv4 } from "uuid";
 import { resolveTermKey } from "@prompthub/shared/utils/prompt-term-key";
+import { normalizeEntityKey } from "@prompthub/shared/utils/prompt-entity-key";
 import type {
   CreatePromptModelProfileDTO,
+  CreatePromptTermAliasDTO,
   CreatePromptTermDTO,
   CreatePromptValidationDTO,
   PromptKbImportResult,
   PromptModelProfile,
   PromptModelProfileKind,
   PromptTerm,
+  PromptTermAlias,
+  PromptTermAliasKind,
+  PromptTermAliasMatch,
+  PromptTermAliasOrigin,
   PromptTermDomain,
   PromptTermRelationType,
   PromptTermValidationStatus,
@@ -50,6 +56,26 @@ export interface PromptTermMergeResult {
   survivors: Array<{ id: string; en: string }>;
 }
 
+interface TermAliasRow {
+  id: number;
+  term_id: string;
+  alias: string;
+  alias_key: string;
+  kind: PromptTermAliasKind;
+  origin: PromptTermAliasOrigin;
+  created_at: number;
+}
+
+interface TermAliasMatchRow extends TermAliasRow {
+  term_category: string;
+  term_subcategory: string | null;
+  term_en: string;
+  term_zh: string | null;
+  term_series: string | null;
+  term_domain: PromptTermDomain;
+  term_validation_status: PromptTermValidationStatus;
+}
+
 interface ModelProfileRow {
   id: string;
   name: string;
@@ -82,6 +108,14 @@ const RELATION_TYPES: ReadonlySet<string> = new Set([
   "precondition",
 ]);
 const MODEL_KINDS: ReadonlySet<string> = new Set(["base", "lora"]);
+const ALIAS_KINDS: ReadonlySet<string> = new Set([
+  "canonical",
+  "series_less",
+  "zh",
+  "curated",
+]);
+const ALIAS_ORIGINS: ReadonlySet<string> = new Set(["derived", "curated"]);
+const ALIAS_KEY_CHUNK = 300;
 const TERM_DOMAINS: ReadonlySet<string> = new Set(["shared", "anime", "real", "3d"]);
 const VALIDATION_OUTCOMES: ReadonlySet<string> = new Set([
   "good",
@@ -256,6 +290,31 @@ function rowToSearchItem(row: PromptTermRow): PromptVocabularySearchItem {
     template: row.template,
     domain: normalizeDomain(row.domain),
     validationStatus: row.validation_status,
+  };
+}
+
+function rowToTermAlias(row: TermAliasRow): PromptTermAlias {
+  return {
+    id: row.id,
+    termId: row.term_id,
+    alias: row.alias,
+    aliasKey: row.alias_key,
+    kind: row.kind,
+    origin: row.origin,
+    createdAt: new Date(row.created_at).toISOString(),
+  };
+}
+
+function rowToTermAliasMatch(row: TermAliasMatchRow): PromptTermAliasMatch {
+  return {
+    ...rowToTermAlias(row),
+    category: row.term_category,
+    subcategory: row.term_subcategory,
+    en: row.term_en,
+    zh: row.term_zh,
+    series: row.term_series,
+    domain: normalizeDomain(row.term_domain),
+    validationStatus: row.term_validation_status,
   };
 }
 
@@ -551,7 +610,9 @@ export class PromptVocabDB {
       END AS match_rank`;
     const relevanceParams: string[] = [];
     if (hasQuery) {
-      const rawQuery = requireText(input.query, "Search query");
+      // `hasQuery` is a value guard, not a type guard; the empty fallback can
+      // never reach requireText because hasQuery already checked for content.
+      const rawQuery = requireText(input.query ?? "", "Search query");
       const escaped = rawQuery.replace(/[\\%_]/g, "\\$&");
       const pattern = `%${escaped}%`;
       conditions.push("(en LIKE ? ESCAPE '\\' OR zh LIKE ? ESCAPE '\\' OR template LIKE ? ESCAPE '\\')");
@@ -626,6 +687,98 @@ export class PromptVocabDB {
   }
 
   /**
+   * Adds alias spellings for identities. Missing rows are inserted; existing
+   * rows are left untouched, so re-running a backfill inserts nothing and never
+   * downgrades a curated alias. Returns the number of new rows.
+   */
+  addTermAliases(entries: CreatePromptTermAliasDTO[]): number {
+    if (!Array.isArray(entries)) {
+      throw new Error("Term aliases must be an array");
+    }
+    if (entries.length > 2000) {
+      throw new Error("Term alias batch accepts at most 2000 entries");
+    }
+    const prepared = this.db.prepare(
+      `INSERT OR IGNORE INTO term_aliases
+         (term_id, alias, alias_key, kind, origin, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    );
+    let inserted = 0;
+    const accept = this.db.transaction(() => {
+      for (const entry of entries) {
+        const termId = requireText(entry.termId, "Alias term id");
+        const alias = requireText(entry.alias, "Alias text");
+        const kind = requireText(entry.kind, "Alias kind");
+        if (!ALIAS_KINDS.has(kind)) {
+          throw new Error(`Unsupported alias kind: ${kind}`);
+        }
+        const origin = entry.origin ?? "derived";
+        if (!ALIAS_ORIGINS.has(origin)) {
+          throw new Error(`Unsupported alias origin: ${origin}`);
+        }
+        const key = normalizeEntityKey(alias);
+        if (!key) continue;
+        inserted += prepared.run(
+          termId,
+          alias,
+          key,
+          kind,
+          origin,
+          toTimestamp(entry.createdAt),
+        ).changes;
+      }
+    });
+    accept();
+    return inserted;
+  }
+
+  listTermAliases(termId: string): PromptTermAlias[] {
+    const id = requireText(termId, "Alias term id");
+    const rows = this.db
+      .prepare(`SELECT * FROM term_aliases WHERE term_id = ? ORDER BY id ASC`)
+      .all(id) as TermAliasRow[];
+    return rows.map(rowToTermAlias);
+  }
+
+  /**
+   * Resolves normalized identity keys to real terms. Keys are matched exactly:
+   * no prefix, fuzzy or embedding fallback, because a wrong identity is worse
+   * than an explicit `unresolved`. Deprecated rows never answer a lookup.
+   */
+  resolveTermAliases(keys: string[]): PromptTermAliasMatch[] {
+    if (!Array.isArray(keys)) {
+      throw new Error("Alias keys must be an array");
+    }
+    if (keys.length > 2000) {
+      throw new Error("Alias lookup accepts at most 2000 keys");
+    }
+    const unique = [...new Set(
+      keys.map((key) => requireText(key, "Alias key")).filter(Boolean),
+    )];
+    if (unique.length === 0) return [];
+    const matches: PromptTermAliasMatch[] = [];
+    for (let offset = 0; offset < unique.length; offset += ALIAS_KEY_CHUNK) {
+      const chunk = unique.slice(offset, offset + ALIAS_KEY_CHUNK);
+      const placeholders = chunk.map(() => "?").join(", ");
+      const rows = this.db
+        .prepare(
+          `SELECT a.*, t.category AS term_category, t.subcategory AS term_subcategory,
+                  t.en AS term_en, t.zh AS term_zh, t.series AS term_series,
+                  t.domain AS term_domain, t.validation_status AS term_validation_status
+             FROM term_aliases a
+             JOIN prompt_terms t ON t.id = a.term_id
+            WHERE a.alias_key IN (${placeholders})
+              AND t.validation_status <> 'deprecated'
+            ORDER BY a.alias_key ASC, a.id ASC
+            LIMIT 1000`,
+        )
+        .all(...chunk) as TermAliasMatchRow[];
+      for (const row of rows) matches.push(rowToTermAliasMatch(row));
+    }
+    return matches;
+  }
+
+  /**
    * Merges duplicate term rows that share category and normalized en text.
    * The survivor is the best-validated row (non-null zh preferred, then lowest
    * id); relations and validation records are remapped onto it before absorbed
@@ -691,6 +844,16 @@ export class PromptVocabDB {
         remappedValidations += this.db
           .prepare(`UPDATE validation_records SET term_id = ? WHERE term_id = ?`)
           .run(survivorId, absorbedId).changes;
+        // Identity aliases follow the surviving row; the rest cascade away with
+        // the absorbed term instead of pointing at a deleted id.
+        this.db
+          .prepare(
+            `INSERT OR IGNORE INTO term_aliases
+               (term_id, alias, alias_key, kind, origin, created_at)
+             SELECT ?, alias, alias_key, kind, origin, created_at
+               FROM term_aliases WHERE term_id = ?`,
+          )
+          .run(survivorId, absorbedId);
         this.db
           .prepare(`DELETE FROM term_relations WHERE term_id = ? OR related_id = ?`)
           .run(absorbedId, absorbedId);

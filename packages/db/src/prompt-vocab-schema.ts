@@ -8,6 +8,28 @@ import type Database from "./adapter";
  * JSON array/object columns (applicable_models, trigger_words, params, meta)
  * are stored as TEXT and parsed by PromptVocabDB.
  */
+/**
+ * Alternative spellings for a named identity (`@wlop`, `wlop`, `甘雨（原神）`,
+ * `ganyu (genshin impact)` → the series-less `ganyu`). Keys normalize through
+ * `normalizeEntityKey`; rows are derived from stored terms or curated by hand.
+ */
+export const PROMPT_ALIAS_SCHEMA = `
+CREATE TABLE IF NOT EXISTS term_aliases (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  term_id TEXT NOT NULL REFERENCES prompt_terms(id) ON DELETE CASCADE,
+  alias TEXT NOT NULL,
+  alias_key TEXT NOT NULL,
+  kind TEXT NOT NULL
+    CHECK(kind IN ('canonical', 'series_less', 'zh', 'curated')),
+  origin TEXT NOT NULL DEFAULT 'derived'
+    CHECK(origin IN ('derived', 'curated')),
+  created_at INTEGER NOT NULL,
+  UNIQUE(term_id, alias_key, kind)
+);
+
+CREATE INDEX IF NOT EXISTS idx_term_aliases_key ON term_aliases(alias_key);
+`;
+
 export const PROMPT_VOCAB_SCHEMA = `
 CREATE TABLE IF NOT EXISTS prompt_terms (
   id TEXT PRIMARY KEY,
@@ -64,6 +86,8 @@ CREATE TABLE IF NOT EXISTS source_assets (
   meta TEXT,
   created_at INTEGER NOT NULL
 );
+
+${PROMPT_ALIAS_SCHEMA}
 `;
 
 function columnNames(rows: unknown[]): Set<string> {
@@ -92,4 +116,7 @@ export function migratePromptVocabSchema(
       "ALTER TABLE prompt_terms ADD COLUMN domain TEXT NOT NULL DEFAULT 'shared'",
     );
   }
+  // Alias rows arrived after the original vocabulary tables; older databases
+  // only have prompt_terms. CREATE ... IF NOT EXISTS keeps this a no-op here.
+  database.exec(PROMPT_ALIAS_SCHEMA);
 }

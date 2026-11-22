@@ -175,6 +175,22 @@ function groupIdentities(rows: AliasRow[]): IdentityGroup[] {
   return [...groups.values()];
 }
 
+export type EntityAliasRow = AliasRow;
+
+/**
+ * Collapses stored rows into distinct identities. A bundle row and its
+ * name-only twin share one identity; appearance stays out of the candidate.
+ */
+export function entityCandidates(rows: EntityAliasRow[]): PromptEntityCandidate[] {
+  return groupIdentities(rows)
+    .map(candidateFrom)
+    .sort((left, right) => {
+      const bundleRank = Number(left.hasAppearanceBundle) - Number(right.hasAppearanceBundle);
+      if (bundleRank !== 0) return bundleRank;
+      return left.displayName.localeCompare(right.displayName);
+    });
+}
+
 /** A bare lowercase-ish word can also be an ordinary noun (`dusk`). */
 function isSinglePlainToken(text: string): boolean {
   const trimmed = text.trim();
@@ -266,15 +282,7 @@ export function resolvePromptEntities(
   const resolutions = accepted
     .sort((left, right) => left.start - right.start)
     .map((mention): PromptEntityResolution | null => {
-      const groups = groupIdentities(byKey.get(mention.key) ?? []);
-      const candidates = groups
-        .map(candidateFrom)
-        .sort((left, right) => {
-          const bundleRank = Number(left.hasAppearanceBundle) - Number(right.hasAppearanceBundle);
-          if (bundleRank !== 0) return bundleRank;
-          return left.displayName.localeCompare(right.displayName);
-        })
-        .slice(0, MAX_CANDIDATES);
+      const candidates = entityCandidates(byKey.get(mention.key) ?? []).slice(0, MAX_CANDIDATES);
       const base = {
         mention: { text: mention.text, start: mention.start, end: mention.end, signal: mention.signal },
         candidates,

@@ -4793,6 +4793,7 @@
   },
   "localModel": {
     "menu": "ローカルモデル",
+    "externalQuitHint": "外部起動のエンジンはアプリ終了では停止しません。メモリ解放を実行してください。",
     "title": "ローカルモデルと推論エンジン",
     "subtitle": "llama.cpp、GGUF、視覚プロジェクターを管理し、PromptHub のテキスト生成と画像逆解析へ接続します。",
     "statusSection": "エンジン状態",
@@ -5084,6 +5085,13 @@
       "saving": "記録中…",
       "saved": "記録しました。語彙や検証状態は自動変更されません。"
     },
+    "skills": {
+      "moodyMoss": "MOSS-Image（moody ライティング）",
+      "moss": "MOSS-Image（公式ガイド）",
+      "k2": "Krea 2 / K2",
+      "minimaxH3": "MiniMax-H3 動画"
+    },
+    "clearImages": "画像をクリア",
     "backfill": {
       "action": "選択画面に戻す",
       "saving": "戻しています…",

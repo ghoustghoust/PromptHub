@@ -4793,6 +4793,7 @@
   },
   "localModel": {
     "menu": "Lokales Modell",
+    "externalQuitHint": "Eine extern gestartete Engine wird beim Beenden nicht gestoppt; nutze „Speicher freigeben“.",
     "title": "Lokales Modell und Inferenz-Engine",
     "subtitle": "Verwalten Sie llama.cpp, GGUF und den Vision-Projektor und verbinden Sie PromptHub-Text- und Bild-Rückanalyse in einem Schritt.",
     "statusSection": "Engine-Status",
@@ -5084,6 +5085,13 @@
       "saving": "Speichern…",
       "saved": "Gespeichert. Begriffe und Validierungsstatus werden nicht verändert."
     },
+    "skills": {
+      "moodyMoss": "MOSS-Image (moody-Schreibstil)",
+      "moss": "MOSS-Image (offizieller Leitfaden)",
+      "k2": "Krea 2 / K2",
+      "minimaxH3": "MiniMax-H3 Video"
+    },
+    "clearImages": "Bilder entfernen",
     "backfill": {
       "action": "In Auswahl übernehmen",
       "saving": "Übernehmen…",

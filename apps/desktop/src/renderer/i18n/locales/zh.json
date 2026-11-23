@@ -4831,6 +4831,7 @@
   },
   "localModel": {
     "menu": "本地模型",
+    "externalQuitHint": "外部启动的引擎不会随应用退出；要释放显存请点“释放显存与内存”。",
     "title": "本地模型与推理引擎",
     "subtitle": "管理 llama.cpp 引擎、GGUF 模型和视觉投影，并一键连接 PromptHub 的文本与反推能力。",
     "statusSection": "引擎状态",
@@ -5453,6 +5454,13 @@
       "saving": "记录中…",
       "saved": "已记录；反馈不会自动改写词条或验证状态。"
     },
+    "skills": {
+      "moodyMoss": "MOSS-Image（moody 写作）",
+      "moss": "MOSS-Image（官方规范）",
+      "k2": "Krea 2 / K2",
+      "minimaxH3": "MiniMax-H3 视频"
+    },
+    "clearImages": "清空参考图",
     "backfill": {
       "action": "回填选材台",
       "saving": "回填中…",

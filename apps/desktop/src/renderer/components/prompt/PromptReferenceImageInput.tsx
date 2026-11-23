@@ -12,6 +12,7 @@ interface PromptReferenceImageInputProps {
   onFiles: (files: File[]) => void;
   onNativePaste: () => void;
   onRemove: (id: string) => void;
+  onClear: () => void;
 }
 
 export function PromptReferenceImageInput({
@@ -20,6 +21,7 @@ export function PromptReferenceImageInput({
   onFiles,
   onNativePaste,
   onRemove,
+  onClear,
 }: PromptReferenceImageInputProps) {
   const { t } = useTranslation();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -27,7 +29,8 @@ export function PromptReferenceImageInput({
   const browse = () => fileInput.current?.click();
   const acceptFiles = (files: File[]) => {
     const incoming = files.filter((file) => file.type.startsWith("image/"));
-    const remaining = Math.max(0, limit - images.length);
+    // Reverse replaces the working image; other modes append up to the limit.
+    const remaining = mode === "reverse" ? limit : Math.max(0, limit - images.length);
     if (incoming.length > 0) onFiles(incoming.slice(0, remaining));
   };
   const handlePaste = (event: React.ClipboardEvent<HTMLElement>) => {
@@ -103,6 +106,17 @@ export function PromptReferenceImageInput({
           <ClipboardIcon className="h-4 w-4" aria-hidden="true" />
           {t("orchestrator.pasteImage")}
         </Button>
+        {images.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClear}
+            data-testid="orchestrator-clear-images"
+          >
+            <XIcon className="h-4 w-4" aria-hidden="true" />
+            {t("orchestrator.clearImages")}
+          </Button>
+        )}
       </div>
       <div className="grid grid-cols-2 gap-2">
         {images.map((image, index) => (

@@ -4794,6 +4794,7 @@
   },
   "localModel": {
     "menu": "Modèle local",
+    "externalQuitHint": "Un moteur démarré en externe n'est pas arrêté à la fermeture ; utilisez la libération mémoire.",
     "title": "Modèle local et moteur d’inférence",
     "subtitle": "Gérez llama.cpp, le modèle GGUF et le projecteur vision, puis connectez les fonctions texte et image inverse de PromptHub.",
     "statusSection": "État du moteur",
@@ -5085,6 +5086,13 @@
       "saving": "Enregistrement…",
       "saved": "Enregistré. Aucun terme ni statut de validation n'est modifié."
     },
+    "skills": {
+      "moodyMoss": "MOSS-Image (écriture moody)",
+      "moss": "MOSS-Image (guide officiel)",
+      "k2": "Krea 2 / K2",
+      "minimaxH3": "MiniMax-H3 vidéo"
+    },
+    "clearImages": "Effacer les images",
     "backfill": {
       "action": "Renvoyer au sélecteur",
       "saving": "Envoi…",

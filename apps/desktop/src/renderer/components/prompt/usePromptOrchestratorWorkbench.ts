@@ -411,13 +411,18 @@ export function usePromptOrchestratorWorkbench() {
 
   function addReferenceImages(images: Array<{ fileName: string; dataUrl: string }>): void {
     const limit = referenceImageLimit(mode);
-    setReferenceImages((current) => [
-      ...current,
-      ...images.slice(0, Math.max(0, limit - current.length)).map((image) => ({
-        ...image,
-        id: crypto.randomUUID(),
-      })),
-    ]);
+    setReferenceImages((current) => {
+      // Reverse works on the image in hand: a newly picked image replaces the
+      // previous one instead of silently sending both to the vision model.
+      const base = mode === "reverse" ? [] : current;
+      return [
+        ...base,
+        ...images.slice(0, Math.max(0, limit - base.length)).map((image) => ({
+          ...image,
+          id: crypto.randomUUID(),
+        })),
+      ];
+    });
   }
 
   async function acceptReferenceFiles(files: File[]): Promise<void> {

@@ -182,7 +182,9 @@ export function PromptOrchestratorResultPanel({
         ) : tab === "complete" ? (
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2 text-[11px]">
-              <span className="rounded-md bg-primary/10 px-2 py-1 text-primary">{result.skill}</span>
+              <span className="rounded-md bg-primary/10 px-2 py-1 text-primary">
+                {t(`orchestrator.skills.${result.skill}`, result.skill)}
+              </span>
               {result.outputFormat && (
                 <span className="rounded-md bg-muted px-2 py-1 text-muted-foreground">
                   {t(`orchestrator.formats.${result.outputFormat}`)}

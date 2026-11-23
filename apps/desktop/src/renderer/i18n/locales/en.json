@@ -4833,6 +4833,7 @@
   },
   "localModel": {
     "menu": "Local Model",
+    "externalQuitHint": "An externally started engine is not stopped when you quit the app; use release memory to end it.",
     "title": "Local Model & Inference Engine",
     "subtitle": "Manage llama.cpp, GGUF and the vision projector, then connect PromptHub text and reverse-image features in one step.",
     "statusSection": "Engine status",
@@ -5455,6 +5456,13 @@
       "saving": "Saving…",
       "saved": "Saved. Feedback never edits terms or validation on its own."
     },
+    "skills": {
+      "moodyMoss": "MOSS-Image (moody writing)",
+      "moss": "MOSS-Image (official guide)",
+      "k2": "Krea 2 / K2",
+      "minimaxH3": "MiniMax-H3 Video"
+    },
+    "clearImages": "Clear images",
     "backfill": {
       "action": "Backfill picker",
       "saving": "Backfilling…",

@@ -158,6 +158,10 @@ export function buildLocalLlamaArgs(config: LocalLlamaEngineConfig): string[] {
     "--cache-type-k", config.kvCacheType,
     "--cache-type-v", config.kvCacheType,
     "--no-webui",
+    // Tool calling and the model-native chat template require the Jinja path;
+    // without it llama.cpp ignores the tools payload and the orchestrator has to
+    // fall back after a wasted request.
+    "--jinja",
   ];
   if (config.mmprojPath) {
     args.push(

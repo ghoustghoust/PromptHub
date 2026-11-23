@@ -4793,6 +4793,7 @@
   },
   "localModel": {
     "menu": "Modelo local",
+    "externalQuitHint": "Un motor iniciado externamente no se detiene al cerrar; usa liberar memoria.",
     "title": "Modelo local y motor de inferencia",
     "subtitle": "Gestiona llama.cpp, GGUF y el proyector de visión, y conecta las funciones de texto e imagen inversa de PromptHub.",
     "statusSection": "Estado del motor",
@@ -5084,6 +5085,13 @@
       "saving": "Guardando…",
       "saved": "Guardado. No se modifican términos ni estados de validación."
     },
+    "skills": {
+      "moodyMoss": "MOSS-Image (escritura moody)",
+      "moss": "MOSS-Image (guía oficial)",
+      "k2": "Krea 2 / K2",
+      "minimaxH3": "MiniMax-H3 vídeo"
+    },
+    "clearImages": "Borrar imágenes",
     "backfill": {
       "action": "Devolver al selector",
       "saving": "Devolviendo…",

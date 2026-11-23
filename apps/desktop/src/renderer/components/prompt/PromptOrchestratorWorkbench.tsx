@@ -216,6 +216,9 @@ function LocalEngineQuickControl({ onConnected, onUnloaded }: { onConnected: () 
         </p>
       )}
       {external && <p className="text-[11px] text-muted-foreground">{t("localModel.unloadExternalHint")}</p>}
+      {external && (
+        <p className="text-[11px] text-muted-foreground">{t("localModel.externalQuitHint")}</p>
+      )}
       {canUnload && (
         <p className="text-[11px] text-muted-foreground">{t("orchestrator.localEngine.releaseHint")}</p>
       )}
@@ -424,10 +427,10 @@ export function PromptOrchestratorWorkbench() {
             label={t("orchestrator.skill")}
             value={state.skill}
             options={[
-              { value: "moodyMoss", label: "moodyMoss" },
-              { value: "moss", label: "MOSS" },
-              { value: "k2", label: "Krea 2 / K2" },
-              { value: "minimaxH3", label: "MiniMax-H3 Video" },
+              { value: "moodyMoss", label: t("orchestrator.skills.moodyMoss") },
+              { value: "moss", label: t("orchestrator.skills.moss") },
+              { value: "k2", label: t("orchestrator.skills.k2") },
+              { value: "minimaxH3", label: t("orchestrator.skills.minimaxH3") },
             ]}
             onChange={(value) => state.setSkill(value as WorkbenchState["skill"])}
           />
@@ -751,6 +754,7 @@ export function PromptOrchestratorWorkbench() {
                   onFiles={(files) => void state.acceptReferenceFiles(files)}
                   onNativePaste={() => void state.pasteReferenceImage()}
                   onRemove={(id) => state.setReferenceImages((images) => images.filter((image) => image.id !== id))}
+                  onClear={() => state.setReferenceImages([])}
                 />
               )}
             </div>

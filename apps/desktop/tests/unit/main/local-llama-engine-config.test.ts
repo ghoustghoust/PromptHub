@@ -27,6 +27,7 @@ describe("local llama engine config", () => {
     expect(args).toContain("G:\\models\\vision.gguf");
     expect(args).toContain("draft-mtp");
     expect(args).toContain("--kv-unified");
+    expect(args).toContain("--jinja");
     expect(args).not.toContain("&&");
   });
 

@@ -148,6 +148,26 @@ describe("OpenAiCompatiblePromptLlm tool calling", () => {
     expect(typeof tool?.content).toBe("string");
   });
 
+  it("disables prompt cache only for image requests", async () => {
+    const bodies: Array<Record<string, unknown>> = [];
+    const transport = async (request: AITransportRequest): Promise<AITransportResponse> => {
+      bodies.push(JSON.parse(request.body ?? "{}") as Record<string, unknown>);
+      return response(completion("ok"));
+    };
+    const llm = new OpenAiCompatiblePromptLlm(
+      { endpoint: "http://127.0.0.1:9/v1", model: "local" },
+      transport,
+    );
+    await llm.complete({
+      messages: { system: "s", user: "u" },
+      mode: "reverse",
+      imageUrls: ["https://example.com/a.png"],
+    });
+    await llm.complete({ messages: { system: "s", user: "u" }, mode: "polish" });
+    expect(bodies[0].cache_prompt).toBe(false);
+    expect(bodies[1].cache_prompt).toBeUndefined();
+  });
+
   it("rejects truncated tool responses", async () => {
     const transport = async (): Promise<AITransportResponse> =>
       response(completion(null, [{ id: "c", type: "function", function: { name: "x", arguments: "{}" } }], "length"));

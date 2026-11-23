@@ -177,26 +177,27 @@ describe("tool-assisted retrieval", () => {
     expect(result.selectedTerms.map((term) => term.id)).toContain("light-1");
   });
 
-  it("applies the same loop to polish and reverse, and sends images only once", async () => {
+  it("uses tools for polish and text-only reverse, but not for reverse with images", async () => {
     const polish = scriptedLlm([{ content: finalJson() }]);
     const polished = await new PromptOrchestrator({ vocabulary, llm: polish.llm }).orchestrate(
       input({ mode: "polish" }),
     );
     expect(polished.status).toBe("complete");
     expect(polish.requests).toHaveLength(1);
+    expect(polish.requests[0].maxTokens).toBe(2048);
     expect(String(polish.requests[0].messages[0].content)).toContain(
       "Tool-assisted knowledge contract",
     );
 
-    const reverse = scriptedLlm([
-      {
-        toolCalls: [
-          { name: SEARCH_VOCABULARY_TOOL, arguments: { queries: [{ slotId: "camera", category: "camera", query: "85mm" }] } },
-        ],
-      },
-      { content: finalJson([decision({ slotId: "camera", category: "camera", termIds: ["cam-1"], output: "85mm lens" })]) },
-    ]);
-    const reversed = await new PromptOrchestrator({ vocabulary, llm: reverse.llm }).orchestrate(
+    const textReverse = scriptedLlm([{ content: finalJson() }]);
+    const textReversed = await new PromptOrchestrator({ vocabulary, llm: textReverse.llm }).orchestrate(
+      input({ mode: "reverse", prompt: "reverse this description" }),
+    );
+    expect(textReversed.status).toBe("complete");
+    expect(textReverse.requests).toHaveLength(1);
+
+    const imageReverse = scriptedLlm([{ content: finalJson() }]);
+    const reversed = await new PromptOrchestrator({ vocabulary, llm: imageReverse.llm }).orchestrate(
       input({
         mode: "reverse",
         prompt: "reverse this frame",
@@ -204,8 +205,9 @@ describe("tool-assisted retrieval", () => {
       }),
     );
     expect(reversed.status).toBe("complete");
-    expect(reverse.requests[0].imageUrls).toHaveLength(2);
-    expect(reverse.requests[1].imageUrls).toBeUndefined();
+    // Vision-heavy reverse stays single-shot; the tool loop would double a
+    // multi-thousand-token prompt.
+    expect(imageReverse.requests).toHaveLength(0);
   });
 
   it("rejects identity categories in search and keeps the loop alive", async () => {

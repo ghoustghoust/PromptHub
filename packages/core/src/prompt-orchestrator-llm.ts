@@ -348,6 +348,10 @@ export class OpenAiCompatiblePromptLlm implements PromptOrchestratorLlm {
       max_tokens: request.maxTokens ?? this.config.maxTokens ?? 4096,
       stream: false,
       response_format: { type: "json_object" },
+      // Image embeddings are not covered by token-only KV reuse; disabling the
+      // prompt cache for vision requests avoids mixing two images that share
+      // the same placeholder token layout.
+      ...(request.imageUrls?.length ? { cache_prompt: false } : {}),
       ...(this.config.disableThinking !== false
         ? { chat_template_kwargs: { enable_thinking: false } }
         : {}),
@@ -378,6 +382,7 @@ export class OpenAiCompatiblePromptLlm implements PromptOrchestratorLlm {
       stream: false,
       tools: request.tools,
       tool_choice: request.toolChoice ?? "auto",
+      ...(request.imageUrls?.length ? { cache_prompt: false } : {}),
       ...(this.config.disableThinking !== false
         ? { chat_template_kwargs: { enable_thinking: false } }
         : {}),

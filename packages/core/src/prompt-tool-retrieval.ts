@@ -63,11 +63,15 @@ export function supportsToolRetrieval(
   input: PromptOrchestrationInput,
   llm: PromptOrchestratorLlm,
 ): boolean {
+  const mode = input.mode ?? "expand";
+  // A reverse request with images is a vision-heavy single shot; running tools
+  // there doubles a multi-thousand-token prompt and invites stale vision KV.
+  if (mode === "reverse" && (input.imageUrls?.length ?? 0) > 0) return false;
   return (
     typeof llm.completeWithTools === "function" &&
     (input.guidanceMode ?? "agent-led") === "agent-led" &&
     input.outputFormat !== "layout" &&
-    TOOL_MODES.has(input.mode ?? "expand")
+    TOOL_MODES.has(mode)
   );
 }
 
@@ -160,7 +164,10 @@ export async function runToolRetrieval(
       ...(round === 0 && options.input.imageUrls
         ? { imageUrls: options.input.imageUrls }
         : {}),
-      maxTokens: 4096,
+      // A tool-call turn normally returns a short JSON decision, but the model may
+      // legitimately finish early; keep enough budget to avoid truncating a real
+      // composition. The final turn always gets the full output budget.
+      maxTokens: finalTurn ? 4096 : 2048,
       toolChoice: finalTurn ? "none" : "auto",
     });
     if (!finalTurn && response.toolCalls.length > 0) {

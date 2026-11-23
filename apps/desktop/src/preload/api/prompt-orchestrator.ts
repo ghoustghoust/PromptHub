@@ -10,6 +10,7 @@ import type {
   PromptMossLayoutReverse,
   PromptOrchestrationResult,
   PromptOrchestratorIPCReply,
+  PromptOrchestratorWorkspaceState,
   PromptResultFeedbackRecord,
   PromptSkillDraft,
   PromptVocabularyBrowseInput,
@@ -63,4 +64,13 @@ export const promptOrchestratorApi = {
       IPC_CHANNELS.PROMPT_ORCHESTRATOR_FEEDBACK,
       request,
     ) as Promise<PromptOrchestratorIPCReply<PromptResultFeedbackRecord>>,
+  getWorkspaceState: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROMPT_ORCHESTRATOR_STATE_GET) as Promise<
+      PromptOrchestratorIPCReply<PromptOrchestratorWorkspaceState | null>
+    >,
+  saveWorkspaceState: (state: PromptOrchestratorWorkspaceState) =>
+    ipcRenderer.invoke(
+      IPC_CHANNELS.PROMPT_ORCHESTRATOR_STATE_SAVE,
+      state,
+    ) as Promise<PromptOrchestratorIPCReply<PromptOrchestratorWorkspaceState>>,
 };

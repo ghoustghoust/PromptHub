@@ -8,6 +8,7 @@ import type {
   PromptOrchestrationOutputFormat,
   PromptOrchestrationResult,
   PromptOrchestrationSkill,
+  PromptPickerTermState,
   PromptSkillDraft,
   PromptTermDomain,
   PromptVideoOrchestrationInput,
@@ -30,6 +31,7 @@ import {
   mergeBackfillTerms,
   shouldBackfillProvenance,
 } from "./prompt-backfill";
+import { normalizeWorkspaceTerms } from "./prompt-workspace-state";
 import { useMossLayoutEditor } from "./useMossLayoutEditor";
 
 export interface OrchestratorReferenceImage {
@@ -39,7 +41,7 @@ export interface OrchestratorReferenceImage {
 }
 
 /** How the user wants a picked term to be treated by the orchestrator. */
-export type PrefabTermState = "locked" | "recommended" | "reference" | "excluded";
+export type PrefabTermState = PromptPickerTermState;
 
 export interface PrefabTerm extends PromptVocabularySearchItem {
   state: PrefabTermState;
@@ -98,6 +100,7 @@ export function usePromptOrchestratorWorkbench() {
   });
   const [referenceImages, setReferenceImages] = useState<OrchestratorReferenceImage[]>([]);
   const [prefabTerms, setPrefabTerms] = useState<PrefabTerm[]>([]);
+  const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
   const selectedTermIds = useMemo(
     () => prefabTerms
       .filter((term) => term.state === "locked" || term.state === "recommended")
@@ -170,6 +173,62 @@ export function usePromptOrchestratorWorkbench() {
       active = false;
     };
   }, []);
+
+  // Restore the durable picker and archive once per mount, then persist later
+  // edits with a short debounce so typing a model id does not write per key.
+  useEffect(() => {
+    let active = true;
+    void window.api.promptOrchestrator
+      .getWorkspaceState()
+      .then((reply) => {
+        if (!active) return;
+        if (reply.ok === true && reply.data) {
+          setPrefabTerms(normalizeWorkspaceTerms(reply.data.prefabTerms));
+          setModelId(reply.data.modelId ?? "");
+          setLoraIds(reply.data.loraIds ?? "");
+        }
+      })
+      .catch((cause: unknown) => {
+        console.warn("Failed to load orchestrator workspace state", cause);
+      })
+      .finally(() => {
+        if (active) setWorkspaceHydrated(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!workspaceHydrated) return;
+    const timer = window.setTimeout(() => {
+      void window.api.promptOrchestrator
+        .saveWorkspaceState({
+          prefabTerms: prefabTerms.map((term) => ({
+            id: term.id,
+            category: term.category,
+            subcategory: term.subcategory,
+            en: term.en,
+            zh: term.zh,
+            series: term.series,
+            template: term.template,
+            validationStatus: term.validationStatus,
+            state: term.state,
+          })),
+          modelId,
+          loraIds,
+        })
+        .then((reply) => {
+          if (reply.ok !== true) {
+            console.warn("Failed to save orchestrator workspace state", reply.error.message);
+          }
+        })
+        .catch((cause: unknown) => {
+          console.warn("Failed to save orchestrator workspace state", cause);
+        });
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [prefabTerms, modelId, loraIds, workspaceHydrated]);
 
   useEffect(() => {
     if (previousLayoutSignature.current === layoutSignature) return;

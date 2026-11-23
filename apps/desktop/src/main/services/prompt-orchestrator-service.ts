@@ -5,7 +5,7 @@ import {
   coreAIConfigService,
   type CoreAIModelConfig,
 } from "@prompthub/core";
-import { PromptFeedbackDB, PromptVocabDB } from "@prompthub/db";
+import { PromptFeedbackDB, PromptOrchestratorStateDB, PromptVocabDB } from "@prompthub/db";
 import type Database from "@prompthub/db/adapter";
 import type {
   DesktopPromptFeedbackRequest,
@@ -16,6 +16,8 @@ import type {
   PromptMossLayoutReverse,
   PromptOrchestrationInput,
   PromptOrchestrationResult,
+  PromptOrchestratorWorkspaceState,
+  PromptOrchestratorWorkspaceTerm,
   PromptResultFeedbackInput,
   PromptResultFeedbackRecord,
   PromptSkillDraft,
@@ -156,13 +158,119 @@ function parseFeedbackRequest(value: unknown): DesktopPromptFeedbackRequest {
   };
 }
 
+const PICKER_STATES: ReadonlySet<string> = new Set([
+  "locked",
+  "recommended",
+  "reference",
+  "excluded",
+]);
+const TERM_VALIDATION_STATES: ReadonlySet<string> = new Set([
+  "pending",
+  "unvalidated",
+  "validated",
+  "deprecated",
+]);
+const MAX_WORKSPACE_TERMS = 2000;
+
+function workspaceText(value: unknown, label: string, maxLength: number): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`${label} must be a non-empty string`);
+  }
+  const text = value.trim();
+  if (text.length > maxLength || text.includes("\0")) {
+    throw new Error(`${label} exceeds its length limit or contains a null byte`);
+  }
+  return text;
+}
+
+function optionalWorkspaceText(
+  value: unknown,
+  label: string,
+  maxLength: number,
+): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string") throw new Error(`${label} must be a string or null`);
+  const text = value.trim();
+  if (!text) return null;
+  if (text.length > maxLength || text.includes("\0")) {
+    throw new Error(`${label} exceeds its length limit or contains a null byte`);
+  }
+  return text;
+}
+
+function parseWorkspaceState(value: unknown): PromptOrchestratorWorkspaceState {
+  if (!isRecord(value)) {
+    throw new Error("Orchestrator workspace state must be an object");
+  }
+  if (!Array.isArray(value.prefabTerms) || value.prefabTerms.length > MAX_WORKSPACE_TERMS) {
+    throw new Error(
+      `Workspace prefabTerms must be an array of at most ${MAX_WORKSPACE_TERMS} items`,
+    );
+  }
+  const seen = new Set<string>();
+  const prefabTerms: PromptOrchestratorWorkspaceTerm[] = [];
+  value.prefabTerms.forEach((entry, index) => {
+    if (!isRecord(entry)) {
+      throw new Error(`prefabTerms[${index}] must be an object`);
+    }
+    const id = workspaceText(entry.id, `prefabTerms[${index}].id`, 500);
+    if (seen.has(id)) return;
+    seen.add(id);
+    const validationStatus = entry.validationStatus;
+    if (typeof validationStatus !== "string" || !TERM_VALIDATION_STATES.has(validationStatus)) {
+      throw new Error(`Unsupported prefab term validation status: ${String(validationStatus)}`);
+    }
+    const state = entry.state;
+    if (typeof state !== "string" || !PICKER_STATES.has(state)) {
+      throw new Error(`Unsupported prefab term state: ${String(state)}`);
+    }
+    prefabTerms.push({
+      id,
+      category: workspaceText(entry.category, `prefabTerms[${index}].category`, 60),
+      subcategory: optionalWorkspaceText(entry.subcategory, `prefabTerms[${index}].subcategory`, 200),
+      en: workspaceText(entry.en, `prefabTerms[${index}].en`, 2000),
+      zh: optionalWorkspaceText(entry.zh, `prefabTerms[${index}].zh`, 2000),
+      series: optionalWorkspaceText(entry.series, `prefabTerms[${index}].series`, 200),
+      template: optionalWorkspaceText(entry.template, `prefabTerms[${index}].template`, 4000),
+      validationStatus: validationStatus as PromptOrchestratorWorkspaceTerm["validationStatus"],
+      state: state as PromptOrchestratorWorkspaceTerm["state"],
+    });
+  });
+  return {
+    prefabTerms,
+    modelId: typeof value.modelId === "string"
+      ? optionalWorkspaceText(value.modelId, "modelId", 500) ?? ""
+      : "",
+    loraIds: typeof value.loraIds === "string"
+      ? optionalWorkspaceText(value.loraIds, "loraIds", 500) ?? ""
+      : "",
+  };
+}
+
 export class DesktopPromptOrchestratorService {
   private readonly vocabulary: PromptVocabDB;
   private readonly feedback: PromptFeedbackDB;
+  private readonly workspace: PromptOrchestratorStateDB;
 
   constructor(db: Database.Database) {
     this.vocabulary = new PromptVocabDB(db);
     this.feedback = new PromptFeedbackDB(db);
+    this.workspace = new PromptOrchestratorStateDB(db);
+  }
+
+  getWorkspaceState(): PromptOrchestratorWorkspaceState | null {
+    const stored = this.workspace.get();
+    if (!stored) return null;
+    try {
+      return parseWorkspaceState(stored);
+    } catch (error) {
+      console.warn("Ignoring corrupted orchestrator workspace state", error);
+      return null;
+    }
+  }
+
+  saveWorkspaceState(value: unknown): PromptOrchestratorWorkspaceState {
+    return this.workspace.save(parseWorkspaceState(value));
   }
 
   listSeries(): string[] {

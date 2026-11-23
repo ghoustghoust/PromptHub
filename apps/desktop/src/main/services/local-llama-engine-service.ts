@@ -5,17 +5,31 @@ import os from "node:os";
 import path from "node:path";
 import {
   DEFAULT_LOCAL_LLAMA_CONFIG,
+  LOCAL_CONTEXT_PRESETS,
+  localContextPresetOf,
   localLlamaEndpoint,
+  type LocalLlamaContextPreset,
+  type LocalLlamaContextSwitchResult,
   type LocalLlamaEngineConfig,
   type LocalLlamaEnginePhase,
   type LocalLlamaEngineStatus,
   type LocalLlamaUnloadResult,
 } from "@prompthub/shared/types";
 import { getUserDataPath } from "../runtime-paths";
-import { buildLocalLlamaArgs, normalizeLocalLlamaConfig } from "./local-llama-args";
+import {
+  buildLocalLlamaArgs,
+  estimateLocalLlamaVramMb,
+  LOCAL_LLAMA_VRAM_SAFETY_MB,
+  normalizeLocalLlamaConfig,
+} from "./local-llama-args";
 import { parseGgufMtpSupport, type GgufMtpSupport } from "./gguf-metadata";
 
-export { buildLocalLlamaArgs, normalizeLocalLlamaConfig };
+export {
+  buildLocalLlamaArgs,
+  estimateLocalLlamaVramMb,
+  LOCAL_LLAMA_VRAM_SAFETY_MB,
+  normalizeLocalLlamaConfig,
+};
 
 const START_TIMEOUT_MS = 120_000;
 const STOP_TIMEOUT_MS = 8_000;
@@ -184,6 +198,9 @@ export class LocalLlamaEngineService {
   private gpuUsedMb: number | null = null;
   private logStream: WriteStream | null = null;
   private startPromise: Promise<LocalLlamaEngineStatus> | null = null;
+  private switchPromise: Promise<LocalLlamaContextSwitchResult> | null = null;
+  /** Measured VRAM delta while this process owns the engine; null when unreadable. */
+  private engineVramMb: number | null = null;
   private stopPromise: Promise<LocalLlamaEngineStatus> | null = null;
   private idleTimer: NodeJS.Timeout | null = null;
   private lastActivityAt = Date.now();
@@ -298,27 +315,14 @@ export class LocalLlamaEngineService {
   private async checkVram(config: LocalLlamaEngineConfig): Promise<string | null> {
     const usage = await readGpuUsage();
     if (!usage) return null;
-    let modelMb = 0;
-    try {
-      const stat = await fs.stat(config.modelPath);
-      modelMb = stat.size / (1024 * 1024);
-    } catch {
-      return null;
-    }
-    if (modelMb <= 0) return null;
-    // Coarse guard: only refuse when the GPU is already heavily occupied by
-    // something else (ComfyUI and friends). A tight model-size estimate would
-    // reject configurations that llama.cpp can still fit with mmap sharing.
-    const required = Math.max(
-      1536,
-      Math.min(4096, Math.round(usage.totalMb * 0.6)),
-      Math.round(modelMb * 0.55),
-    );
-    const free = usage.totalMb - usage.usedMb;
-    if (free >= required) return null;
+    const estimatedMb = estimateLocalLlamaVramMb(config);
+    const projectedMb = usage.usedMb + estimatedMb + LOCAL_LLAMA_VRAM_SAFETY_MB;
+    if (projectedMb <= usage.totalMb) return null;
     return (
-      `Not enough free VRAM: ${Math.round(free)} MiB free, about ${required} MiB needed. ` +
-      "Close ComfyUI or lower GPU layers, then start again."
+      `Not enough VRAM: ${Math.round(usage.usedMb)} MiB is already in use, about ` +
+      `${estimatedMb} MiB is needed for ${config.contextSize} context ` +
+      `(plus ${LOCAL_LLAMA_VRAM_SAFETY_MB} MiB headroom), but the GPU has ` +
+      `${usage.totalMb} MiB. Close ComfyUI or choose a smaller context preset, then start again.`
     );
   }
 
@@ -500,6 +504,7 @@ export class LocalLlamaEngineService {
       this.closeLogStream();
       startupFailure ||= `llama-server exited (${code ?? signal ?? "unknown"})`;
       if (this.child === child) this.child = null;
+      this.engineVramMb = null;
       if (this.phase !== "stopping" && this.phase !== "error") {
         this.phase = code === 0 ? "stopped" : "error";
         this.message = code === 0 ? "" : `llama-server exited (${code ?? signal ?? "unknown"})`;
@@ -526,6 +531,10 @@ export class LocalLlamaEngineService {
           this.message = "";
           const gpuAfter = await readGpuUsedMb();
           this.gpuUsedMb = gpuAfter;
+          this.engineVramMb =
+            gpuBefore !== null && gpuAfter !== null
+              ? Math.max(0, gpuAfter - gpuBefore)
+              : null;
           this.onGpu =
             gpuBefore !== null && gpuAfter !== null ? gpuAfter - gpuBefore >= 1024 : null;
           this.startIdleMonitor(config);
@@ -541,8 +550,10 @@ export class LocalLlamaEngineService {
       this.message = errorMessage(error);
       this.onGpu = null;
       this.gpuUsedMb = null;
+      this.engineVramMb = null;
       this.closeLogStream();
       await this.terminate(child);
+      if (this.child === child) this.child = null;
       throw new Error(this.message);
     }
   }
@@ -577,6 +588,7 @@ export class LocalLlamaEngineService {
     this.message = "";
     this.onGpu = null;
     this.gpuUsedMb = null;
+    this.engineVramMb = null;
     this.closeLogStream();
     return this.snapshot(config);
   }
@@ -584,6 +596,154 @@ export class LocalLlamaEngineService {
   async restart(): Promise<LocalLlamaEngineStatus> {
     await this.stop();
     return this.start();
+  }
+
+  /**
+   * Switches to a fixed context preset with a hard preflight and rollback.
+   * The old engine is unloaded before the new context is started, because
+   * llama-server cannot resize its KV allocation in place.
+   */
+  async switchContextPreset(
+    preset: LocalLlamaContextPreset,
+    startIfStopped = true,
+  ): Promise<LocalLlamaContextSwitchResult> {
+    if (this.switchPromise) return this.switchPromise;
+    this.switchPromise = this.switchContextPresetInternal(
+      preset,
+      startIfStopped,
+    ).finally(() => {
+      this.switchPromise = null;
+    });
+    return this.switchPromise;
+  }
+
+  private async switchContextPresetInternal(
+    preset: LocalLlamaContextPreset,
+    startIfStopped: boolean,
+  ): Promise<LocalLlamaContextSwitchResult> {
+    const spec = LOCAL_CONTEXT_PRESETS[preset];
+    if (!spec) throw new Error(`Unknown context preset: ${String(preset)}`);
+    const previous = await this.readConfig();
+    const previousPreset = localContextPresetOf(previous);
+    const target = normalizeLocalLlamaConfig({ ...previous, ...spec });
+    const estimateMb = estimateLocalLlamaVramMb(target);
+    const before = await this.getStatus();
+
+    if (before.phase === "running" && !before.managed) {
+      throw new Error(
+        "The running engine was started outside PromptHub. Release it before switching context.",
+      );
+    }
+    if (previousPreset === preset && before.phase === "running") {
+      return {
+        status: before,
+        preset,
+        previousPreset,
+        estimateMb,
+        freeMb: null,
+        rolledBack: false,
+      };
+    }
+
+    // Reject configurations that cannot fit even on an idle card before we
+    // tear down a working engine. The engine's own measured delta is excluded
+    // from "other" usage so a running 8K engine does not count against itself.
+    const usage = await readGpuUsage();
+    const wasRunning =
+      before.phase === "running" ||
+      before.phase === "starting" ||
+      this.child !== null;
+    const nonEngineMb =
+      usage && (!wasRunning || this.engineVramMb !== null)
+        ? Math.max(0, usage.usedMb - (wasRunning ? (this.engineVramMb ?? 0) : 0))
+        : null;
+    if (
+      usage &&
+      nonEngineMb !== null &&
+      estimateMb + nonEngineMb + LOCAL_LLAMA_VRAM_SAFETY_MB > usage.totalMb
+    ) {
+      throw new Error(
+        `Not enough VRAM for ${preset}: about ${estimateMb} MiB is needed for the engine, ` +
+          `${Math.round(nonEngineMb)} MiB is already used by other programs, and the GPU has ` +
+          `${usage.totalMb} MiB.`,
+      );
+    }
+
+    if (wasRunning) await this.unload();
+
+    const after = await readGpuUsage();
+    const freeMb = after ? after.totalMb - after.usedMb : null;
+    if (
+      after &&
+      estimateMb + after.usedMb + LOCAL_LLAMA_VRAM_SAFETY_MB > after.totalMb
+    ) {
+      const restoreError = wasRunning
+        ? await this.restorePrevious(previous)
+        : null;
+      const suffix = restoreError
+        ? ` Rollback also failed: ${restoreError}`
+        : " The previous profile was restored.";
+      throw new Error(
+        `Not enough VRAM after unload: ${Math.round(after.usedMb)} MiB is already in use, ` +
+          `about ${estimateMb} MiB is needed for ${preset}, and the GPU has ${after.totalMb} MiB.${suffix}`,
+      );
+    }
+
+    if (!wasRunning && !startIfStopped) {
+      await this.saveConfig(target);
+      return {
+        status: await this.getStatus(),
+        preset,
+        previousPreset,
+        estimateMb,
+        freeMb,
+        rolledBack: false,
+      };
+    }
+
+    try {
+      await this.saveConfig(target);
+    } catch (error) {
+      const restoreError = wasRunning
+        ? await this.restorePrevious(previous)
+        : null;
+      const suffix = restoreError ? ` Rollback also failed: ${restoreError}` : "";
+      throw new Error(`Could not save ${preset} settings: ${errorMessage(error)}.${suffix}`);
+    }
+
+    try {
+      const status = await this.start();
+      return {
+        status,
+        preset,
+        previousPreset,
+        estimateMb,
+        freeMb,
+        rolledBack: false,
+      };
+    } catch (error) {
+      const targetError = errorMessage(error);
+      const restoreError = await this.restorePrevious(previous);
+      if (restoreError) {
+        throw new Error(
+          `${preset} failed: ${targetError}. Rollback to ${previousPreset} also failed: ${restoreError}`,
+        );
+      }
+      throw new Error(
+        `${preset} failed: ${targetError}. Rolled back to ${previousPreset}.`,
+      );
+    }
+  }
+
+  /** Saves and starts the previous profile; returns an error message on failure. */
+  private async restorePrevious(previous: LocalLlamaEngineConfig): Promise<string | null> {
+    try {
+      await this.saveConfig(previous);
+      await this.start();
+      return null;
+    } catch (error) {
+      return errorMessage(error);
+    }
   }
 
   /**
@@ -645,6 +805,7 @@ export class LocalLlamaEngineService {
     this.message = "";
     this.onGpu = null;
     this.gpuUsedMb = null;
+    this.engineVramMb = null;
     const deadline = Date.now() + STOP_TIMEOUT_MS;
     let released = false;
     while (Date.now() < deadline) {

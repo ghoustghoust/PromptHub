@@ -23,6 +23,8 @@ export interface LocalLlamaEngineConfig {
   parallel: number;
   flashAttention: boolean;
   kvCacheType: LocalLlamaKvCacheType;
+  /** Keep the KV cache in host memory (`--no-kv-offload`) to trade speed for context size. */
+  kvOffload: boolean;
   /** Unified KV buffer across slots; llama.cpp turns it off when --parallel is pinned to 1. */
   kvUnified: boolean;
   mtpEnabled: boolean;
@@ -66,6 +68,50 @@ export interface LocalLlamaUnloadResult {
   stoppedExternal: boolean;
 }
 
+export type LocalLlamaContextPreset = "8k" | "32k" | "64k";
+
+/**
+ * Large contexts keep the KV cache in host memory. On an 8 GB card a GPU-side
+ * 32K KV cache competes with the weights and MTP buffers; q4 host KV measured
+ * roughly 30 t/s versus 80 t/s for 8K GPU KV, which is the documented tradeoff.
+ */
+export const LOCAL_CONTEXT_PRESETS: Record<
+  LocalLlamaContextPreset,
+  { contextSize: number; kvCacheType: LocalLlamaKvCacheType; kvOffload: boolean }
+> = {
+  "8k": { contextSize: 8192, kvCacheType: "q8_0", kvOffload: true },
+  "32k": { contextSize: 32768, kvCacheType: "q4_0", kvOffload: false },
+  "64k": { contextSize: 65536, kvCacheType: "q4_0", kvOffload: false },
+};
+
+export function localContextPresetOf(
+  value: Pick<LocalLlamaEngineConfig, "contextSize" | "kvCacheType" | "kvOffload">,
+): LocalLlamaContextPreset | "custom" {
+  for (const preset of Object.keys(LOCAL_CONTEXT_PRESETS) as LocalLlamaContextPreset[]) {
+    const spec = LOCAL_CONTEXT_PRESETS[preset];
+    if (
+      value.contextSize === spec.contextSize &&
+      value.kvCacheType === spec.kvCacheType &&
+      value.kvOffload === spec.kvOffload
+    ) {
+      return preset;
+    }
+  }
+  return "custom";
+}
+
+export interface LocalLlamaContextSwitchResult {
+  status: LocalLlamaEngineStatus;
+  preset: LocalLlamaContextPreset;
+  previousPreset: LocalLlamaContextPreset | "custom";
+  /** Estimated engine-side VRAM need in MiB, excluding the desktop baseline. */
+  estimateMb: number | null;
+  /** Free VRAM measured after the old engine was unloaded. */
+  freeMb: number | null;
+  /** True only when the target failed and the previous profile came back. */
+  rolledBack: boolean;
+}
+
 export interface LocalLlamaModelConnection {
   apiUrl: string;
   model: string;
@@ -84,6 +130,7 @@ export const DEFAULT_LOCAL_LLAMA_CONFIG: LocalLlamaEngineConfig = {
   parallel: 1,
   flashAttention: true,
   kvCacheType: "q8_0",
+  kvOffload: true,
   kvUnified: true,
   mtpEnabled: false,
   mtpDraftMax: 2,

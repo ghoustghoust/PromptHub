@@ -1,6 +1,8 @@
 import { ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "@prompthub/shared/constants/ipc-channels";
 import type {
+  LocalLlamaContextPreset,
+  LocalLlamaContextSwitchResult,
   LocalLlamaEngineConfig,
   LocalLlamaEngineStatus,
   LocalLlamaUnloadResult,
@@ -19,6 +21,12 @@ export const localLlamaApi = {
     ipcRenderer.invoke(IPC_CHANNELS.LOCAL_LLAMA_STOP) as Promise<LocalLlamaEngineStatus>,
   restart: () =>
     ipcRenderer.invoke(IPC_CHANNELS.LOCAL_LLAMA_RESTART) as Promise<LocalLlamaEngineStatus>,
+  switchContextPreset: (preset: LocalLlamaContextPreset, startIfStopped = true) =>
+    ipcRenderer.invoke(
+      IPC_CHANNELS.LOCAL_LLAMA_CONTEXT_SWITCH,
+      preset,
+      startIfStopped,
+    ) as Promise<LocalLlamaContextSwitchResult>,
   unload: () =>
     ipcRenderer.invoke(IPC_CHANNELS.LOCAL_LLAMA_UNLOAD) as Promise<LocalLlamaUnloadResult>,
   selectFile: (kind: "executable" | "model" | "mmproj") =>

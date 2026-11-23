@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
+  LocalLlamaContextPreset,
+  LocalLlamaContextSwitchResult,
   LocalLlamaEngineConfig,
   LocalLlamaEngineStatus,
   LocalLlamaUnloadResult,
@@ -135,6 +137,39 @@ export function useLocalLlamaEngine() {
     }
   }, [busy, refresh]);
 
+  /** Switches context through the preflight/unload/rollback path in the main process. */
+  const switchContextPreset = useCallback(
+    async (
+      preset: LocalLlamaContextPreset,
+      startIfStopped = true,
+    ): Promise<LocalLlamaContextSwitchResult | null> => {
+      if (busy) return null;
+      setBusy(true);
+      busyRef.current = true;
+      setError("");
+      try {
+        const result = await window.api.localLlama.switchContextPreset(
+          preset,
+          startIfStopped,
+        );
+        setStatus(result.status);
+        await loadConfig();
+        if (result.status.phase === "running" && !(await connect(result.status))) {
+          return null;
+        }
+        return result;
+      } catch (cause) {
+        setError(messageOf(cause));
+        await refresh();
+        return null;
+      } finally {
+        busyRef.current = false;
+        setBusy(false);
+      }
+    },
+    [busy, connect, loadConfig, refresh],
+  );
+
   /** Saves engine parameters and restarts so the new context budget takes effect. */
   const saveAndRestart = useCallback(
     async (patch: Partial<LocalLlamaEngineConfig>) => {
@@ -177,5 +212,6 @@ export function useLocalLlamaEngine() {
     restart,
     unload,
     saveAndRestart,
+    switchContextPreset,
   };
 }

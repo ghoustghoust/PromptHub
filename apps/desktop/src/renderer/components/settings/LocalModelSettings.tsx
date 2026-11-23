@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import {
   DEFAULT_LOCAL_LLAMA_CONFIG,
+  LOCAL_CONTEXT_PRESETS,
+  type LocalLlamaContextPreset,
   type LocalLlamaEngineConfig,
 } from "@prompthub/shared/types";
 import { useUIStore } from "../../stores/ui.store";
@@ -18,6 +20,7 @@ import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { SettingSection } from "./shared";
+import { LocalContextPresetPicker } from "./LocalContextPresetPicker";
 import { useLocalLlamaEngine } from "./useLocalLlamaEngine";
 
 function errorText(error: unknown): string {
@@ -172,6 +175,20 @@ export function LocalModelSettings() {
   );
   const error = formError || engine.error;
 
+  const selectContextPreset = async (preset: LocalLlamaContextPreset) => {
+    setFormError("");
+    if (managedActive) {
+      const result = await engine.switchContextPreset(preset, false);
+      if (!result) return;
+      const saved = await window.api.localLlama.getConfig();
+      setConfig(saved);
+      setDirty(false);
+      return;
+    }
+    setConfig((current) => ({ ...current, ...LOCAL_CONTEXT_PRESETS[preset] }));
+    setDirty(true);
+  };
+
   return (
     <div className="space-y-5 pb-8" data-testid="local-model-settings">
       <div>
@@ -325,6 +342,15 @@ export function LocalModelSettings() {
       </SettingSection>
 
       <SettingSection title={t("localModel.parametersSection")}>
+        <div className="px-4 pt-4">
+          <LocalContextPresetPicker
+            contextSize={config.contextSize}
+            kvCacheType={config.kvCacheType}
+            kvOffload={config.kvOffload}
+            disabled={busy}
+            onSelect={(preset) => void selectContextPreset(preset)}
+          />
+        </div>
         <div className="grid grid-cols-2 gap-4 p-4 md:grid-cols-3">
           <Input label={t("localModel.port")} type="number" value={config.port} onChange={(event) => update("port", Number(event.target.value))} disabled={managedActive} variant="outlined" />
           <Input label={t("localModel.contextSize")} type="number" value={config.contextSize} onChange={(event) => update("contextSize", Number(event.target.value))} disabled={managedActive} variant="outlined" />

@@ -19,6 +19,7 @@ import { useToast } from "../ui/Toast";
 import { usePromptOrchestratorWorkbench } from "./usePromptOrchestratorWorkbench";
 import { PromptOrchestratorResultPanel } from "./PromptOrchestratorResultPanel";
 import { useLocalLlamaEngine } from "../settings/useLocalLlamaEngine";
+import { LocalContextPresetPicker } from "../settings/LocalContextPresetPicker";
 import { LOCAL_LLAMA_MODEL_ID } from "../../stores/settings/settings-ai-actions";
 import { useUIStore } from "../../stores/ui.store";
 import { PromptReferenceImageInput } from "./PromptReferenceImageInput";
@@ -63,7 +64,7 @@ function SelectControl({
   );
 }
 
-function LocalEngineQuickControl({ onConnected, onUnloaded }: { onConnected: () => void; onUnloaded: () => void }) {
+function LocalEngineQuickControl({ onConnected, onUnloaded, systemPromptChars }: { onConnected: () => void; onUnloaded: () => void; systemPromptChars: number }) {
   const { t } = useTranslation();
   const engine = useLocalLlamaEngine();
   const requestSettingsSection = useUIStore(
@@ -167,6 +168,12 @@ function LocalEngineQuickControl({ onConnected, onUnloaded }: { onConnected: () 
       onConnected();
     }
   };
+
+  const applyContextPreset = async (preset: "8k" | "32k" | "64k") => {
+    const result = await engine.switchContextPreset(preset, true);
+    if (result?.status.phase === "running") onConnected();
+  };
+
   return (
     <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3" data-testid="orchestrator-local-engine">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -241,6 +248,25 @@ function LocalEngineQuickControl({ onConnected, onUnloaded }: { onConnected: () 
       </button>
       {paramsOpen && (
         <div className="space-y-2">
+          <LocalContextPresetPicker
+            contextSize={engine.config?.contextSize ?? 8192}
+            kvCacheType={engine.config?.kvCacheType ?? "q8_0"}
+            kvOffload={engine.config?.kvOffload ?? true}
+            disabled={engine.busy}
+            hint={
+              engine.config &&
+              engine.config.contextSize < 32768 &&
+              systemPromptChars > 0
+                ? t(
+                    systemPromptChars >= 12000
+                      ? "orchestrator.localEngine.contextNeedLong"
+                      : "orchestrator.localEngine.contextNeedSystemPrompt",
+                    { chars: systemPromptChars },
+                  )
+                : undefined
+            }
+            onSelect={(preset) => void applyContextPreset(preset)}
+          />
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <Input
               label={t("orchestrator.localEngine.context")}
@@ -588,6 +614,7 @@ export function PromptOrchestratorWorkbench() {
               <LocalEngineQuickControl
                 onConnected={() => state.setLlmModelId(LOCAL_LLAMA_MODEL_ID)}
                 onUnloaded={() => state.changeModelSource("cloud")}
+                systemPromptChars={state.systemLayer.trim().length}
               />
               <p className="text-[11px] text-muted-foreground">
                 {t("orchestrator.modelSource.localHint")}

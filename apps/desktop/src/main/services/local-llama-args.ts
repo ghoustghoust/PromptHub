@@ -1,11 +1,15 @@
 import {
   DEFAULT_LOCAL_LLAMA_CONFIG,
+  LOCAL_CONTEXT_PRESETS,
   type LocalLlamaEngineConfig,
   type LocalLlamaKvCacheType,
   type LocalLlamaModelProfile,
 } from "@prompthub/shared/types";
 
 const LOCAL_MODEL_ALIAS = "prompthub-local";
+
+/** Leave room for the desktop, driver bookkeeping and CUDA context growth. */
+export const LOCAL_LLAMA_VRAM_SAFETY_MB = 128;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -88,31 +92,74 @@ function readProfiles(value: unknown): LocalLlamaModelProfile[] {
   });
 }
 
+/**
+ * Conservative engine-side VRAM estimate in MiB. It intentionally excludes the
+ * desktop baseline, because the caller compares it with free memory after an
+ * unload. Context presets are measured values; larger custom contexts grow
+ * linearly from the 64K point.
+ */
+export function estimateLocalLlamaVramMb(
+  config: Pick<
+    LocalLlamaEngineConfig,
+    "contextSize" | "mmprojPath" | "parallel"
+  >,
+): number {
+  const contextSize = config.contextSize;
+  let baseMb: number;
+  if (contextSize >= 131072) {
+    baseMb = 6400 + (contextSize - 65536) * 0.012;
+  } else if (contextSize >= 65536) {
+    baseMb = 6400;
+  } else if (contextSize >= 32768) {
+    baseMb = 6150;
+  } else {
+    baseMb = 6300 + Math.max(0, contextSize - 8192) * 0.01;
+  }
+  const visionMb = config.mmprojPath ? 400 : 0;
+  const parallelMb = Math.max(0, config.parallel - 1) * 512;
+  return Math.round(baseMb + visionMb + parallelMb);
+}
+
 export function normalizeLocalLlamaConfig(
   value: unknown,
 ): LocalLlamaEngineConfig {
   if (!isRecord(value)) throw new Error("Local engine config must be an object");
   const defaults = DEFAULT_LOCAL_LLAMA_CONFIG;
-  const kvCacheType = value.kvCacheType ?? defaults.kvCacheType;
-  if (!(["f16", "q8_0", "q4_0"] as const).includes(kvCacheType as LocalLlamaKvCacheType)) {
+  const requestedKvCacheType = value.kvCacheType ?? defaults.kvCacheType;
+  if (
+    !(["f16", "q8_0", "q4_0"] as const).includes(
+      requestedKvCacheType as LocalLlamaKvCacheType,
+    )
+  ) {
     throw new Error("Unsupported KV cache type");
   }
+  const contextSize = readInteger(
+    value.contextSize,
+    defaults.contextSize,
+    "Context size",
+    512,
+    262144,
+  );
+  // Above 8K the measured cost is dominated by KV placement, so large contexts
+  // are a fixed policy: q4 KV in host memory. Keeping this in normalization
+  // prevents manual inputs and old profiles from bypassing the safe preset.
+  const largeContext = contextSize >= LOCAL_CONTEXT_PRESETS["32k"].contextSize;
+  const kvCacheType = largeContext
+    ? LOCAL_CONTEXT_PRESETS["32k"].kvCacheType
+    : (requestedKvCacheType as LocalLlamaKvCacheType);
   return {
     executablePath: readPath(value.executablePath),
     modelPath: readPath(value.modelPath),
     mmprojPath: readPath(value.mmprojPath),
     port: readInteger(value.port, defaults.port, "Port", 1024, 65535),
-    contextSize: readInteger(
-      value.contextSize,
-      defaults.contextSize,
-      "Context size",
-      512,
-      262144,
-    ),
+    contextSize,
     gpuLayers: readInteger(value.gpuLayers, defaults.gpuLayers, "GPU layers", -1, 999),
     parallel: readInteger(value.parallel, defaults.parallel, "Parallel slots", 1, 16),
     flashAttention: readBoolean(value.flashAttention, defaults.flashAttention),
-    kvCacheType: kvCacheType as LocalLlamaKvCacheType,
+    kvCacheType,
+    kvOffload: largeContext
+      ? false
+      : readBoolean(value.kvOffload, defaults.kvOffload),
     kvUnified: readBoolean(value.kvUnified, defaults.kvUnified),
     mtpEnabled: readBoolean(value.mtpEnabled, defaults.mtpEnabled),
     mtpDraftMax: readInteger(
@@ -157,6 +204,7 @@ export function buildLocalLlamaArgs(config: LocalLlamaEngineConfig): string[] {
     "--flash-attn", config.flashAttention ? "on" : "off",
     "--cache-type-k", config.kvCacheType,
     "--cache-type-v", config.kvCacheType,
+    config.kvOffload ? "--kv-offload" : "--no-kv-offload",
     "--no-webui",
     // Tool calling and the model-native chat template require the Jinja path;
     // without it llama.cpp ignores the tools payload and the orchestrator has to

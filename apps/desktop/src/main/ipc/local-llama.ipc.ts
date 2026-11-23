@@ -24,6 +24,18 @@ export function registerLocalLlamaIPC(): void {
   ipcMain.handle(IPC_CHANNELS.LOCAL_LLAMA_START, () => engine.start());
   ipcMain.handle(IPC_CHANNELS.LOCAL_LLAMA_STOP, () => engine.stop());
   ipcMain.handle(IPC_CHANNELS.LOCAL_LLAMA_RESTART, () => engine.restart());
+  ipcMain.handle(
+    IPC_CHANNELS.LOCAL_LLAMA_CONTEXT_SWITCH,
+    (_, preset: unknown, startIfStopped: unknown) => {
+      if (preset !== "8k" && preset !== "32k" && preset !== "64k") {
+        throw new Error("Invalid context preset");
+      }
+      return engine.switchContextPreset(
+        preset,
+        typeof startIfStopped === "boolean" ? startIfStopped : true,
+      );
+    },
+  );
   ipcMain.handle(IPC_CHANNELS.LOCAL_LLAMA_UNLOAD, () => engine.unload());
   ipcMain.handle(IPC_CHANNELS.LOCAL_LLAMA_READ_LOG, () => engine.readLog());
   ipcMain.handle(

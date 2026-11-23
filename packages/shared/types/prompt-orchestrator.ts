@@ -487,6 +487,33 @@ export interface PromptProvenanceEntry {
   reason?: string;
 }
 
+export type PromptPickerTermState = "locked" | "recommended" | "reference" | "excluded";
+
+/**
+ * Picker rows persisted with the workspace. Only fields needed to render and
+ * re-run the selection are stored; vocabulary content remains owned by
+ * prompt_terms.
+ */
+export interface PromptOrchestratorWorkspaceTerm {
+  id: string;
+  category: string;
+  subcategory: string | null;
+  en: string;
+  zh: string | null;
+  series: string | null;
+  template: string | null;
+  validationStatus: PromptTermValidationStatus;
+  state: PromptPickerTermState;
+}
+
+/** Durable selection and archive for the orchestrator workbench. */
+export interface PromptOrchestratorWorkspaceState {
+  prefabTerms: PromptOrchestratorWorkspaceTerm[];
+  modelId: string;
+  loraIds: string;
+  updatedAt?: string;
+}
+
 export type PromptResultRating = "usable" | "unusable";
 
 export type PromptResultFeedbackReason =

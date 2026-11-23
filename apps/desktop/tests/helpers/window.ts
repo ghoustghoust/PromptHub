@@ -70,6 +70,7 @@ function createWindowApiDefaults() {
       start: vi.fn(),
       stop: vi.fn(),
       restart: vi.fn(),
+      switchContextPreset: vi.fn(),
       unload: vi.fn(),
       selectFile: vi.fn(),
       readLog: vi.fn(),

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_LOCAL_LLAMA_CONFIG } from "@prompthub/shared/types";
 import {
   buildLocalLlamaArgs,
+  estimateLocalLlamaVramMb,
   normalizeLocalLlamaConfig,
 } from "../../../src/main/services/local-llama-engine-service";
 
@@ -46,7 +47,51 @@ describe("local llama engine config", () => {
     expect(() => normalizeLocalLlamaConfig({ gpuLayers: -2 })).toThrow(/GPU layers/);
   });
 
-  it("rejects invalid ports and unsupported cache types", () => {
+  it("keeps KV on the GPU for the 8K default", () => {
+    const config = normalizeLocalLlamaConfig({});
+    expect(config.kvOffload).toBe(true);
+    const args = buildLocalLlamaArgs(config);
+    expect(args).toContain("--kv-offload");
+    expect(args).not.toContain("--no-kv-offload");
+  });
+
+  it("forces q4 host KV for 32K and above so manual input cannot bypass the preset", () => {
+    const config = normalizeLocalLlamaConfig({
+      contextSize: 32768,
+      kvCacheType: "f16",
+      kvOffload: true,
+    });
+    expect(config.contextSize).toBe(32768);
+    expect(config.kvCacheType).toBe("q4_0");
+    expect(config.kvOffload).toBe(false);
+    const args = buildLocalLlamaArgs(config);
+    expect(args).toContain("--no-kv-offload");
+    expect(args).not.toContain("--kv-offload");
+  });
+
+  it("estimates context VRAM including the vision projector", () => {
+    const text64 = estimateLocalLlamaVramMb({
+      contextSize: 65536,
+      mmprojPath: "",
+      parallel: 1,
+    });
+    const vision64 = estimateLocalLlamaVramMb({
+      contextSize: 65536,
+      mmprojPath: "G:\\models\\vision.gguf",
+      parallel: 1,
+    });
+    expect(text64).toBe(6400);
+    expect(vision64).toBe(6800);
+    expect(
+      estimateLocalLlamaVramMb({
+        contextSize: 262144,
+        mmprojPath: "",
+        parallel: 1,
+      }),
+    ).toBeGreaterThan(text64);
+  });
+
+  it("validates invalid ports and unsupported cache types", () => {
     expect(() => normalizeLocalLlamaConfig({ port: 80 })).toThrow(/Port/);
     expect(() => normalizeLocalLlamaConfig({ kvCacheType: "unknown" })).toThrow(
       /KV cache/,

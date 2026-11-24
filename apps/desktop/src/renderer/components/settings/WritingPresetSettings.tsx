@@ -10,6 +10,7 @@ import type {
   PromptWritingPresetValidationStatus,
 } from "@prompthub/shared/types";
 import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
+import { removeSectionHeading } from "@prompthub/shared/utils/writing-preset-sections";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
@@ -284,6 +285,45 @@ export function WritingPresetSettings() {
     setError("");
   };
 
+  const exportPresets = async () => {
+    if (!api) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const reply = await api.exportPresets();
+      if (reply.ok !== true) {
+        setError(reply.error.message);
+        return;
+      }
+      if (reply.data) {
+        setNotice(t("writingPresets.exportedNotice", { count: reply.data.count }));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const importPresetBundle = async () => {
+    if (!api) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const reply = await api.importPresetBundle();
+      if (reply.ok !== true) {
+        setError(reply.error.message);
+        return;
+      }
+      if (reply.data) {
+        setNotice(t("writingPresets.importedBundleNotice", { count: reply.data.imported }));
+        await refreshList();
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-4" data-testid="writing-presets-settings">
       {error && (
@@ -299,10 +339,30 @@ export function WritingPresetSettings() {
       <SettingSection title={t("writingPresets.library")}>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 px-4 py-3">
           <p className="max-w-3xl text-xs text-muted-foreground">{t("writingPresets.libraryHint")}</p>
-          <Button size="sm" variant="secondary" onClick={() => void startImport()} disabled={busy} data-testid="writing-preset-import">
-            <UploadIcon className="h-3.5 w-3.5" aria-hidden="true" />
-            {busy ? t("writingPresets.importing") : t("writingPresets.import")}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void exportPresets()}
+              disabled={busy}
+              data-testid="writing-preset-export"
+            >
+              {t("writingPresets.exportPresets")}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void importPresetBundle()}
+              disabled={busy}
+              data-testid="writing-preset-import-bundle"
+            >
+              {t("writingPresets.importPresets")}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => void startImport()} disabled={busy} data-testid="writing-preset-import">
+              <UploadIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              {busy ? t("writingPresets.importing") : t("writingPresets.import")}
+            </Button>
+          </div>
         </div>
         <div className="grid gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">
           <div className="max-h-[560px] overflow-y-auto border-b border-border/70 lg:border-b-0 lg:border-r">
@@ -344,7 +404,7 @@ export function WritingPresetSettings() {
                   <div>
                     <h4 className="text-sm font-medium">{t("writingPresets.importTitle")}</h4>
                     <p className="text-[11px] text-muted-foreground">
-                      {t("writingPresets.importSource", { file: importDraft.sourceFile })}
+                      {t("writingPresets.importSource", { file: importDraft.sourceFile })} · {importDraft.encoding}
                     </p>
                   </div>
                   <Button size="sm" variant="ghost" onClick={closeImport} disabled={busy}>
@@ -604,9 +664,29 @@ export function WritingPresetSettings() {
                           </tr>
                         </thead>
                         <tbody>
-                          {preset.compressedSections.map((section) => (
+                          {preset.compressedSections.map((section, index) => (
                             <tr key={section.id} className="border-t border-border/50">
-                              <td className="px-3 py-1.5">{section.title}</td>
+                              <td className="px-3 py-1.5">
+                                <span>{section.title}</span>
+                                {!preset.builtin && index > 0 && (
+                                  <button
+                                    type="button"
+                                    className="ml-2 text-[10px] text-muted-foreground underline-offset-2 hover:underline"
+                                    onClick={() =>
+                                      setDraft({
+                                        ...draft,
+                                        compressedContent: removeSectionHeading(
+                                          draft.compressedContent,
+                                          section.title,
+                                        ),
+                                      })
+                                    }
+                                    data-testid={`writing-preset-merge-${section.id}`}
+                                  >
+                                    {t("writingPresets.mergeIntoPrevious")}
+                                  </button>
+                                )}
+                              </td>
                               <td className="px-3 py-1.5 text-right text-muted-foreground">{section.charCount}</td>
                               <td className="px-3 py-1.5 text-right text-muted-foreground">{section.tokenEstimate}</td>
                             </tr>

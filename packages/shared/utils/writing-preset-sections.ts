@@ -95,6 +95,24 @@ export function splitWritingPresetSections(text: string): PromptWritingPresetSec
 }
 
 /**
+ * Removes the heading line for one section so it merges into the previous
+ * section on the next split. Markdown headings are the manual split/merge
+ * control; no hidden boundary state is stored.
+ */
+export function removeSectionHeading(text: string, title: string): string {
+  const target = title.trim();
+  if (!target) return text;
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const index = lines.findIndex((line) => {
+    const match = /^#{1,6}\s+(.+?)\s*$/.exec(line);
+    return match?.[1]?.trim() === target;
+  });
+  if (index < 0) return text;
+  lines.splice(index, 1);
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
  * Rebuilds the injectable text from the selected sections. Selecting every
  * section returns the stored text untouched; partial selections get a heading
  * per section so the model can tell the blocks apart.

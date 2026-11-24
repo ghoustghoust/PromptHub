@@ -81,10 +81,38 @@ export interface ImportedPromptWritingPreset {
   sourceFile: string;
   suggestedName: string;
   format: "text" | "markdown" | "html";
+  /** Encoding detected on import, shown so a wrong guess is visible. */
+  encoding: "utf-8" | "utf-16le" | "utf-16be" | "gb18030";
   extractedContent: string;
   charCount: number;
   tokenEstimate: number;
   sections: PromptWritingPresetSection[];
+}
+
+/**
+ * Portable bundle of user presets. Built-ins are shipped with the app and are
+ * not exported; importing always creates user-owned copies.
+ */
+export interface PromptWritingPresetBundleEntry {
+  name: string;
+  targetSkill: PromptWritingPresetTarget;
+  methodology: PromptWritingMethodology;
+  sourceFile: string | null;
+  description: string | null;
+  validationStatus: PromptWritingPresetValidationStatus;
+  originalContent: string | null;
+  compressedContent: string;
+}
+
+export interface PromptWritingPresetBundle {
+  version: 1;
+  exportedAt: string;
+  presets: PromptWritingPresetBundleEntry[];
+}
+
+export interface PromptWritingPresetImportResult {
+  imported: number;
+  skipped: number;
 }
 
 export type PromptWritingPresetIPCReply<T> =

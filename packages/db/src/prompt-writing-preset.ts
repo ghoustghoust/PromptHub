@@ -290,6 +290,26 @@ export class PromptWritingPresetDB {
     return created;
   }
 
+  /** Imports many presets atomically; ids are always regenerated. */
+  importMany(inputs: SavePromptWritingPresetInput[]): PromptWritingPresetRow[] {
+    if (inputs.length === 0) return [];
+    if (inputs.length > 500) {
+      throw new Error("A preset bundle may contain at most 500 entries");
+    }
+    this.db.exec("BEGIN");
+    try {
+      const rows = inputs.map((input) => {
+        const { id: _ignored, ...rest } = input;
+        return this.save(rest);
+      });
+      this.db.exec("COMMIT");
+      return rows;
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
   delete(id: string): boolean {
     const existing = this.get(id);
     if (!existing) return false;

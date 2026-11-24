@@ -7,6 +7,8 @@ import type {
 } from "@prompthub/shared/types";
 import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
 import { Select } from "../ui/Select";
+import { Input } from "../ui/Input";
+import { Button } from "../ui/Button";
 import { Textarea } from "../ui/Textarea";
 import {
   EMPTY_WRITING_LAYER,
@@ -59,6 +61,11 @@ export function PromptWritingLayerPanel({
   const [preset, setPreset] = useState<PromptWritingPreset | null>(null);
   const [open, setOpen] = useState(true);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [editNotice, setEditNotice] = useState("");
 
   const api = window.api.promptWritingPresets;
 
@@ -93,6 +100,8 @@ export function PromptWritingLayerPanel({
         return;
       }
       setPreset(reply.data);
+      setEditing(false);
+      setEditNotice("");
     });
     return () => {
       active = false;
@@ -103,6 +112,15 @@ export function PromptWritingLayerPanel({
     () => writingLayerSections(preset, selection.variant),
     [preset, selection.variant],
   );
+
+  const filteredSummaries = useMemo(() => {
+    const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (terms.length === 0) return summaries;
+    return summaries.filter((item) => {
+      const haystack = `${item.name} ${item.description ?? ""} ${item.sourceFile ?? ""} ${item.targetSkill} ${item.methodology}`.toLowerCase();
+      return terms.every((term) => haystack.includes(term));
+    });
+  }, [query, summaries]);
 
   const selectedSections = useMemo(
     () => availableSections.filter((section) => selection.sectionIds.includes(section.id)),
@@ -145,6 +163,36 @@ export function PromptWritingLayerPanel({
     },
     [onSelectionChange],
   );
+
+  async function savePresetEdit(): Promise<void> {
+    if (!api || !preset || preset.builtin || !editText.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      const reply = await api.save({
+        id: preset.id,
+        name: preset.name,
+        targetSkill: preset.targetSkill,
+        methodology: preset.methodology,
+        validationStatus: preset.validationStatus,
+        description: preset.description,
+        sourceFile: preset.sourceFile,
+        compressedContent: editText,
+        originalContent: preset.originalContent,
+      });
+      if (reply.ok !== true) {
+        setError(reply.error.message);
+        return;
+      }
+      setPreset(reply.data);
+      setEditing(false);
+      setEditNotice(t("orchestrator.writingLayer.editSaved"));
+      const list = await api.list();
+      if (list.ok === true) setSummaries(list.data);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const toggleSection = (id: string) => {
     const ids = selection.sectionIds.includes(id)
@@ -253,6 +301,14 @@ export function PromptWritingLayerPanel({
 
       {selection.mode === "preset" ? (
         <div className="space-y-2">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("orchestrator.writingLayer.searchPlaceholder")}
+            aria-label={t("orchestrator.writingLayer.searchPlaceholder")}
+            variant="outlined"
+            data-testid="writing-layer-search"
+          />
           <div className="flex flex-wrap items-end gap-2">
             <label className="min-w-0 flex-1 space-y-1 text-xs font-medium">
               <span>{t("orchestrator.writingLayer.preset")}</span>
@@ -260,7 +316,7 @@ export function PromptWritingLayerPanel({
                 value={selection.presetId ?? ""}
                 options={[
                   { value: "", label: t("orchestrator.writingLayer.pickPreset") },
-                  ...summaries.map((item) => ({ value: item.id, label: item.name })),
+                  ...filteredSummaries.map((item) => ({ value: item.id, label: item.name })),
                 ]}
                 onChange={(value) =>
                   applySelection({
@@ -378,6 +434,76 @@ export function PromptWritingLayerPanel({
               >
                 {assembled || t("orchestrator.writingLayer.emptyPreview")}
               </pre>
+            </div>
+          )}
+          {preset && (
+            <div className="space-y-2 rounded-md border border-border/60 p-2">
+              {editing ? (
+                <>
+                  <Textarea
+                    value={editText}
+                    onChange={(event) => setEditText(event.target.value)}
+                    rows={8}
+                    data-testid="writing-layer-edit-text"
+                  />
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                    <span>
+                      {t("orchestrator.writingLayer.editMeter", {
+                        chars: editText.length,
+                        tokens: estimatePromptTokens(editText),
+                      })}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditing(false);
+                          setEditNotice("");
+                        }}
+                        disabled={saving}
+                      >
+                        {t("orchestrator.writingLayer.cancelEdit")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void savePresetEdit()}
+                        disabled={saving || !editText.trim()}
+                        data-testid="writing-layer-edit-save"
+                      >
+                        {saving
+                          ? t("orchestrator.writingLayer.savingEdit")
+                          : t("orchestrator.writingLayer.saveEdit")}
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                  <span>
+                    {preset.builtin
+                      ? t("orchestrator.writingLayer.builtinEditHint")
+                      : t("orchestrator.writingLayer.editHint")}
+                  </span>
+                  {!preset.builtin && (
+                    <button
+                      type="button"
+                      className="underline-offset-2 hover:underline"
+                      onClick={() => {
+                        setEditing(true);
+                        setEditText(preset.compressedContent);
+                        setEditNotice("");
+                      }}
+                      disabled={disabled}
+                      data-testid="writing-layer-edit"
+                    >
+                      {t("orchestrator.writingLayer.edit")}
+                    </button>
+                  )}
+                </div>
+              )}
+              {editNotice && <p className="text-[11px] text-emerald-600 dark:text-emerald-400">{editNotice}</p>}
             </div>
           )}
           {!selection.presetId && (

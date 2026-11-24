@@ -4,6 +4,7 @@ import type {
   ImportedPromptWritingPreset,
   PromptWritingPreset,
   PromptWritingPresetIPCReply,
+  PromptWritingPresetImportResult,
   PromptWritingPresetSummary,
   SavePromptWritingPresetInput,
 } from "@prompthub/shared/types";
@@ -29,5 +30,13 @@ export const promptWritingPresetsApi = {
   importFile: () =>
     ipcRenderer.invoke(IPC_CHANNELS.PROMPT_WRITING_PRESET_IMPORT) as Promise<
       PromptWritingPresetIPCReply<ImportedPromptWritingPreset | null>
+    >,
+  exportPresets: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROMPT_WRITING_PRESET_EXPORT) as Promise<
+      PromptWritingPresetIPCReply<{ filePath: string; count: number } | null>
+    >,
+  importPresetBundle: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROMPT_WRITING_PRESET_IMPORT_BUNDLE) as Promise<
+      PromptWritingPresetIPCReply<PromptWritingPresetImportResult | null>
     >,
 };

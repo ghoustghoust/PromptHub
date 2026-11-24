@@ -8,6 +8,9 @@ import {
 import type Database from "@prompthub/db/adapter";
 import type {
   ImportedPromptWritingPreset,
+  PromptWritingPresetBundle,
+  PromptWritingPresetBundleEntry,
+  PromptWritingPresetImportResult,
   PromptWritingPreset,
   PromptWritingPresetSection,
   PromptWritingPresetSummary,
@@ -151,6 +154,33 @@ export class DesktopPromptWritingPresetService {
     return { deleted: this.presets.delete(id.trim()) };
   }
 
+  /** Decodes UTF-8/UTF-16 BOMs and falls back to GB18030 for older Chinese files. */
+  private decodeDocument(buffer: Buffer): {
+    text: string;
+    encoding: ImportedPromptWritingPreset["encoding"];
+  } {
+    if (buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
+      return { text: buffer.subarray(3).toString("utf8"), encoding: "utf-8" };
+    }
+    if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
+      return { text: new TextDecoder("utf-16le").decode(buffer.subarray(2)), encoding: "utf-16le" };
+    }
+    if (buffer.length >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
+      return { text: new TextDecoder("utf-16be").decode(buffer.subarray(2)), encoding: "utf-16be" };
+    }
+    try {
+      return { text: new TextDecoder("utf-8", { fatal: true }).decode(buffer), encoding: "utf-8" };
+    } catch {
+      const text = new TextDecoder("gb18030").decode(buffer);
+      if (text.includes("\uFFFD")) {
+        throw new Error(
+          "Writing document is neither UTF-8 nor GB18030. Re-save it as UTF-8 and import again.",
+        );
+      }
+      return { text, encoding: "gb18030" };
+    }
+  }
+
   async importFile(filePath: unknown): Promise<ImportedPromptWritingPreset> {
     if (typeof filePath !== "string" || !filePath.trim()) {
       throw new Error("Writing document path must be a non-empty string");
@@ -168,21 +198,62 @@ export class DesktopPromptWritingPresetService {
         `Writing document is ${(stats.size / 1024 / 1024).toFixed(1)} MB, above the 8 MB import limit`,
       );
     }
-    const raw = await fs.readFile(resolved, "utf8");
-    if (raw.includes("\uFFFD")) {
-      throw new Error(
-        "Writing document is not valid UTF-8. Re-save it as UTF-8 and import again.",
-      );
-    }
-    const extracted = extractWritingPresetText(resolved, raw);
+    const decoded = this.decodeDocument(await fs.readFile(resolved));
+    const extracted = extractWritingPresetText(resolved, decoded.text);
     return {
       sourceFile: path.basename(resolved),
       suggestedName: extracted.suggestedName,
       format: extracted.format,
+      encoding: decoded.encoding,
       extractedContent: extracted.text,
       charCount: extracted.text.length,
       tokenEstimate: estimatePromptTokens(extracted.text),
       sections: splitWritingPresetSections(extracted.text),
     };
+  }
+
+  /** User presets only; built-ins ship with the app and are not exported. */
+  buildBundle(): PromptWritingPresetBundle {
+    return {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      presets: this.presets
+        .list()
+        .filter((row) => !row.builtin)
+        .map((row) => ({
+          name: row.name,
+          targetSkill: row.targetSkill,
+          methodology: row.methodology,
+          sourceFile: row.sourceFile,
+          description: row.description,
+          validationStatus: row.validationStatus,
+          originalContent: row.originalContent,
+          compressedContent: row.compressedContent,
+        })),
+    };
+  }
+
+  importBundle(value: unknown): PromptWritingPresetImportResult {
+    if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.presets)) {
+      throw new Error("Writing preset bundle must use version 1 and contain a presets array");
+    }
+    if (value.presets.length > 500) {
+      throw new Error("A preset bundle may contain at most 500 entries");
+    }
+    const entries: SavePromptWritingPresetInput[] = value.presets.map((raw, index) => {
+      if (!isRecord(raw)) throw new Error(`Preset ${index + 1} must be an object`);
+      try {
+        const parsed = parseSaveInput(raw);
+        if (!parsed.name.trim()) throw new Error("name is required");
+        if (!parsed.compressedContent.trim()) throw new Error("compressedContent is required");
+        return parsed;
+      } catch (error) {
+        throw new Error(
+          `Preset ${index + 1}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    });
+    const rows = this.presets.importMany(entries);
+    return { imported: rows.length, skipped: 0 };
   }
 }

@@ -48,6 +48,8 @@ export const IPC_CHANNELS = {
   PROMPT_WRITING_PRESET_SAVE: "prompt:writingPresets:save",
   PROMPT_WRITING_PRESET_DELETE: "prompt:writingPresets:delete",
   PROMPT_WRITING_PRESET_IMPORT: "prompt:writingPresets:import",
+  PROMPT_WRITING_PRESET_EXPORT: "prompt:writingPresets:export",
+  PROMPT_WRITING_PRESET_IMPORT_BUNDLE: "prompt:writingPresets:importBundle",
   /**
    * Atomic batch migration from legacy IndexedDB data.
    * All inserts are wrapped in a single SQLite transaction.

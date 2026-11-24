@@ -96,6 +96,8 @@ export interface OpenAiPromptLlmConfig {
   maxTokens?: number;
   /** Sends chat_template_kwargs.enable_thinking=false; defaults to true. */
   disableThinking?: boolean;
+  /** Cancels in-flight buffered and streaming requests. */
+  signal?: AbortSignal;
 }
 
 export type PromptLlmTransport = (
@@ -143,12 +145,15 @@ async function requestWithFetch(
     () => controller.abort(),
     request.timeoutMs ?? AI_REQUEST_TIMEOUT_MS,
   );
+  const signal = request.signal
+    ? AbortSignal.any([controller.signal, request.signal])
+    : controller.signal;
   try {
     const response = await fetch(request.url, {
       method: request.method,
       headers: request.headers,
       body: request.body,
-      signal: controller.signal,
+      signal,
     });
     return {
       ok: response.ok,
@@ -384,6 +389,7 @@ export class OpenAiCompatiblePromptLlm implements PromptOrchestratorLlm {
       headers: this.requestHeaders(),
       body: JSON.stringify({ ...body, stream: false }),
       timeoutMs: this.config.timeoutMs ?? AI_REQUEST_TIMEOUT_MS,
+      ...(this.config.signal ? { signal: this.config.signal } : {}),
     });
   }
 
@@ -434,6 +440,9 @@ export class OpenAiCompatiblePromptLlm implements PromptOrchestratorLlm {
       () => controller.abort(),
       this.config.timeoutMs ?? AI_REQUEST_TIMEOUT_MS,
     );
+    const signal = this.config.signal
+      ? AbortSignal.any([controller.signal, this.config.signal])
+      : controller.signal;
     try {
       const response = await fetch(this.endpoint, {
         method: "POST",
@@ -443,7 +452,7 @@ export class OpenAiCompatiblePromptLlm implements PromptOrchestratorLlm {
           stream: true,
           stream_options: { include_usage: true },
         }),
-        signal: controller.signal,
+        signal,
       });
       if (!response.ok) {
         const text = await response.text();

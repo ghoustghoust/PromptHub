@@ -95,6 +95,14 @@ export interface PromptOrchestratorOptions {
   llm: PromptOrchestratorLlm;
   /** Observational stream side-channel; never changes the final result. */
   onEvent?: PromptStreamEmitter;
+  /** Aborts the run; the LLM request and tool rounds observe it. */
+  signal?: AbortSignal;
+}
+
+function throwIfCancelled(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) {
+    throw new PromptOrchestratorError("CANCELLED", "Orchestration was cancelled");
+  }
 }
 
 interface CompositionRun {
@@ -110,7 +118,8 @@ export class PromptOrchestratorError extends Error {
     readonly code:
       | "INVALID_INPUT"
       | "MODEL_PROFILE_NOT_FOUND"
-      | "SYSTEM_PROMPT_LAYER_OVER_BUDGET",
+      | "SYSTEM_PROMPT_LAYER_OVER_BUDGET"
+      | "CANCELLED",
     message: string,
   ) {
     super(message);
@@ -645,6 +654,7 @@ export class PromptOrchestrator {
       directives,
       entities,
     );
+    throwIfCancelled(this.options.signal);
     this.options.onEvent?.({ type: "phase", stage: "compose", round: 1 });
     const content = await this.options.llm.complete({
       messages,
@@ -654,6 +664,7 @@ export class PromptOrchestrator {
         ? { stream: createStreamCallbacks(this.options.onEvent) }
         : {}),
     });
+    throwIfCancelled(this.options.signal);
     const composition = parsePromptComposition(
       content,
       input.mode ?? "expand",
@@ -689,9 +700,12 @@ export class PromptOrchestrator {
           entities,
           routePlan,
           ...(this.options.onEvent ? { onEvent: this.options.onEvent } : {}),
+          ...(this.options.signal ? { signal: this.options.signal } : {}),
         });
         return { ...tool, warnings: [...selection.warnings, ...tool.warnings] };
       } catch (error) {
+        // A cancelled run must not silently degrade into a deterministic fallback.
+        throwIfCancelled(this.options.signal);
         const fallback = await this.composePlain(
           input,
           selection,
@@ -715,6 +729,7 @@ export class PromptOrchestrator {
     input: PromptOrchestrationInput,
   ): Promise<PromptOrchestrationResult> {
     validateInput(input);
+    throwIfCancelled(this.options.signal);
     this.options.onEvent?.({ type: "phase", stage: "planning", round: 0 });
     const mode = input.mode ?? "expand";
     const dynamicPolish = isDynamicPolish(input);
@@ -835,6 +850,7 @@ export class PromptOrchestrator {
         ...(layerMetrics ? { systemPromptLayerMetrics: layerMetrics } : {}),
       };
     } catch (error) {
+      throwIfCancelled(this.options.signal);
       const composition = buildFallbackComposition(
         input,
         compositionTerms,

@@ -18,6 +18,8 @@ export interface AITransportRequest {
   body?: string;
   multipart?: AITransportMultipartBody;
   timeoutMs?: number;
+  /** Caller-owned cancellation; the transport combines it with its timeout. */
+  signal?: AbortSignal;
 }
 
 export type AIProtocol = "openai" | "gemini" | "anthropic";

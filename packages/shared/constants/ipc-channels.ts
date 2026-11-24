@@ -42,6 +42,7 @@ export const IPC_CHANNELS = {
   PROMPT_ORCHESTRATOR_STATE_SAVE: "prompt:orchestrator:state:save",
   PROMPT_ORCHESTRATOR_LAYER_BUDGET: "prompt:orchestrator:layerBudget",
   PROMPT_ORCHESTRATOR_STREAM_EVENT: "prompt:orchestrator:stream",
+  PROMPT_ORCHESTRATOR_CANCEL: "prompt:orchestrator:cancel",
   PROMPT_WRITING_PRESET_LIST: "prompt:writingPresets:list",
   PROMPT_WRITING_PRESET_GET: "prompt:writingPresets:get",
   PROMPT_WRITING_PRESET_SAVE: "prompt:writingPresets:save",

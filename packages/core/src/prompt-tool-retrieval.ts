@@ -54,6 +54,8 @@ export interface ToolRetrievalOptions {
   routePlan?: PromptRoutePlan;
   /** Observational stream side-channel; no effect on the returned result. */
   onEvent?: PromptStreamEmitter;
+  /** Cancels before the next model round; the in-flight request aborts itself. */
+  signal?: AbortSignal;
 }
 
 export interface ToolRetrievalResult {
@@ -159,6 +161,9 @@ export async function runToolRetrieval(
   let rounds = 0;
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+    if (options.signal?.aborted) {
+      throw new Error("Orchestration was cancelled");
+    }
     const exhausted = state.calls >= MAX_TOOL_CALLS;
     const finalTurn = round === MAX_TOOL_ROUNDS - 1 || exhausted || entityOnly;
     options.onEvent?.({

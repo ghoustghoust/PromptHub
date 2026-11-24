@@ -75,6 +75,7 @@ function createWindowApiDefaults() {
           budgetTokens: 1568,
         },
       }),
+      cancel: vi.fn().mockResolvedValue({ ok: true, data: { cancelled: true } }),
     },
     promptWritingPresets: {
       list: vi.fn().mockResolvedValue({ ok: true, data: [] }),

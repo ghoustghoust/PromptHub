@@ -40,6 +40,8 @@ function renderPanel(streaming: OrchestratorStreamingState) {
       streaming={streaming}
       runStats={null}
       onReuseAsIntent={() => undefined}
+      onCancel={() => undefined}
+      canceling={false}
     />,
   );
 }

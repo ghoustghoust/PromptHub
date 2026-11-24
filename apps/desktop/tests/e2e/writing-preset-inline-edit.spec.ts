@@ -3,7 +3,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-import { closePromptHub, launchPromptHub, setAppSettings } from "./helpers/electron";
+import { captureAppPage, closePromptHub, launchPromptHub, setAppSettings } from "./helpers/electron";
+
+const SCREENSHOT_DIR = path.resolve(__dirname, "../../../../outputs/p9-batch4-20261124");
 
 test("searches and edits a user writing preset on the orchestrator page", async () => {
   test.setTimeout(120_000);
@@ -54,6 +56,8 @@ test("searches and edits a user writing preset on the orchestrator page", async 
     await page.getByRole("option", { name: "MOSS 写作核心（压缩）" }).click();
     await expect(layer.getByTestId("writing-layer-edit")).toHaveCount(0);
     await expect(layer.getByText("Built-in presets are read-only")).toBeVisible();
+    fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+    await captureAppPage(app, page, path.join(SCREENSHOT_DIR, "06-inline-preset-edit.png"));
 
     await closePromptHub(app, profile);
     app = null;

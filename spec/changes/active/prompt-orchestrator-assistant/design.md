@@ -1015,6 +1015,69 @@ P5 让选中、锁定、排除和档案在模式切换时共享，但它们仍�
 - 速度仍以隔离 `llama-server` 实测为准：8K 约 81 t/s，32K/64K q4 约 30–31 t/s，
   17.7K prompt 约 24 t/s；32K+mmproj 的视觉请求是 16.2 t/s（含图像 token）。
 
+## 第十三轮：P9 写作预设库（批次 1，2026-11-24）
+
+### 决策（用户确认）
+
+A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预算并提示切 32K；C1 擦边/露骨
+随机提示词不入库；D1 手写写作层持久化（批次 2 实施）；E1 只流最终轮 + 工具轮阶段进度
+（批次 3）；F1 设置页分区 + 编排页抽屉；G1 先测事件循环延迟再决定是否动架构（批次 3）。
+本批只做数据层与设置页，不改 8K/32K/64K 档位与 KV 策略。
+
+### 本批已实施
+
+- **数据表**：`prompt_writing_presets`（id、name、target_skill、methodology、source_file、
+  description、validation_status、builtin、original_content、compressed_content、
+  created_at、updated_at），挂在 `SCHEMA_TABLES` 与 `init.ts` 迁移里。内置行只读，用户行
+  可改可删；单份正文上限 200,000 字符，拒绝空字节。
+- **共享类型**：`packages/shared/types/prompt-writing-preset.ts` 定义预设、摘要、章节与
+  导入结果；`estimatePromptTokens` 从 core 迁到 `packages/shared/utils/prompt-token-estimate`
+  并由 core 复用，设置页与编排器的预算口径是同一实现。
+- **服务层**：`DesktopPromptWritingPresetService` 提供列表、详情、保存、删除、导入；启动时
+  按固定 id 幂等写入 5 个内置预设，内容未变则不写、用户行绝不覆盖。章节按 Markdown 标题
+  从正文实时派生，不落库，避免编辑后 id 漂移。
+- **导入**：只接受 .txt/.md/.htm/.html，UTF-8、≤8 MB；HTML 去掉 script/style/svg/nav/footer，
+  优先 `<main>`/`<article>`，h1–h3 转为 Markdown 标题；只抽正文，原文入库但默认不注入。
+  压缩版必须由用户显式填写；“用全文”是显式按钮，并提示可能超出上下文预算，不静默截断。
+- **设置页**：新增“写作预设”分区（列表 + 压缩版/原文/章节三视图 + 字符与估算 token +
+  来源/验证状态 + 复制内置为可编辑 + 两步删除 + 导入面板）。
+- **IPC**：`prompt:writingPresets:{list,get,save,delete,import}`，preload 暴露
+  `window.api.promptWritingPresets`；不新增服务进程、端口或依赖。
+
+### 内置预设（5 个，全部 `validationStatus=unverified`）
+
+1. MOSS 写作核心（压缩）← `moodyMossPromptWriting_v40.txt`
+2. K2 壁纸设计卡流程 ← `K2二次元壁纸设计模板.md`
+3. K2 提示词引擎方法（压缩）← `K2二次元提示词引擎-SFW版...花sama.md`
+4. 反推写作规范（全年龄精简）← `反推一.txt` / `反推二.txt`（只保留结构写法，原文档的露骨
+   条款按 C1 不纳入）
+5. 官方规范速览（格式/标签/负面词）← 三家官方 HTML 中稳定一致的部分
+
+`prompt/` 仍被 `.gitignore:139` 忽略，内置正文是本次自写的压缩版；原文由用户导入到本地库。
+
+### 验证
+
+- 单测 15/15：文本抽取 5（HTML 去标签/实体、标题转章节、无标题单段、空/二进制/超大拒绝）、
+  表 6（CRUD、内置只读与幂等、id 冲突不覆盖用户行、排序、非法枚举与超长、换行归一化）、
+  服务 4（5 个内置、导入真实 HTML 并保留原文、拒绝 docx/缺失文件、服务层只读保护）。
+- 真实 Electron（隔离 profile，Playwright + 真实构建产物）：设置页显示 5 条内置；MOSS 预设
+  5 个章节、原文页显示“无原文”；复制为可编辑后保存，页面重载仍存在；用真实
+  `prompt/krea2官方生图规范.htm` 走原生选择器（只替换 dialog）导入，抽取正文约 1.5 万字符、
+  原文页无 HTML 标签；两步删除生效。截图 `outputs/p9-writing-presets-20261124/01–04`。
+- 视觉缺陷修正：长导入标题曾按中文字符逐行换行（flex 子项 min-width:auto），已改为
+  `min-w-0 + truncate + title`，并在 e2e 中断言 `white-space: nowrap` 与单行高度。
+- `typecheck`（shared/db/core/desktop）、`typecheck:tests`、`lint`、生产构建均通过。
+- 全量 unit 实测 6,728 用例、146 失败（45 个文件）。比记录的 145 多 1；失败列表不含本次
+  新增或修改的文件，集中在既有 Windows 路径分隔符、`ipc-index` 的 electron `app.on` mock、
+  托盘/启动等桌面依赖用例；本次新增 15 个用例全部通过。
+
+### 未验证与下一批
+
+- 预设 token 预算、超档拦截、编排页选择与章节勾选：批次 2。
+- 导入 >20 万字符会拒绝；网页在线抓取未做，只读本地文件。
+- 内置压缩版没有做出图 A/B，故全部标 `unverified`，不冒充已验证。
+- 原文预览底部贴边（内容可滚动）未做额外留白，属观感问题，等用户验收。
+
 ## 评估方式
 
 A/B/C 三版对比：A 原始输入、B 普通大模型扩写、C 编排结果。固定底模、LoRA、

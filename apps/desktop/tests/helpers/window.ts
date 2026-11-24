@@ -63,6 +63,13 @@ function createWindowApiDefaults() {
       getWorkspaceState: vi.fn().mockResolvedValue({ ok: true, data: null }),
       saveWorkspaceState: vi.fn().mockResolvedValue({ ok: true, data: {} }),
     },
+    promptWritingPresets: {
+      list: vi.fn().mockResolvedValue({ ok: true, data: [] }),
+      get: vi.fn().mockResolvedValue({ ok: true, data: null }),
+      save: vi.fn(),
+      remove: vi.fn(),
+      importFile: vi.fn().mockResolvedValue({ ok: true, data: null }),
+    },
     localLlama: {
       getConfig: vi.fn(),
       saveConfig: vi.fn(),

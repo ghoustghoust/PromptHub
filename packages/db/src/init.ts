@@ -6,6 +6,7 @@ import {
 import { migratePromptTestHistory } from "./prompt-test-history";
 import { migratePromptFeedback } from "./prompt-feedback";
 import { migratePromptOrchestratorState } from "./prompt-orchestrator-state";
+import { migratePromptWritingPresets } from "./prompt-writing-preset";
 import { migratePromptVocabSchema } from "./prompt-vocab-schema";
 import { migrateRuleOwnership } from "./rule-schema";
 import Database from "./adapter";
@@ -1074,6 +1075,7 @@ export function initDatabase(
       migratePromptTestHistory(db!);
       migratePromptFeedback(db!);
       migratePromptOrchestratorState(db!);
+      migratePromptWritingPresets(db!);
       migratePromptVocabSchema(db!);
       db!.exec(SCHEMA_INDEXES);
       hooks?.beforeMigrationCommit?.();

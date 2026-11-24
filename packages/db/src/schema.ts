@@ -2,6 +2,7 @@ import { GENERATION_SCHEMA } from "./generation-schema";
 import { PROMPT_TEST_HISTORY_SCHEMA } from "./prompt-test-history";
 import { PROMPT_FEEDBACK_SCHEMA } from "./prompt-feedback";
 import { PROMPT_ORCHESTRATOR_STATE_SCHEMA } from "./prompt-orchestrator-state";
+import { PROMPT_WRITING_PRESET_SCHEMA } from "./prompt-writing-preset";
 import { PLUGIN_SCHEMA } from "./plugin";
 import { PROMPT_VOCAB_SCHEMA } from "./prompt-vocab-schema";
 import { RULE_SCHEMA } from "./rule-schema";
@@ -220,6 +221,7 @@ ${GENERATION_SCHEMA}
 ${PROMPT_TEST_HISTORY_SCHEMA}
 ${PROMPT_FEEDBACK_SCHEMA}
 ${PROMPT_ORCHESTRATOR_STATE_SCHEMA}
+${PROMPT_WRITING_PRESET_SCHEMA}
 ${PROMPT_VOCAB_SCHEMA}
 
 CREATE TABLE IF NOT EXISTS agent_provider_profiles (

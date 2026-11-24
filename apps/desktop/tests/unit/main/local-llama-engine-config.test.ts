@@ -81,7 +81,7 @@ describe("local llama engine config", () => {
       parallel: 1,
     });
     expect(text64).toBe(6400);
-    expect(vision64).toBe(6800);
+    expect(vision64).toBe(6750);
     expect(
       estimateLocalLlamaVramMb({
         contextSize: 262144,

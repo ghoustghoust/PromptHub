@@ -9,7 +9,7 @@ import {
 const LOCAL_MODEL_ALIAS = "prompthub-local";
 
 /** Leave room for the desktop, driver bookkeeping and CUDA context growth. */
-export const LOCAL_LLAMA_VRAM_SAFETY_MB = 128;
+export const LOCAL_LLAMA_VRAM_SAFETY_MB = 64;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -115,7 +115,7 @@ export function estimateLocalLlamaVramMb(
   } else {
     baseMb = 6300 + Math.max(0, contextSize - 8192) * 0.01;
   }
-  const visionMb = config.mmprojPath ? 400 : 0;
+  const visionMb = config.mmprojPath ? 350 : 0;
   const parallelMb = Math.max(0, config.parallel - 1) * 512;
   return Math.round(baseMb + visionMb + parallelMb);
 }
@@ -229,3 +229,4 @@ export function buildLocalLlamaArgs(config: LocalLlamaEngineConfig): string[] {
 }
 
 export { DEFAULT_LOCAL_LLAMA_CONFIG } from "@prompthub/shared/types";
+

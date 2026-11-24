@@ -62,6 +62,19 @@ function createWindowApiDefaults() {
       submitFeedback: vi.fn().mockResolvedValue({ ok: true, data: {} }),
       getWorkspaceState: vi.fn().mockResolvedValue({ ok: true, data: null }),
       saveWorkspaceState: vi.fn().mockResolvedValue({ ok: true, data: {} }),
+      getLayerBudget: vi.fn().mockResolvedValue({
+        ok: true,
+        data: {
+          contextTokens: 8192,
+          outputReserveTokens: 4096,
+          contractTokens: 1200,
+          inputTokens: 100,
+          vocabularyTokens: 900,
+          imageTokens: 0,
+          safetyTokens: 328,
+          budgetTokens: 1568,
+        },
+      }),
     },
     promptWritingPresets: {
       list: vi.fn().mockResolvedValue({ ok: true, data: [] }),

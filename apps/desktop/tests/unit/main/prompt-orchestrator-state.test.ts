@@ -108,6 +108,45 @@ describe("orchestrator workspace state", () => {
     );
   });
 
+  it("round-trips the writing layer selection and rejects a bad variant", () => {
+    const service = new DesktopPromptOrchestratorService(rawDb);
+    const saved = service.saveWorkspaceState({
+      ...state(),
+      systemLayerText: "## First\nAlpha body.",
+      systemLayerSource: "MOSS writing core",
+      writingPresetId: "builtin-moss-writing-core",
+      writingPresetVariant: "original",
+      writingPresetSectionIds: ["1-first", "2-second"],
+    });
+    expect(saved.writingPresetId).toBe("builtin-moss-writing-core");
+    expect(service.getWorkspaceState()).toMatchObject({
+      systemLayerText: "## First\nAlpha body.",
+      systemLayerSource: "MOSS writing core",
+      writingPresetId: "builtin-moss-writing-core",
+      writingPresetVariant: "original",
+      writingPresetSectionIds: ["1-first", "2-second"],
+    });
+
+    expect(() =>
+      service.saveWorkspaceState({
+        ...state(),
+        writingPresetVariant: "full" as never,
+      }),
+    ).toThrow("compressed or original");
+    expect(() =>
+      service.saveWorkspaceState({
+        ...state(),
+        writingPresetSectionIds: ["x".repeat(201)],
+      }),
+    ).toThrow("writingPresetSectionIds");
+    expect(() =>
+      service.saveWorkspaceState({
+        ...state(),
+        systemLayerText: "x".repeat(20_001),
+      }),
+    ).toThrow("length limit");
+  });
+
   it("treats a corrupted row as empty instead of breaking the workbench", () => {
     rawDb
       .prepare(

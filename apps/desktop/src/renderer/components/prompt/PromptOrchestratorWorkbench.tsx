@@ -775,6 +775,16 @@ export function PromptOrchestratorWorkbench() {
                   assistDisabled={!state.llmModelId}
                 />
               )}
+              {state.isAssistingLayout && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => void state.cancelAssistLayout()}
+                  data-testid="orchestrator-cancel-layout-assist"
+                >
+                  {t("orchestrator.streaming.cancel")}
+                </Button>
+              )}
               {state.mode === "edit" && (
                 <Textarea label={t("orchestrator.editInstruction")} value={state.editInstruction} onChange={(event) => state.setEditInstruction(event.target.value)} rows={3} />
               )}

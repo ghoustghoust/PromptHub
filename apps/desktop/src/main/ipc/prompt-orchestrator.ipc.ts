@@ -40,6 +40,26 @@ export function registerPromptOrchestratorIPC(
 ): void {
   const service = new DesktopPromptOrchestratorService(db);
   const activeRuns = new Map<string, AbortController>();
+  const runIdOf = (input: unknown): string =>
+    input && typeof input === "object" && typeof (input as { runId?: unknown }).runId === "string"
+      ? ((input as { runId?: string }).runId ?? "").trim()
+      : "";
+  /** Registers a cancellable operation under its runId and cleans up after it. */
+  const withAbort = <T>(
+    input: unknown,
+    operation: (signal?: AbortSignal) => T | Promise<T>,
+  ) => {
+    const runId = runIdOf(input);
+    const controller = runId ? new AbortController() : null;
+    if (runId && controller) activeRuns.set(runId, controller);
+    return reply(async () => {
+      try {
+        return await operation(controller?.signal);
+      } finally {
+        if (runId) activeRuns.delete(runId);
+      }
+    });
+  };
   ipcMain.handle(IPC_CHANNELS.PROMPT_ORCHESTRATOR_SERIES, () =>
     reply(() => service.listSeries()),
   );
@@ -95,13 +115,11 @@ export function registerPromptOrchestratorIPC(
     IPC_CHANNELS.PROMPT_ORCHESTRATOR_GENERATE_SKILL,
     (_, input: unknown) => reply(() => service.generateSkill(input)),
   );
-  ipcMain.handle(
-    IPC_CHANNELS.PROMPT_ORCHESTRATOR_LAYOUT_CAPTIONS,
-    (_, input: unknown) => reply(() => service.refineLayoutCaptions(input)),
+  ipcMain.handle(IPC_CHANNELS.PROMPT_ORCHESTRATOR_LAYOUT_CAPTIONS, (_, input: unknown) =>
+    withAbort(input, (signal) => service.refineLayoutCaptions(input, signal)),
   );
-  ipcMain.handle(
-    IPC_CHANNELS.PROMPT_ORCHESTRATOR_LAYOUT_REVERSE,
-    (_, input: unknown) => reply(() => service.reverseLayout(input)),
+  ipcMain.handle(IPC_CHANNELS.PROMPT_ORCHESTRATOR_LAYOUT_REVERSE, (_, input: unknown) =>
+    withAbort(input, (signal) => service.reverseLayout(input, signal)),
   );
   ipcMain.handle(
     IPC_CHANNELS.PROMPT_ORCHESTRATOR_FEEDBACK,

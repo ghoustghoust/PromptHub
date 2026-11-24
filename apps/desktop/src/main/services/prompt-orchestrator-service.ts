@@ -496,13 +496,17 @@ export class DesktopPromptOrchestratorService {
     return generator.generate(request.input, request.skillName);
   }
 
-  async refineLayoutCaptions(value: unknown): Promise<PromptMossCaptionRefinement> {
+  async refineLayoutCaptions(
+    value: unknown,
+    signal?: AbortSignal,
+  ): Promise<PromptMossCaptionRefinement> {
     if (!isRecord(value) || !isRecord(value.draft)) {
       throw new Error("Layout caption input must contain a draft object");
     }
     const orchestrator = new PromptOrchestrator({
       vocabulary: this.vocabulary,
-      llm: this.createLlm(optionalModelId(value.llmModelId)),
+      llm: this.createLlm(optionalModelId(value.llmModelId), signal),
+      ...(signal ? { signal } : {}),
     });
     return orchestrator.refineLayoutCaptions({
       draft: value.draft as unknown as PromptMossLayoutDraft,
@@ -510,7 +514,10 @@ export class DesktopPromptOrchestratorService {
     });
   }
 
-  async reverseLayout(value: unknown): Promise<PromptMossLayoutReverse> {
+  async reverseLayout(
+    value: unknown,
+    signal?: AbortSignal,
+  ): Promise<PromptMossLayoutReverse> {
     if (!isRecord(value) || !isRecord(value.canvas)) {
       throw new Error("Layout reverse input must contain a canvas");
     }
@@ -543,7 +550,8 @@ export class DesktopPromptOrchestratorService {
     }
     const orchestrator = new PromptOrchestrator({
       vocabulary: this.vocabulary,
-      llm: this.createLlm(optionalModelId(value.llmModelId)),
+      llm: this.createLlm(optionalModelId(value.llmModelId), signal),
+      ...(signal ? { signal } : {}),
     });
     return orchestrator.reverseLayoutFromImage({
       images,

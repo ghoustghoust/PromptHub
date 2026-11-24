@@ -57,6 +57,8 @@ export interface OrchestratorStreamingState {
   fields: string[];
   percent: number;
   mode: "pending" | "stream" | "buffered";
+  /** True after the user stopped this run; the partial text is kept for copying. */
+  stopped?: boolean;
   firstTokenMs?: number;
   completionTokens?: number;
   tokensPerSecond?: number;
@@ -170,6 +172,7 @@ export function usePromptOrchestratorWorkbench() {
   const [isGeneratingSkill, setIsGeneratingSkill] = useState(false);
   const [isSavingSkill, setIsSavingSkill] = useState(false);
   const [isAssistingLayout, setIsAssistingLayout] = useState(false);
+  const [assistRunId, setAssistRunId] = useState<string | null>(null);
   const [layoutAssistNote, setLayoutAssistNote] = useState("");
   const requestId = useRef(0);
   const skillRequestId = useRef(0);
@@ -795,7 +798,7 @@ export function usePromptOrchestratorWorkbench() {
     } finally {
       if (id === requestId.current) {
         setIsRunning(false);
-        setStreaming(null);
+        setStreaming((current) => (current?.stopped ? current : null));
         setCanceling(false);
       }
     }
@@ -808,6 +811,7 @@ export function usePromptOrchestratorWorkbench() {
     setCanceling(true);
     try {
       await window.api.promptOrchestrator.cancel(runId);
+      setStreaming((current) => (current ? { ...current, stopped: true } : current));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
       setCanceling(false);
@@ -819,8 +823,11 @@ export function usePromptOrchestratorWorkbench() {
     setIsAssistingLayout(true);
     setError("");
     setLayoutAssistNote("");
+    const runId = crypto.randomUUID();
+    setAssistRunId(runId);
     try {
       const reply = await window.api.promptOrchestrator.refineLayoutCaptions({
+        runId,
         draft: {
           version: 1,
           canvas: { width: Number(mossLayout.width), height: Number(mossLayout.height) },
@@ -846,9 +853,21 @@ export function usePromptOrchestratorWorkbench() {
           : t("orchestrator.layout.captionRefined", { count: captions.length }),
       );
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      const message = cause instanceof Error ? cause.message : String(cause);
+      setError(/cancel/i.test(message) ? t("orchestrator.streaming.canceled") : message);
     } finally {
       setIsAssistingLayout(false);
+      setAssistRunId(null);
+    }
+  }
+
+  /** Stops a layout caption/reverse request; the request rejects as CANCELLED. */
+  async function cancelAssistLayout(): Promise<void> {
+    if (!assistRunId) return;
+    try {
+      await window.api.promptOrchestrator.cancel(assistRunId);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
     }
   }
 
@@ -857,9 +876,12 @@ export function usePromptOrchestratorWorkbench() {
     setIsAssistingLayout(true);
     setError("");
     setLayoutAssistNote("");
+    const runId = crypto.randomUUID();
+    setAssistRunId(runId);
     try {
       const dataUrl = await fileToDataUrl(file);
       const reply = await window.api.promptOrchestrator.reverseLayout({
+        runId,
         images: [dataUrl],
         canvas: { width: Number(mossLayout.width), height: Number(mossLayout.height) },
         ...(prompt.trim() ? { intent: prompt.trim() } : {}),
@@ -888,9 +910,11 @@ export function usePromptOrchestratorWorkbench() {
         ].join(" "),
       );
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      const message = cause instanceof Error ? cause.message : String(cause);
+      setError(/cancel/i.test(message) ? t("orchestrator.streaming.canceled") : message);
     } finally {
       setIsAssistingLayout(false);
+      setAssistRunId(null);
     }
   }
 
@@ -999,7 +1023,7 @@ export function usePromptOrchestratorWorkbench() {
     rightPanel, setRightPanel, result, error, isRunning, canRun, runBlockers, run,
     streaming, reuseResultAsIntent, lastRunStats, cancelRun, canceling,
     acceptReferenceFiles, pasteReferenceImage,
-    isAssistingLayout, layoutAssistNote, refineLayoutCaptions, reverseLayoutFromImage,
+    isAssistingLayout, layoutAssistNote, refineLayoutCaptions, reverseLayoutFromImage, cancelAssistLayout,
     skillName, setSkillName, skillDraft, savedSkillId, isGeneratingSkill,
     isSavingSkill, canGenerateSkill: Boolean(
       prompt.trim() && llmModelId && !isVideoTask(mode) && !isRunning && !isGeneratingSkill,

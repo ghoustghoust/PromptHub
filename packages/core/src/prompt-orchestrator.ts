@@ -923,6 +923,7 @@ export class PromptOrchestrator {
     draft: PromptMossLayoutDraft;
     intent?: string;
   }): Promise<PromptMossCaptionRefinement> {
+    throwIfCancelled(this.options.signal);
     const validationError = mossLayoutValidationError(input.draft);
     if (validationError) throw new Error(validationError);
     return refineMossLayoutCaptions({
@@ -938,6 +939,7 @@ export class PromptOrchestrator {
     canvas: PromptMossLayoutDraft["canvas"];
     intent?: string;
   }): Promise<PromptMossLayoutReverse> {
+    throwIfCancelled(this.options.signal);
     if (
       !Number.isInteger(input.canvas.width) ||
       !Number.isInteger(input.canvas.height) ||

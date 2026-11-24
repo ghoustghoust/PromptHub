@@ -72,10 +72,12 @@ function StreamingRunCard({
   streaming,
   onCancel,
   canceling,
+  onCopy,
 }: {
   streaming: OrchestratorStreamingState;
   onCancel: () => void;
   canceling: boolean;
+  onCopy: (value: string) => void;
 }) {
   const { t } = useTranslation();
   const stages = ["planning", "retrieval", "compose"] as const;
@@ -91,15 +93,27 @@ function StreamingRunCard({
               ? ` · ${t("orchestrator.streaming.round", { round: streaming.round })}`
               : ""}
           </span>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={onCancel}
-            disabled={canceling}
-            data-testid="orchestrator-cancel"
-          >
-            {canceling ? t("orchestrator.streaming.canceling") : t("orchestrator.streaming.cancel")}
-          </Button>
+          {streaming.stopped ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => onCopy(streaming.text)}
+              disabled={!streaming.text}
+              data-testid="orchestrator-copy-partial"
+            >
+              {t("orchestrator.streaming.copyPartial")}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={onCancel}
+              disabled={canceling}
+              data-testid="orchestrator-cancel"
+            >
+              {canceling ? t("orchestrator.streaming.canceling") : t("orchestrator.streaming.cancel")}
+            </Button>
+          )}
         </div>
       </div>
       <div className="grid grid-cols-3 gap-1.5" aria-hidden="true">
@@ -118,6 +132,11 @@ function StreamingRunCard({
         <p className="text-[11px] text-muted-foreground">{t("orchestrator.streaming.streamNote")}</p>
       ) : (
         <p className="text-[11px] text-muted-foreground">{t("orchestrator.streaming.waitingFirstToken")}</p>
+      )}
+      {streaming.stopped && (
+        <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground" data-testid="orchestrator-stopped-note">
+          {t("orchestrator.streaming.stoppedNote")}
+        </p>
       )}
       {streaming.fields.length > 0 && (
         <div className="space-y-1">
@@ -288,7 +307,7 @@ export function PromptOrchestratorResultPanel({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {streaming ? (
-          <StreamingRunCard streaming={streaming} onCancel={onCancel} canceling={canceling} />
+          <StreamingRunCard streaming={streaming} onCancel={onCancel} canceling={canceling} onCopy={onCopy} />
         ) : !result ? (
           <div className="flex h-full min-h-48 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
             <SparklesIcon className="h-8 w-8" aria-hidden="true" />

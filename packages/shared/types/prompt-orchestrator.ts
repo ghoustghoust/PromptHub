@@ -348,6 +348,8 @@ export interface DesktopPromptLayoutCaptionRequest {
   intent?: string;
   /** Existing PromptHub chat model config id; omitted uses mainText/default. */
   llmModelId?: string;
+  /** Cancellation id, matching prompt:orchestrator:cancel. */
+  runId?: string;
 }
 
 export interface DesktopPromptLayoutReverseRequest {
@@ -355,6 +357,7 @@ export interface DesktopPromptLayoutReverseRequest {
   canvas: { width: number; height: number };
   intent?: string;
   llmModelId?: string;
+  runId?: string;
 }
 
 export type PromptSkillReferenceKind =

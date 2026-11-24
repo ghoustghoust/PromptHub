@@ -986,16 +986,34 @@ P5 让选中、锁定、排除和档案在模式切换时共享，但它们仍�
 - 32K 切换后状态为 running，64K 同样 running；回到 8K 后配置恢复 q8/显存 KV。
 - 截图：`outputs/context-preset-20261123/02-context-presets.png`、`04-32k-running.png`、
   `05-64k-running.png`。
-- 单元测试覆盖档位归一化、参数生成、显存估算与“目标启动失败恢复上一档位”。
+
+### 32K + mmproj 实测（2026-11-24）
+
+- 同一隔离 profile 配置 mmproj，调用 `switchContextPreset("32k", true)`：预检估算
+  6,500 MiB，卸载后空闲 6,677 MiB，启动成功；实际整卡 7,835 MiB，其他程序约
+  1,421 MiB，折算引擎约 6,414 MiB，估算偏保守 86 MiB。
+- 进程命令行包含 `--ctx-size 32768 --cache-type-k q4_0 --cache-type-v q4_0
+  --no-kv-offload --mmproj ...`，`vision: true`。
+- 视觉反推（同一引擎，/v1/chat/completions，PNG 图片，关闭思考）：907 prompt token，
+  首字前处理 9.46 s（95.9 t/s），生成 75 token，16.2 t/s，finish=stop，返回了完整
+  中文反推文本。
+- 第一次未关闭思考的请求把 512 token 全用在 reasoning，content 为空；这说明反推接口
+  需要 `chat_template_kwargs.enable_thinking=false` 或更大输出预算，不能把空 content
+  当成成功。
+- 随后尝试 `switchContextPreset("64k", true)`：预检估算 6,750 MiB、其他程序约
+  1,421 MiB，超过 8,151 MiB 总显存，直接拒绝；旧 32K 引擎的 PID、status 和命令行
+  均未变化，说明拒绝发生在卸载之前。
+- 证据：`07-32k-mmproj-running.png`、`08-32k-mmproj-after-reverse.png`、
+  `09-64k-mmproj-rejected.png`、`mmproj-32k-reverse.json`。
 
 ### 边界与未验证
 
-- 真实 Electron 只验证了成功切换；启动失败回滚由单元测试覆盖，尚未在真实引擎上制造
-  失败。
-- 64K + mmproj 会被估算拒绝，未做真实启动；32K + mmproj 也未做真实切换验证。
+- 真实 Electron 成功切换与 64K+mmproj 拒绝已验证；启动失败回滚仍只由单元测试覆盖，
+  没有在真实引擎上制造失败。
+- 32K+mmproj 已真实加载并反推；64K+mmproj 已被预检拒绝，未做真实启动。
 - 编排页与设置页共用档位组件，设置页已截图；编排页未单独截图。
 - 速度仍以隔离 `llama-server` 实测为准：8K 约 81 t/s，32K/64K q4 约 30–31 t/s，
-  17.7K prompt 约 24 t/s；应用内未重新跑 tok/s。
+  17.7K prompt 约 24 t/s；32K+mmproj 的视觉请求是 16.2 t/s（含图像 token）。
 
 ## 评估方式
 

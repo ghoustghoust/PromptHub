@@ -20,6 +20,7 @@ import {
   TerminalSquareIcon,
   WifiIcon,
   CpuIcon,
+  FileTextIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { DataSettingsSubsectionId } from "./DataSettings";
@@ -54,6 +55,7 @@ const DESKTOP_SETTINGS_MENU = [
   { id: "network", labelKey: "settings.network", icon: WifiIcon },
   { id: "skill", labelKey: "settings.skill", icon: SparklesIcon },
   { id: "ai", labelKey: "settings.ai", icon: BrainIcon },
+  { id: "writingPresets", labelKey: "writingPresets.menu", icon: FileTextIcon },
   { id: "localModel", labelKey: "localModel.menu", icon: CpuIcon },
   { id: "shortcuts", labelKey: "settings.shortcuts", icon: KeyboardIcon },
   { id: "security", labelKey: "settings.security", icon: KeyIcon },
@@ -135,6 +137,11 @@ const SkillSettings = lazy(() =>
 const LocalModelSettings = lazy(() =>
   import("./LocalModelSettings").then((module) => ({
     default: module.LocalModelSettings,
+  })),
+);
+const WritingPresetSettings = lazy(() =>
+  import("./WritingPresetSettings").then((module) => ({
+    default: module.WritingPresetSettings,
   })),
 );
 const WebDeviceSettings = lazy(() =>
@@ -315,6 +322,8 @@ export function SettingsPage({
         return <SkillSettings />;
       case "ai":
         return <AISettingsPrototype />;
+      case "writingPresets":
+        return <WritingPresetSettings />;
       case "localModel":
         return <LocalModelSettings />;
       case "language":

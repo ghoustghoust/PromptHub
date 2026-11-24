@@ -24,6 +24,7 @@ import { mcpApi } from "./api/mcp";
 import { pluginApi } from "./api/plugin";
 import { promptApi } from "./api/prompt";
 import { promptOrchestratorApi } from "./api/prompt-orchestrator";
+import { promptWritingPresetsApi } from "./api/prompt-writing-presets";
 import { promptWorkspaceRecoveryApi } from "./api/prompt-workspace-recovery";
 import { rulesApi } from "./api/rules";
 import { settingsApi } from "./api/settings";
@@ -110,6 +111,7 @@ const api = {
   close: () => ipcRenderer.send("window:close"),
   prompt: promptApi,
   promptOrchestrator: promptOrchestratorApi,
+  promptWritingPresets: promptWritingPresetsApi,
   promptWorkspaceRecovery: promptWorkspaceRecoveryApi,
   agent: agentApi,
 

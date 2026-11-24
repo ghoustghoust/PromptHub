@@ -17,6 +17,7 @@ export type SettingsSectionId =
   | "skill"
   | "ai"
   | "localModel"
+  | "writingPresets"
   | "language"
   | "shortcuts"
   | "about"

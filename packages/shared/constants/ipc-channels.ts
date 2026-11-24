@@ -40,6 +40,11 @@ export const IPC_CHANNELS = {
   PROMPT_ORCHESTRATOR_FEEDBACK: "prompt:orchestrator:feedback",
   PROMPT_ORCHESTRATOR_STATE_GET: "prompt:orchestrator:state:get",
   PROMPT_ORCHESTRATOR_STATE_SAVE: "prompt:orchestrator:state:save",
+  PROMPT_WRITING_PRESET_LIST: "prompt:writingPresets:list",
+  PROMPT_WRITING_PRESET_GET: "prompt:writingPresets:get",
+  PROMPT_WRITING_PRESET_SAVE: "prompt:writingPresets:save",
+  PROMPT_WRITING_PRESET_DELETE: "prompt:writingPresets:delete",
+  PROMPT_WRITING_PRESET_IMPORT: "prompt:writingPresets:import",
   /**
    * Atomic batch migration from legacy IndexedDB data.
    * All inserts are wrapped in a single SQLite transaction.

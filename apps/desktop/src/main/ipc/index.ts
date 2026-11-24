@@ -49,6 +49,7 @@ import { IPC_CHANNELS } from "@prompthub/shared/constants/ipc-channels";
 import { registerCloudIPC } from "./cloud.ipc";
 import { registerGenerationIPC } from "./generation.ipc";
 import { registerPromptOrchestratorIPC } from "./prompt-orchestrator.ipc";
+import { registerPromptWritingPresetIPC } from "./prompt-writing-preset.ipc";
 import { registerLocalLlamaIPC } from "./local-llama.ipc";
 import { SkillInstaller } from "../services/skill-installer";
 import { launchAgentPlatform } from "../services/agent-launch-service";
@@ -598,6 +599,9 @@ function registerAllIpcGroups(
   registerIpcGroup("generation", () => registerGenerationIPC(db));
   registerIpcGroup("prompt-orchestrator", () =>
     registerPromptOrchestratorIPC(db),
+  );
+  registerIpcGroup("prompt-writing-presets", () =>
+    registerPromptWritingPresetIPC(db),
   );
   registerIpcGroup("local-llama", () => registerLocalLlamaIPC());
 }

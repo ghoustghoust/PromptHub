@@ -45,8 +45,25 @@ export type LocalLlamaEnginePhase =
   | "stopping"
   | "error";
 
+/** Sub-stage while `phase` is `starting`; weights loading is the long one. */
+export type LocalLlamaStartStage =
+  | "idle"
+  | "spawn"
+  | "load-weights"
+  | "health-check";
+
+export interface LocalLlamaEventLoopDelay {
+  p50: number;
+  p95: number;
+  max: number;
+}
+
 export interface LocalLlamaEngineStatus {
   phase: LocalLlamaEnginePhase;
+  /** Present while starting; `idle` otherwise. */
+  stage?: LocalLlamaStartStage;
+  /** Measured during the last start so blocking can be diagnosed, not guessed. */
+  eventLoopDelayMs?: LocalLlamaEventLoopDelay | null;
   managed: boolean;
   pid: number | null;
   endpoint: string;

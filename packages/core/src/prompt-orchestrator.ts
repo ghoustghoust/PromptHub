@@ -58,6 +58,7 @@ import {
   MIN_LAYER_CONTEXT_TOKENS,
   resolveSystemPromptLayerBudget,
 } from "./prompt-writing-budget";
+import { createStreamCallbacks, type PromptStreamEmitter } from "./prompt-orchestrator-stream";
 import {
   refineMossLayoutCaptions,
   reverseMossLayoutFromImages,
@@ -92,6 +93,8 @@ const ARTIST_PIPELINES: ReadonlySet<string> = new Set([
 export interface PromptOrchestratorOptions {
   vocabulary: PromptVocabDB;
   llm: PromptOrchestratorLlm;
+  /** Observational stream side-channel; never changes the final result. */
+  onEvent?: PromptStreamEmitter;
 }
 
 interface CompositionRun {
@@ -642,10 +645,14 @@ export class PromptOrchestrator {
       directives,
       entities,
     );
+    this.options.onEvent?.({ type: "phase", stage: "compose", round: 1 });
     const content = await this.options.llm.complete({
       messages,
       mode: input.mode ?? "expand",
       imageUrls: input.imageUrls,
+      ...(this.options.onEvent
+        ? { stream: createStreamCallbacks(this.options.onEvent) }
+        : {}),
     });
     const composition = parsePromptComposition(
       content,
@@ -681,6 +688,7 @@ export class PromptOrchestrator {
           modelDirectives: directives,
           entities,
           routePlan,
+          ...(this.options.onEvent ? { onEvent: this.options.onEvent } : {}),
         });
         return { ...tool, warnings: [...selection.warnings, ...tool.warnings] };
       } catch (error) {
@@ -707,6 +715,7 @@ export class PromptOrchestrator {
     input: PromptOrchestrationInput,
   ): Promise<PromptOrchestrationResult> {
     validateInput(input);
+    this.options.onEvent?.({ type: "phase", stage: "planning", round: 0 });
     const mode = input.mode ?? "expand";
     const dynamicPolish = isDynamicPolish(input);
     const toolRetrieval = supportsToolRetrieval(input, this.options.llm);

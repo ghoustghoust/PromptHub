@@ -30,6 +30,10 @@ import {
   parseTermDecisions,
 } from "./prompt-term-decisions";
 import type { PromptTermDecision } from "@prompthub/shared/types";
+import {
+  createStreamCallbacks,
+  type PromptStreamEmitter,
+} from "./prompt-orchestrator-stream";
 
 const TOOL_MODES: ReadonlySet<string> = new Set([
   "expand",
@@ -48,6 +52,8 @@ export interface ToolRetrievalOptions {
   modelDirectives: PromptModelDirective[];
   entities?: PromptEntityResolution[];
   routePlan?: PromptRoutePlan;
+  /** Observational stream side-channel; no effect on the returned result. */
+  onEvent?: PromptStreamEmitter;
 }
 
 export interface ToolRetrievalResult {
@@ -155,6 +161,11 @@ export async function runToolRetrieval(
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
     const exhausted = state.calls >= MAX_TOOL_CALLS;
     const finalTurn = round === MAX_TOOL_ROUNDS - 1 || exhausted || entityOnly;
+    options.onEvent?.({
+      type: "phase",
+      stage: finalTurn ? "compose" : "retrieval",
+      round: round + 1,
+    });
     const response = await completeWithTools({
       messages,
       tools,
@@ -169,6 +180,9 @@ export async function runToolRetrieval(
       // composition. The final turn always gets the full output budget.
       maxTokens: finalTurn ? 4096 : 2048,
       toolChoice: finalTurn ? "none" : "auto",
+      ...(finalTurn && options.onEvent
+        ? { stream: createStreamCallbacks(options.onEvent) }
+        : {}),
     });
     if (!finalTurn && response.toolCalls.length > 0) {
       rounds += 1;

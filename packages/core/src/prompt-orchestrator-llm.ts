@@ -4,6 +4,7 @@ import type {
   PromptOrchestrationMode,
 } from "@prompthub/shared/types";
 import { AI_REQUEST_TIMEOUT_MS } from "@prompthub/shared/constants/ai";
+import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
 import type { PromptCompositionMessages } from "./prompt-orchestrator-composition";
 
 export interface PromptLlmCompletionRequest {
@@ -12,6 +13,23 @@ export interface PromptLlmCompletionRequest {
   imageUrls?: string[];
   /** Per-request output budget; layout JSON needs far more than a caption. */
   maxTokens?: number;
+  /** When present, the final content is streamed through these callbacks. */
+  stream?: PromptLlmStreamCallbacks;
+}
+
+export interface PromptLlmStreamStats {
+  mode: "stream" | "buffered";
+  firstTokenMs?: number;
+  completionTokens?: number;
+  tokensPerSecond?: number;
+  source: "provider" | "estimate";
+}
+
+export interface PromptLlmStreamCallbacks {
+  onDelta?: (delta: string) => void;
+  /** Fires once when the attempt actually streams or silently falls back. */
+  onMode?: (mode: "stream" | "buffered") => void;
+  onStats?: (stats: PromptLlmStreamStats) => void;
 }
 
 export interface PromptOrchestratorLlm {
@@ -60,6 +78,8 @@ export interface PromptLlmToolRequest {
   imageUrls?: string[];
   maxTokens?: number;
   toolChoice?: "auto" | "none";
+  /** Streaming is only used on the final turn (no tool calls expected). */
+  stream?: PromptLlmStreamCallbacks;
 }
 
 export interface PromptLlmToolResponse {
@@ -326,7 +346,7 @@ export class OpenAiCompatiblePromptLlm implements PromptOrchestratorLlm {
     return parsed.tokens.length;
   }
 
-  async complete(request: PromptLlmCompletionRequest): Promise<string> {
+  private requestHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       "content-type": "application/json",
       accept: "application/json",
@@ -334,20 +354,19 @@ export class OpenAiCompatiblePromptLlm implements PromptOrchestratorLlm {
     if (this.config.apiKey?.trim()) {
       headers.authorization = `Bearer ${this.config.apiKey.trim()}`;
     }
-    const body = {
+    return headers;
+  }
+
+  private commonBody(request: {
+    mode: PromptOrchestrationMode;
+    maxTokens?: number;
+    imageUrls?: string[];
+  }): Record<string, unknown> {
+    return {
       model: this.config.model,
-      messages: [
-        { role: "system", content: request.messages.system },
-        {
-          role: "user",
-          content: userContent(request.messages.user, request.imageUrls ?? []),
-        },
-      ],
       temperature: request.mode === "random" ? 0.8 : 0.3,
       // Token metrics are observational, not a reason to stop a prompt mid-sentence.
       max_tokens: request.maxTokens ?? this.config.maxTokens ?? 4096,
-      stream: false,
-      response_format: { type: "json_object" },
       // Image embeddings are not covered by token-only KV reuse; disabling the
       // prompt cache for vision requests avoids mixing two images that share
       // the same placeholder token layout.
@@ -356,44 +375,204 @@ export class OpenAiCompatiblePromptLlm implements PromptOrchestratorLlm {
         ? { chat_template_kwargs: { enable_thinking: false } }
         : {}),
     };
-    const response = await this.transport({
+  }
+
+  private async post(body: Record<string, unknown>): Promise<AITransportResponse> {
+    return this.transport({
       method: "POST",
       url: this.endpoint,
-      headers,
-      body: JSON.stringify(body),
+      headers: this.requestHeaders(),
+      body: JSON.stringify({ ...body, stream: false }),
       timeoutMs: this.config.timeoutMs ?? AI_REQUEST_TIMEOUT_MS,
     });
-    return parseResponse(response);
+  }
+
+  /**
+   * Streams one completion. Any failure before the first delta falls back to a
+   * buffered request so a provider without SSE support still produces a result;
+   * after the first delta a failure is reported instead of silently restarting.
+   */
+  private async withStreaming(
+    body: Record<string, unknown>,
+    stream: PromptLlmStreamCallbacks,
+    fallback: () => Promise<string>,
+  ): Promise<string> {
+    const startedAt = Date.now();
+    let emitted = false;
+    try {
+      return await this.streamCompletion(
+        body,
+        {
+          ...stream,
+          onDelta: (delta) => {
+            emitted = true;
+            stream.onDelta?.(delta);
+          },
+        },
+        startedAt,
+      );
+    } catch (error) {
+      if (emitted) throw error;
+      stream.onMode?.("buffered");
+      const content = await fallback();
+      stream.onStats?.({
+        mode: "buffered",
+        completionTokens: estimatePromptTokens(content),
+        source: "estimate",
+      });
+      return content;
+    }
+  }
+
+  private async streamCompletion(
+    body: Record<string, unknown>,
+    stream: PromptLlmStreamCallbacks,
+    startedAt: number,
+  ): Promise<string> {
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      this.config.timeoutMs ?? AI_REQUEST_TIMEOUT_MS,
+    );
+    try {
+      const response = await fetch(this.endpoint, {
+        method: "POST",
+        headers: this.requestHeaders(),
+        body: JSON.stringify({
+          ...body,
+          stream: true,
+          stream_options: { include_usage: true },
+        }),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(
+          providerError({
+            ok: false,
+            status: response.status,
+            statusText: response.statusText,
+            headers: {},
+            body: text,
+          }),
+        );
+      }
+      if (!response.body) {
+        throw new Error("Prompt LLM returned no stream body");
+      }
+      stream.onMode?.("stream");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let content = "";
+      let firstTokenAt = 0;
+      let lastTokenAt = 0;
+      const usageRef: { value: { completionTokens?: number; promptTokens?: number } | null } = { value: null };
+
+      const handleData = (data: string): void => {
+        if (!data || data === "[DONE]") return;
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(data);
+        } catch {
+          return;
+        }
+        if (!isRecord(parsed)) return;
+        if (isRecord(parsed.usage)) {
+          usageRef.value = {
+            ...(typeof parsed.usage.completion_tokens === "number"
+              ? { completionTokens: parsed.usage.completion_tokens }
+              : {}),
+            ...(typeof parsed.usage.prompt_tokens === "number"
+              ? { promptTokens: parsed.usage.prompt_tokens }
+              : {}),
+          };
+        }
+        const choice = Array.isArray(parsed.choices) ? parsed.choices[0] : undefined;
+        if (!isRecord(choice)) return;
+        if (choice.finish_reason === "length") {
+          throw new Error("Prompt LLM output was truncated; increase maxTokens or context size");
+        }
+        const delta = isRecord(choice.delta) ? choice.delta.content : undefined;
+        if (typeof delta !== "string" || !delta) return;
+        const now = Date.now();
+        if (!firstTokenAt) firstTokenAt = now;
+        lastTokenAt = now;
+        content += delta;
+        stream.onDelta?.(delta);
+      };
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+        let boundary = buffer.indexOf("\n\n");
+        while (boundary >= 0) {
+          const event = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          for (const line of event.split("\n")) {
+            if (!line.startsWith("data:")) continue;
+            handleData(line.slice(5).trim());
+          }
+          boundary = buffer.indexOf("\n\n");
+        }
+      }
+      if (!content.trim()) {
+        throw new Error("Prompt LLM returned empty message content");
+      }
+      const usage = usageRef.value;
+      const completionTokens = usage?.completionTokens ?? estimatePromptTokens(content);
+      const generationMs = lastTokenAt && firstTokenAt ? lastTokenAt - firstTokenAt : 0;
+      stream.onStats?.({
+        mode: "stream",
+        ...(firstTokenAt ? { firstTokenMs: firstTokenAt - startedAt } : {}),
+        completionTokens,
+        ...(generationMs > 0
+          ? { tokensPerSecond: Math.round((completionTokens / generationMs) * 1000 * 10) / 10 }
+          : {}),
+        source: usage?.completionTokens !== undefined ? "provider" : "estimate",
+      });
+      return content;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async complete(request: PromptLlmCompletionRequest): Promise<string> {
+    const body = {
+      ...this.commonBody(request),
+      messages: [
+        { role: "system", content: request.messages.system },
+        {
+          role: "user",
+          content: userContent(request.messages.user, request.imageUrls ?? []),
+        },
+      ],
+      response_format: { type: "json_object" },
+    };
+    if (request.stream?.onDelta) {
+      return this.withStreaming(body, request.stream, async () => {
+        return parseResponse(await this.post(body));
+      });
+    }
+    return parseResponse(await this.post(body));
   }
 
   async completeWithTools(request: PromptLlmToolRequest): Promise<PromptLlmToolResponse> {
-    const headers: Record<string, string> = {
-      "content-type": "application/json",
-      accept: "application/json",
-    };
-    if (this.config.apiKey?.trim()) {
-      headers.authorization = `Bearer ${this.config.apiKey.trim()}`;
-    }
     const body = {
-      model: this.config.model,
+      ...this.commonBody(request),
       messages: toolMessages(request.messages, request.imageUrls ?? []),
-      temperature: request.mode === "random" ? 0.8 : 0.3,
-      max_tokens: request.maxTokens ?? this.config.maxTokens ?? 4096,
-      stream: false,
       tools: request.tools,
       tool_choice: request.toolChoice ?? "auto",
-      ...(request.imageUrls?.length ? { cache_prompt: false } : {}),
-      ...(this.config.disableThinking !== false
-        ? { chat_template_kwargs: { enable_thinking: false } }
-        : {}),
     };
-    const response = await this.transport({
-      method: "POST",
-      url: this.endpoint,
-      headers,
-      body: JSON.stringify(body),
-      timeoutMs: this.config.timeoutMs ?? AI_REQUEST_TIMEOUT_MS,
-    });
-    return parseToolResponse(response);
+    // Only the final turn may stream: tool-call turns need the complete JSON
+    // tool_calls array before Core can execute anything.
+    if (request.stream?.onDelta && (request.toolChoice ?? "auto") === "none") {
+      const content = await this.withStreaming(body, request.stream, async () => {
+        return parseToolResponse(await this.post(body)).content;
+      });
+      return { content, toolCalls: [] };
+    }
+    return parseToolResponse(await this.post(body));
   }
 }

@@ -21,6 +21,7 @@ import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { SettingSection } from "./shared";
 import { LocalContextPresetPicker } from "./LocalContextPresetPicker";
+import { LocalEngineProgress } from "./LocalEngineProgress";
 import { useLocalLlamaEngine } from "./useLocalLlamaEngine";
 
 function errorText(error: unknown): string {
@@ -213,6 +214,14 @@ export function LocalModelSettings() {
             {engine.status?.endpoint || `http://127.0.0.1:${config.port}/v1`}
             {engine.status?.pid ? ` · PID ${engine.status.pid}` : ""}
           </div>
+          {(engine.busy || engine.status?.phase === "starting") && (
+            <LocalEngineProgress
+              phase={engine.status?.phase ?? "starting"}
+              stage={engine.status?.stage ?? "spawn"}
+              startedAt={engine.progressStartedAt}
+              eventLoopDelayMs={engine.status?.eventLoopDelayMs}
+            />
+          )}
           {engine.status?.models.length ? (
             <div className="text-xs">Model: {engine.status.models.join(", ")}</div>
           ) : null}

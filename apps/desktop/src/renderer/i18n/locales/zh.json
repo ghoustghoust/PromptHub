@@ -4972,7 +4972,15 @@
       "running": "运行中",
       "stopping": "正在停止",
       "error": "异常"
-    }
+    },
+    "stage": {
+      "spawn": "正在启动进程",
+      "load-weights": "正在加载模型权重",
+      "health-check": "正在检查服务端点"
+    },
+    "elapsed": "{{seconds}} 秒",
+    "progressHint": "加载期间应用仍可操作，只会禁用依赖引擎的控件。",
+    "eventLoopDelay": "上次启动实测：主进程事件循环 p50 {{p50}} ms，p95 {{p95}} ms。"
   },
   "orchestrator": {
     "categories": {
@@ -5247,6 +5255,31 @@
     "copy": "复制",
     "copied": "已复制到剪贴板",
     "copyFailed": "无法复制到剪贴板",
+    "reuseIntent": "回填到创作意图",
+    "reuseIntentHint": "把生成结果复制到创作意图输入区；已锁定和排除的词条不受影响。",
+    "intentFromResult": "创作意图来自编排结果",
+    "clearIntentOrigin": "标记为我自己写的",
+    "streaming": {
+      "title": "正在生成",
+      "phases": {
+        "planning": "规划中",
+        "retrieval": "检索词条",
+        "compose": "组织成稿"
+      },
+      "round": "第 {{round}} 轮",
+      "waitingFirstToken": "等待首个 token…",
+      "waitingContent": "还没有可见文本。",
+      "bufferedNote": "该端点未返回流式数据，整包结果一次性返回；本次没有逐字进度。",
+      "streamNote": "正在流式接收模型输出，下面是尚未解析的原始 JSON。",
+      "structure": "已出现的结构字段",
+      "firstToken": "首字 {{ms}} ms",
+      "tokens": "{{tokens}} token",
+      "speed": "{{tps}} tok/s",
+      "source": {
+        "provider": "模型上报计数",
+        "estimate": "本地估算计数"
+      }
+    },
     "fields": "选定字段",
     "name": "字段",
     "value": "内容",

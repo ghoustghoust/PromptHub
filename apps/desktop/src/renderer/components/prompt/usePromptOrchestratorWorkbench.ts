@@ -8,6 +8,8 @@ import type {
   PromptOrchestrationOutputFormat,
   PromptOrchestrationResult,
   PromptOrchestrationSkill,
+  PromptOrchestratorStreamEvent,
+  PromptOrchestratorStreamStage,
   PromptPickerTermState,
   PromptSkillDraft,
   PromptTermDomain,
@@ -45,6 +47,26 @@ export interface OrchestratorReferenceImage {
   fileName: string;
   dataUrl: string;
 }
+
+/** Live view of one run; observational and cleared when the run settles. */
+export interface OrchestratorStreamingState {
+  runId: string;
+  stage: PromptOrchestratorStreamStage;
+  round: number;
+  text: string;
+  fields: string[];
+  percent: number;
+  mode: "pending" | "stream" | "buffered";
+  firstTokenMs?: number;
+  completionTokens?: number;
+  tokensPerSecond?: number;
+  source?: "provider" | "estimate";
+}
+
+const MAX_STREAM_PREVIEW = 40_000;
+
+/** Final observational stats kept after the stream closes, for the result chip. */
+export type RunStats = Extract<PromptOrchestratorStreamEvent, { type: "stats" }>;
 
 /** How the user wants a picked term to be treated by the orchestrator. */
 export type PrefabTermState = PromptPickerTermState;
@@ -128,6 +150,9 @@ export function usePromptOrchestratorWorkbench() {
   const [vocabularyTokenBudget, setVocabularyTokenBudget] = useState(900);
   const [rightPanel, setRightPanel] = useState<"result" | "prefab">("result");
   const [result, setResult] = useState<PromptOrchestrationResult | null>(null);
+  const [streaming, setStreaming] = useState<OrchestratorStreamingState | null>(null);
+  const [lastRunStats, setLastRunStats] = useState<RunStats | null>(null);
+  const [promptOrigin, setPromptOrigin] = useState<"user" | "result">("user");
   const [systemLayer, setSystemLayer] = useState("");
   const [systemLayerSource, setSystemLayerSource] = useState<string | undefined>();
   const [writingLayer, setWritingLayer] = useState<WritingLayerSelection>(EMPTY_WRITING_LAYER);
@@ -375,6 +400,20 @@ export function usePromptOrchestratorWorkbench() {
   function updateSystemLayer(text: string): void {
     setSystemLayer(text);
     setSystemLayerSource(undefined);
+  }
+
+  /** Typing into the intent box makes the input user-authored again. */
+  function changeIntentText(text: string): void {
+    setPrompt(text);
+    setPromptOrigin("user");
+  }
+
+  /** Reuses the generated prompt as the next intent without touching selections. */
+  function reuseResultAsIntent(): void {
+    if (!result) return;
+    setPrompt(result.completePrompt);
+    setPromptOrigin("result");
+    setError("");
   }
 
   /** Panel calls carry the preset title so the source label stays truthful. */
@@ -682,13 +721,60 @@ export function usePromptOrchestratorWorkbench() {
   async function run(): Promise<void> {
     if (!canRun) return;
     const id = ++requestId.current;
+    const runId = crypto.randomUUID();
     setIsRunning(true);
     setError("");
-    try {
-      const reply = await window.api.promptOrchestrator.run({
-        input: buildInput(),
-        llmModelId,
+    setLastRunStats(null);
+    setStreaming({
+      runId,
+      stage: "planning",
+      round: 0,
+      text: "",
+      fields: [],
+      percent: 0,
+      mode: "pending",
+    });
+    const applyEvent = (event: PromptOrchestratorStreamEvent): void => {
+      if (id !== requestId.current) return;
+      setStreaming((current) => {
+        if (!current || current.runId !== runId) return current;
+        switch (event.type) {
+          case "phase":
+            return { ...current, stage: event.stage, round: event.round };
+          case "delta":
+            return {
+              ...current,
+              text: `${current.text}${event.text}`.slice(-MAX_STREAM_PREVIEW),
+            };
+          case "structure":
+            return { ...current, fields: event.fields, percent: event.percent };
+          case "stats":
+            setLastRunStats((previous) => ({ ...previous, ...event }));
+            return {
+              ...current,
+              mode: event.mode,
+              ...(event.firstTokenMs !== undefined ? { firstTokenMs: event.firstTokenMs } : {}),
+              ...(event.completionTokens !== undefined
+                ? { completionTokens: event.completionTokens }
+                : {}),
+              ...(event.tokensPerSecond !== undefined
+                ? { tokensPerSecond: event.tokensPerSecond }
+                : {}),
+              source: event.source,
+            };
+          default:
+            return current;
+        }
       });
+    };
+    try {
+      const reply = await window.api.promptOrchestrator.run(
+        {
+          input: buildInput(),
+          llmModelId,
+        },
+        { onEvent: applyEvent },
+      );
       if (id !== requestId.current) return;
       if (reply.ok === true) {
         setResult(reply.data);
@@ -700,7 +786,10 @@ export function usePromptOrchestratorWorkbench() {
     } catch (cause) {
       if (id === requestId.current) setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
-      if (id === requestId.current) setIsRunning(false);
+      if (id === requestId.current) {
+        setIsRunning(false);
+        setStreaming(null);
+      }
     }
   }
 
@@ -869,7 +958,8 @@ export function usePromptOrchestratorWorkbench() {
   }
 
   return {
-    prompt, setPrompt, mode, setMode: changeMode, skill, setSkill: changeSkill,
+    prompt, setPrompt: changeIntentText, promptOrigin, clearPromptOrigin: () => setPromptOrigin("user"),
+    mode, setMode: changeMode, skill, setSkill: changeSkill,
     targetPipeline, setTargetPipeline,
     guidanceMode, setGuidanceMode: changeGuidance,
     outputFormat, setOutputFormat, includePayload, setIncludePayload,
@@ -886,6 +976,7 @@ export function usePromptOrchestratorWorkbench() {
     backfillResultTerms,
     vocabularyTokenBudget, setVocabularyTokenBudget,
     rightPanel, setRightPanel, result, error, isRunning, canRun, runBlockers, run,
+    streaming, reuseResultAsIntent, lastRunStats,
     acceptReferenceFiles, pasteReferenceImage,
     isAssistingLayout, layoutAssistNote, refineLayoutCaptions, reverseLayoutFromImage,
     skillName, setSkillName, skillDraft, savedSkillId, isGeneratingSkill,

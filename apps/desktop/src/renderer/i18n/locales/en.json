@@ -4974,7 +4974,15 @@
       "running": "Running",
       "stopping": "Stopping",
       "error": "Error"
-    }
+    },
+    "stage": {
+      "spawn": "Starting the process",
+      "load-weights": "Loading model weights",
+      "health-check": "Checking the endpoint"
+    },
+    "elapsed": "{{seconds}}s",
+    "progressHint": "The app stays usable while the engine loads; only controls that need the engine are disabled.",
+    "eventLoopDelay": "Measured during the last start: main-process event loop p50 {{p50}} ms, p95 {{p95}} ms."
   },
   "orchestrator": {
     "categories": {
@@ -5249,6 +5257,31 @@
     "copy": "Copy",
     "copied": "Copied to clipboard",
     "copyFailed": "Could not copy to clipboard",
+    "reuseIntent": "Reuse as intent",
+    "reuseIntentHint": "Copy the generated prompt into the intent box; locked and excluded terms stay untouched.",
+    "intentFromResult": "Intent filled from the orchestration result",
+    "clearIntentOrigin": "Mark as my own",
+    "streaming": {
+      "title": "Generating",
+      "phases": {
+        "planning": "Planning",
+        "retrieval": "Retrieving vocabulary",
+        "compose": "Composing the prompt"
+      },
+      "round": "round {{round}}",
+      "waitingFirstToken": "Waiting for the first token…",
+      "waitingContent": "No visible text yet.",
+      "bufferedNote": "This endpoint did not stream, so the whole response arrives at once. There is no per-token progress for this run.",
+      "streamNote": "Streaming model output; the text below is the raw JSON being written.",
+      "structure": "Structure seen",
+      "firstToken": "First token {{ms}} ms",
+      "tokens": "{{tokens}} tokens",
+      "speed": "{{tps}} tok/s",
+      "source": {
+        "provider": "provider counts",
+        "estimate": "estimated counts"
+      }
+    },
     "fields": "Selected fields",
     "name": "Field",
     "value": "Value",

@@ -2,7 +2,7 @@ import { ipcMain } from "electron";
 import { PromptOrchestratorError } from "@prompthub/core";
 import type Database from "@prompthub/db/adapter";
 import { IPC_CHANNELS } from "@prompthub/shared/constants/ipc-channels";
-import type { PromptOrchestratorIPCReply } from "@prompthub/shared/types";
+import type { PromptOrchestratorIPCReply, PromptOrchestratorStreamEvent } from "@prompthub/shared/types";
 import {
   DesktopPromptOrchestratorService,
   PromptOrchestratorConfigError,
@@ -42,9 +42,23 @@ export function registerPromptOrchestratorIPC(
   ipcMain.handle(IPC_CHANNELS.PROMPT_ORCHESTRATOR_SERIES, () =>
     reply(() => service.listSeries()),
   );
-  ipcMain.handle(IPC_CHANNELS.PROMPT_ORCHESTRATOR_RUN, (_, input: unknown) =>
-    reply(() => service.run(input)),
-  );
+  ipcMain.handle(IPC_CHANNELS.PROMPT_ORCHESTRATOR_RUN, (event, input: unknown) => {
+    const runId =
+      input && typeof input === "object" && typeof (input as { runId?: unknown }).runId === "string"
+        ? ((input as { runId?: string }).runId ?? "").trim()
+        : "";
+    const emit = runId
+      ? (streamEvent: PromptOrchestratorStreamEvent) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send(IPC_CHANNELS.PROMPT_ORCHESTRATOR_STREAM_EVENT, {
+              runId,
+              event: streamEvent,
+            });
+          }
+        }
+      : undefined;
+    return reply(() => service.run(input, emit));
+  });
   ipcMain.handle(
     IPC_CHANNELS.PROMPT_ORCHESTRATOR_VOCABULARY_SEARCH,
     (_, input: unknown) => reply(() => service.searchTerms(input)),

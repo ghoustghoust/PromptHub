@@ -27,6 +27,7 @@ import type {
   PromptVocabularySearchInput,
   PromptVocabularySearchItem,
   PromptWritingLayerBudgetPreview,
+  PromptOrchestratorStreamEvent,
 } from "@prompthub/shared/types";
 
 const MAX_REVERSE_IMAGES = 4;
@@ -368,11 +369,15 @@ export class DesktopPromptOrchestratorService {
     return this.vocabulary.resolveTerms(terms as string[]);
   }
 
-  async run(value: unknown): Promise<PromptOrchestrationResult> {
+  async run(
+    value: unknown,
+    onEvent?: (event: PromptOrchestratorStreamEvent) => void,
+  ): Promise<PromptOrchestrationResult> {
     const request = parseRequest(value);
     const orchestrator = new PromptOrchestrator({
       vocabulary: this.vocabulary,
       llm: this.createLlm(request.llmModelId),
+      ...(onEvent ? { onEvent } : {}),
     });
     return orchestrator.orchestrate(request.input);
   }

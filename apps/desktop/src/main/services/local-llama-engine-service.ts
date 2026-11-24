@@ -3,6 +3,7 @@ import { createWriteStream, type WriteStream } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { monitorEventLoopDelay, type IntervalHistogram } from "node:perf_hooks";
 import {
   DEFAULT_LOCAL_LLAMA_CONFIG,
   LOCAL_CONTEXT_PRESETS,
@@ -13,6 +14,8 @@ import {
   type LocalLlamaEngineConfig,
   type LocalLlamaEnginePhase,
   type LocalLlamaEngineStatus,
+  type LocalLlamaEventLoopDelay,
+  type LocalLlamaStartStage,
   type LocalLlamaUnloadResult,
 } from "@prompthub/shared/types";
 import { getUserDataPath } from "../runtime-paths";
@@ -190,6 +193,11 @@ async function processImageName(pid: number): Promise<string> {
 export class LocalLlamaEngineService {
   private child: ChildProcessWithoutNullStreams | null = null;
   private phase: LocalLlamaEnginePhase = "stopped";
+  /** Sub-stage for the progress UI; only meaningful while starting. */
+  private stage: LocalLlamaStartStage = "idle";
+  /** Event-loop percentiles from the last start, to separate blocking from feedback. */
+  private eventLoopDelayMs: LocalLlamaEventLoopDelay | null = null;
+  private eventLoopMonitor: IntervalHistogram | null = null;
   private managed = false;
   private models: string[] = [];
   private message = "";
@@ -349,9 +357,54 @@ export class LocalLlamaEngineService {
     return config;
   }
 
+  private startEventLoopMonitor(): void {
+    this.stopEventLoopMonitor();
+    // 20 ms resolution is enough to tell "main thread blocked" from "just no UI feedback".
+    const monitor = monitorEventLoopDelay({ resolution: 20 });
+    monitor.enable();
+    this.eventLoopMonitor = monitor;
+  }
+
+  private stopEventLoopMonitor(): void {
+    const monitor = this.eventLoopMonitor;
+    this.eventLoopMonitor = null;
+    if (!monitor) return;
+    monitor.disable();
+    this.eventLoopDelayMs = {
+      p50: Math.round(monitor.percentile(50) / 1e6),
+      p95: Math.round(monitor.percentile(95) / 1e6),
+      max: Math.round(monitor.max / 1e6),
+    };
+  }
+
+  /** Maps llama-server output to a coarse stage; never fabricates a percentage. */
+  private advanceStage(text: string): void {
+    if (this.phase !== "starting") return;
+    const lower = text.toLowerCase();
+    if (lower.includes("model loaded") || lower.includes("server is listening")) {
+      if (this.stage !== "health-check") {
+        this.stage = "health-check";
+        this.message = "Checking the local endpoint";
+      }
+      return;
+    }
+    if (
+      lower.includes("load_tensors") ||
+      lower.includes("loading model") ||
+      lower.includes("llama_model_loader")
+    ) {
+      if (this.stage !== "load-weights") {
+        this.stage = "load-weights";
+        this.message = "Loading model weights";
+      }
+    }
+  }
+
   private snapshot(config: LocalLlamaEngineConfig): LocalLlamaEngineStatus {
     return {
       phase: this.phase,
+      stage: this.stage,
+      eventLoopDelayMs: this.eventLoopDelayMs,
       managed: this.managed,
       pid: this.child?.pid ?? null,
       endpoint: localLlamaEndpoint(config.port),
@@ -461,10 +514,13 @@ export class LocalLlamaEngineService {
     }
 
     this.phase = "starting";
+    this.stage = "spawn";
     this.managed = true;
-    this.message = "Loading the local model";
+    this.message = "Starting the local engine";
     this.models = [];
     this.recentOutput = "";
+    this.eventLoopDelayMs = null;
+    this.startEventLoopMonitor();
     await fs.mkdir(path.dirname(this.logPath()), { recursive: true });
     this.openLogStream();
     const gpuBefore = await readGpuUsedMb();
@@ -491,6 +547,7 @@ export class LocalLlamaEngineService {
       // queues thousands of open/write/close operations and blocks the main process.
       this.recentOutput = `${this.recentOutput}${text}`.slice(-6000);
       this.logStream?.write(text);
+      this.advanceStage(text);
     };
     child.stdout.on("data", appendOutput);
     child.stderr.on("data", appendOutput);
@@ -538,6 +595,8 @@ export class LocalLlamaEngineService {
           this.onGpu =
             gpuBefore !== null && gpuAfter !== null ? gpuAfter - gpuBefore >= 1024 : null;
           this.startIdleMonitor(config);
+          this.stage = "idle";
+          this.stopEventLoopMonitor();
           return this.snapshot(config);
         } catch {
           await delay(500);
@@ -546,6 +605,8 @@ export class LocalLlamaEngineService {
       throw new Error(`Timed out waiting for llama-server. ${this.recentOutput.slice(-1200)}`);
     } catch (error) {
       this.phase = "error";
+      this.stage = "idle";
+      this.stopEventLoopMonitor();
       this.managed = true;
       this.message = errorMessage(error);
       this.onGpu = null;
@@ -583,6 +644,8 @@ export class LocalLlamaEngineService {
     await this.terminate(child);
     this.child = null;
     this.phase = "stopped";
+    this.stage = "idle";
+    this.stopEventLoopMonitor();
     this.managed = false;
     this.models = [];
     this.message = "";

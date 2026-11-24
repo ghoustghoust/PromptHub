@@ -21,6 +21,7 @@ import { PromptMossLayoutResultView } from "./PromptMossLayoutResultView";
 import { PromptTermDecisionPanel } from "./PromptTermDecisionPanel";
 import { PromptEntityResolutionPanel } from "./PromptEntityResolutionPanel";
 import { PromptResultFeedback } from "./PromptResultFeedback";
+import type { OrchestratorStreamingState, RunStats } from "./usePromptOrchestratorWorkbench";
 
 type ResultTab = "complete" | "decisions" | "terms" | "entities" | "initial" | "fields" | "skill";
 
@@ -40,6 +41,12 @@ interface Props {
   onSaveToLibrary: (favorite: boolean) => void;
   /** Merges the result's terms back into the picker; returns how many rows. */
   onBackfillTerms: () => Promise<number>;
+  /** Live run state; takes over the panel while a new result is generated. */
+  streaming: OrchestratorStreamingState | null;
+  /** Final stats of the last run, kept after the stream closes. */
+  runStats: RunStats | null;
+  /** Copies the generated prompt into the intent box without touching terms. */
+  onReuseAsIntent: () => void;
 }
 
 function FieldRow({ field }: { field: PromptOrchestrationField }) {
@@ -58,6 +65,74 @@ function FieldRow({ field }: { field: PromptOrchestrationField }) {
   );
 }
 
+function StreamingRunCard({ streaming }: { streaming: OrchestratorStreamingState }) {
+  const { t } = useTranslation();
+  const stages = ["planning", "retrieval", "compose"] as const;
+  const activeIndex = Math.max(0, stages.indexOf(streaming.stage));
+  return (
+    <div className="space-y-4" data-testid="orchestrator-streaming" data-mode={streaming.mode}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-medium">{t("orchestrator.streaming.title")}</h2>
+        <span className="text-[11px] text-muted-foreground">
+          {t(`orchestrator.streaming.phases.${streaming.stage}`)}
+          {streaming.stage === "retrieval" && streaming.round > 0
+            ? ` · ${t("orchestrator.streaming.round", { round: streaming.round })}`
+            : ""}
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5" aria-hidden="true">
+        {stages.map((stage, index) => (
+          <div
+            key={stage}
+            className={`h-1.5 rounded-full ${index <= activeIndex ? "bg-primary" : "bg-muted"}`}
+          />
+        ))}
+      </div>
+      {streaming.mode === "buffered" ? (
+        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300">
+          {t("orchestrator.streaming.bufferedNote")}
+        </p>
+      ) : streaming.mode === "stream" ? (
+        <p className="text-[11px] text-muted-foreground">{t("orchestrator.streaming.streamNote")}</p>
+      ) : (
+        <p className="text-[11px] text-muted-foreground">{t("orchestrator.streaming.waitingFirstToken")}</p>
+      )}
+      {streaming.fields.length > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>{t("orchestrator.streaming.structure")}</span>
+            <span>{streaming.percent}%</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <div className="h-full bg-primary transition-all" style={{ width: `${streaming.percent}%` }} />
+          </div>
+          <p className="text-[11px] text-muted-foreground">{streaming.fields.join(" · ")}</p>
+        </div>
+      )}
+      <pre
+        className="max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-border/70 bg-muted/20 p-3 text-[11px] leading-relaxed"
+        data-testid="orchestrator-streaming-text"
+      >
+        {streaming.text || t("orchestrator.streaming.waitingContent")}
+      </pre>
+      <p className="text-[11px] text-muted-foreground" data-testid="orchestrator-streaming-stats">
+        {streaming.firstTokenMs !== undefined
+          ? t("orchestrator.streaming.firstToken", { ms: streaming.firstTokenMs })
+          : ""}
+        {streaming.completionTokens !== undefined
+          ? ` · ${t("orchestrator.streaming.tokens", { tokens: streaming.completionTokens })}`
+          : ""}
+        {streaming.tokensPerSecond !== undefined
+          ? ` · ${t("orchestrator.streaming.speed", { tps: streaming.tokensPerSecond })}`
+          : ""}
+        {streaming.source
+          ? ` · ${t(`orchestrator.streaming.source.${streaming.source}`)}`
+          : ""}
+      </p>
+    </div>
+  );
+}
+
 export function PromptOrchestratorResultPanel({
   result,
   sourcePrompt,
@@ -73,6 +148,9 @@ export function PromptOrchestratorResultPanel({
   isSavingToLibrary,
   onSaveToLibrary,
   onBackfillTerms,
+  streaming,
+  runStats,
+  onReuseAsIntent,
 }: Props) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<ResultTab>("complete");
@@ -171,9 +249,23 @@ export function PromptOrchestratorResultPanel({
             {t("orchestrator.copy")}
           </Button>
         )}
+        {result && tab === "complete" && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onReuseAsIntent}
+            data-testid="orchestrator-reuse-intent"
+            title={t("orchestrator.reuseIntentHint")}
+          >
+            <SparklesIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            {t("orchestrator.reuseIntent")}
+          </Button>
+        )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {!result ? (
+        {streaming ? (
+          <StreamingRunCard streaming={streaming} />
+        ) : !result ? (
           <div className="flex h-full min-h-48 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
             <SparklesIcon className="h-8 w-8" aria-hidden="true" />
             <h2 className="text-sm font-medium">{t("orchestrator.emptyTitle")}</h2>
@@ -196,6 +288,21 @@ export function PromptOrchestratorResultPanel({
               <span className="rounded-md bg-muted px-2 py-1 text-muted-foreground">
                 {t("orchestrator.completeTokens")}: {result.tokenMetrics.completePromptTokens}
               </span>
+              {runStats && (runStats.tokensPerSecond !== undefined || runStats.firstTokenMs !== undefined) && (
+                <span
+                  className="rounded-md bg-muted px-2 py-1 text-muted-foreground"
+                  data-testid="orchestrator-run-stats"
+                  data-mode={runStats.mode}
+                >
+                  {runStats.firstTokenMs !== undefined
+                    ? `${t("orchestrator.streaming.firstToken", { ms: runStats.firstTokenMs })} · `
+                    : ""}
+                  {runStats.tokensPerSecond !== undefined
+                    ? `${t("orchestrator.streaming.speed", { tps: runStats.tokensPerSecond })} · `
+                    : ""}
+                  {t(`orchestrator.streaming.source.${runStats.source}`)}
+                </span>
+              )}
               {result.systemPromptLayerMetrics && (
                 <span
                   className="rounded-md bg-muted px-2 py-1 text-muted-foreground"

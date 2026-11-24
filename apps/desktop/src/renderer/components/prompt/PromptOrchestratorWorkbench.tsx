@@ -21,6 +21,7 @@ import { usePromptOrchestratorWorkbench } from "./usePromptOrchestratorWorkbench
 import { PromptOrchestratorResultPanel } from "./PromptOrchestratorResultPanel";
 import { useLocalLlamaEngine } from "../settings/useLocalLlamaEngine";
 import { LocalContextPresetPicker } from "../settings/LocalContextPresetPicker";
+import { LocalEngineProgress } from "../settings/LocalEngineProgress";
 import { LOCAL_LLAMA_MODEL_ID } from "../../stores/settings/settings-ai-actions";
 import { useUIStore } from "../../stores/ui.store";
 import { PromptReferenceImageInput } from "./PromptReferenceImageInput";
@@ -193,8 +194,7 @@ function LocalEngineQuickControl({
           <span className="truncate">
             {t("localModel.menu")} · {engine.status ? t(`localModel.phase.${engine.status.phase}`) : t("localModel.checking")}
           </span>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-1">
+        </div>        <div className="flex flex-wrap items-center justify-end gap-1">
           {!running && (
             <Button size="sm" variant="secondary" onClick={() => void start()} disabled={engine.busy} data-testid="orchestrator-engine-start">
               <PlayIcon className="h-3.5 w-3.5" />{t("localModel.start")}
@@ -228,6 +228,14 @@ function LocalEngineQuickControl({
           </Button>
         </div>
       </div>
+      {(engine.busy || engine.status?.phase === "starting") && (
+        <LocalEngineProgress
+          phase={engine.status?.phase ?? "starting"}
+          stage={engine.status?.stage ?? "spawn"}
+          startedAt={engine.progressStartedAt}
+          eventLoopDelayMs={engine.status?.eventLoopDelayMs}
+        />
+      )}
       {unloadNote && (
         <p className="text-[11px] text-emerald-600 dark:text-emerald-400" data-testid="orchestrator-engine-unloaded">
           {unloadNote}
@@ -742,6 +750,21 @@ export function PromptOrchestratorWorkbench() {
                   className={humanLed ? "min-h-[80px] py-2" : undefined}
                 />
               )}
+              {(!humanLed || !intentCollapsed) && state.promptOrigin === "result" && (
+                <div
+                  className="flex items-center justify-between gap-2 rounded-md bg-primary/5 px-2 py-1 text-[11px] text-primary"
+                  data-testid="orchestrator-intent-origin"
+                >
+                  <span>{t("orchestrator.intentFromResult")}</span>
+                  <button
+                    type="button"
+                    className="text-muted-foreground underline-offset-2 hover:underline"
+                    onClick={state.clearPromptOrigin}
+                  >
+                    {t("orchestrator.clearIntentOrigin")}
+                  </button>
+                </div>
+              )}
               {!humanLed && layoutMode && (
                 <PromptMossLayoutCanvas
                   editor={state.mossLayout}
@@ -912,6 +935,7 @@ export function PromptOrchestratorWorkbench() {
                 disabled={!state.canRun}
                 title={state.canRun ? undefined : state.runBlockers.join(" · ")}
                 onClick={() => void state.run()}
+                data-testid="orchestrator-run"
               >
                 {state.isRunning ? (
                   <LoaderCircleIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -1024,6 +1048,9 @@ export function PromptOrchestratorWorkbench() {
               isSavingToLibrary={state.isSavingToLibrary}
               onSaveToLibrary={(favorite) => void saveToLibrary(favorite)}
               onBackfillTerms={state.backfillResultTerms}
+              streaming={state.streaming}
+              runStats={state.lastRunStats}
+              onReuseAsIntent={state.reuseResultAsIntent}
             />
           </div>
         )}

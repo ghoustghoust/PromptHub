@@ -1,9 +1,11 @@
 import path from "node:path";
-import type { PromptWritingPresetSection } from "@prompthub/shared/types";
-import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
+
+export {
+  splitWritingPresetSections,
+  splitWritingPresetSectionsWithContent,
+} from "@prompthub/shared/utils/writing-preset-sections";
 
 export const MAX_WRITING_PRESET_CHARS = 200_000;
-const MAX_SECTIONS = 200;
 
 export type WritingPresetFormat = "text" | "markdown" | "html";
 
@@ -143,66 +145,4 @@ export function extractWritingPresetText(
   }
   const suggestedName = (format === "html" ? htmlTitle(raw) : "").trim() || baseName.trim() || "Imported writing document";
   return { format, text, suggestedName: suggestedName.slice(0, 120) };
-}
-
-function slugify(value: string): string {
-  const slug = value
-    .toLowerCase()
-    .replace(/[^a-z0-9\u3400-\u9fff]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
-  return slug || "section";
-}
-
-function toSection(index: number, title: string, content: string): PromptWritingPresetSection {
-  const body = content.trim();
-  return {
-    id: `${index + 1}-${slugify(title)}`,
-    title: title.trim().slice(0, 120) || `Section ${index + 1}`,
-    charCount: body.length,
-    tokenEstimate: estimatePromptTokens(body),
-  };
-}
-
-/**
- * Splits a writing document on Markdown headings. Documents without headings
- * stay as one "whole document" section rather than being cut at arbitrary
- * paragraph boundaries. Section ids depend on order and title, so callers must
- * ignore ids they no longer find after an edit.
- */
-export function splitWritingPresetSections(text: string): PromptWritingPresetSection[] {
-  const normalized = normalizeText(text);
-  if (!normalized) return [];
-  const headingPattern = /^#{1,6}\s+(.+)$/gm;
-  const matches = [...normalized.matchAll(headingPattern)];
-  if (matches.length === 0) {
-    return [toSection(0, "全文", normalized)];
-  }
-
-  const rawSections: Array<{ title: string; content: string }> = [];
-  const preface = normalized.slice(0, matches[0].index ?? 0).trim();
-  if (preface) rawSections.push({ title: "概述", content: preface });
-  matches.forEach((match, index) => {
-    const start = (match.index ?? 0) + match[0].length;
-    const end = index + 1 < matches.length ? matches[index + 1].index ?? normalized.length : normalized.length;
-    const content = normalized.slice(start, end).trim();
-    if (!content) return;
-    rawSections.push({ title: match[1] ?? "", content });
-  });
-  if (rawSections.length === 0) {
-    return [toSection(0, "全文", normalized)];
-  }
-  const merged = rawSections.length > MAX_SECTIONS
-    ? [
-        ...rawSections.slice(0, MAX_SECTIONS - 1),
-        {
-          title: "其余内容",
-          content: rawSections
-            .slice(MAX_SECTIONS - 1)
-            .map((item) => `## ${item.title}\n${item.content}`)
-            .join("\n\n"),
-        },
-      ]
-    : rawSections;
-  return merged.map((item, index) => toSection(index, item.title, item.content));
 }

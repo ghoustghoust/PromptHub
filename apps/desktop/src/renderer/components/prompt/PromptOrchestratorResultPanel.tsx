@@ -196,6 +196,23 @@ export function PromptOrchestratorResultPanel({
               <span className="rounded-md bg-muted px-2 py-1 text-muted-foreground">
                 {t("orchestrator.completeTokens")}: {result.tokenMetrics.completePromptTokens}
               </span>
+              {result.systemPromptLayerMetrics && (
+                <span
+                  className="rounded-md bg-muted px-2 py-1 text-muted-foreground"
+                  data-testid="orchestrator-layer-metrics"
+                  title={t("orchestrator.writingLayer.breakdown", {
+                    context: result.systemPromptLayerMetrics.contextTokens,
+                    output: result.systemPromptLayerMetrics.outputReserveTokens,
+                    contract: result.systemPromptLayerMetrics.contractTokens,
+                    vocabulary: result.tokenMetrics.vocabularyEstimatedTokens,
+                  })}
+                >
+                  {t("orchestrator.writingLayer.resultChip", {
+                    used: result.systemPromptLayerMetrics.tokens,
+                    budget: result.systemPromptLayerMetrics.budgetTokens,
+                  })}
+                </span>
+              )}
               {result.routePlan && (
                 <span className="rounded-md bg-muted px-2 py-1 text-muted-foreground">
                   {t(`orchestrator.entityPanel.paths.${result.routePlan.path}`)}

@@ -6,6 +6,7 @@ import type {
   DesktopPromptLayoutReverseRequest,
   DesktopPromptOrchestrationRequest,
   DesktopPromptSkillGenerationRequest,
+  DesktopPromptWritingBudgetRequest,
   PromptMossCaptionRefinement,
   PromptMossLayoutReverse,
   PromptOrchestrationResult,
@@ -18,6 +19,7 @@ import type {
   PromptVocabularySearchInput,
   PromptVocabularySearchItem,
   PromptVocabularyResolveInput,
+  PromptWritingLayerBudgetPreview,
 } from "@prompthub/shared/types";
 
 export const promptOrchestratorApi = {
@@ -73,4 +75,9 @@ export const promptOrchestratorApi = {
       IPC_CHANNELS.PROMPT_ORCHESTRATOR_STATE_SAVE,
       state,
     ) as Promise<PromptOrchestratorIPCReply<PromptOrchestratorWorkspaceState>>,
+  getLayerBudget: (request: DesktopPromptWritingBudgetRequest) =>
+    ipcRenderer.invoke(
+      IPC_CHANNELS.PROMPT_ORCHESTRATOR_LAYER_BUDGET,
+      request,
+    ) as Promise<PromptOrchestratorIPCReply<PromptWritingLayerBudgetPreview>>,
 };

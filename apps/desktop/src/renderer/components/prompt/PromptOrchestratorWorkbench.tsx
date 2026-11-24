@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { supportsReferenceImages } from "@prompthub/shared/types";
+import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
@@ -26,6 +27,7 @@ import { PromptReferenceImageInput } from "./PromptReferenceImageInput";
 import { PromptVideoFields } from "./PromptVideoFields";
 import { PromptTermPicker } from "./PromptTermPicker";
 import { PromptMossLayoutCanvas } from "./PromptMossLayoutCanvas";
+import { PromptWritingLayerPanel } from "./PromptWritingLayerPanel";
 import {
   PREFAB_CATEGORIES,
   taskModesForSkill,
@@ -64,9 +66,18 @@ function SelectControl({
   );
 }
 
-function LocalEngineQuickControl({ onConnected, onUnloaded, systemPromptChars }: { onConnected: () => void; onUnloaded: () => void; systemPromptChars: number }) {
+function LocalEngineQuickControl({
+  engine,
+  layerTokens,
+  onConnected,
+  onUnloaded,
+}: {
+  engine: ReturnType<typeof useLocalLlamaEngine>;
+  layerTokens: number;
+  onConnected: () => void;
+  onUnloaded: () => void;
+}) {
   const { t } = useTranslation();
-  const engine = useLocalLlamaEngine();
   const requestSettingsSection = useUIStore(
     (state) => state.requestSettingsSection,
   );
@@ -256,13 +267,8 @@ function LocalEngineQuickControl({ onConnected, onUnloaded, systemPromptChars }:
             hint={
               engine.config &&
               engine.config.contextSize < 32768 &&
-              systemPromptChars > 0
-                ? t(
-                    systemPromptChars >= 12000
-                      ? "orchestrator.localEngine.contextNeedLong"
-                      : "orchestrator.localEngine.contextNeedSystemPrompt",
-                    { chars: systemPromptChars },
-                  )
+              layerTokens > 0
+                ? t("orchestrator.localEngine.contextNeedLayer", { tokens: layerTokens })
                 : undefined
             }
             onSelect={(preset) => void applyContextPreset(preset)}
@@ -342,6 +348,7 @@ export function PromptOrchestratorWorkbench() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const state = usePromptOrchestratorWorkbench();
+  const engine = useLocalLlamaEngine();
   const [resultExpanded, setResultExpanded] = useState(false);
   const [resultOpen, setResultOpen] = useState(false);
   const [pickerExpanded, setPickerExpanded] = useState(false);
@@ -352,6 +359,15 @@ export function PromptOrchestratorWorkbench() {
     () => typeof window !== "undefined" && window.matchMedia("(min-width: 1440px)").matches,
   );
   const resizeOrigin = useRef<{ x: number; width: number } | null>(null);
+
+  // A local engine owns the real context size; cloud runs declare it explicitly.
+  useEffect(() => {
+    if (state.modelSource !== "local") return;
+    const contextSize = engine.config?.contextSize;
+    if (contextSize && contextSize !== state.layerContextTokens) {
+      state.setLayerContextTokens(contextSize);
+    }
+  }, [engine.config?.contextSize, state.modelSource, state.layerContextTokens]);
   const modeOptions = taskModesForSkill(state.skill).map((value) => ({
     value,
     label: t(`orchestrator.modes.${value}`),
@@ -524,37 +540,35 @@ export function PromptOrchestratorWorkbench() {
             </div>
           )}
           {!videoTask && (
-            <div className="space-y-2 rounded-lg border border-border/70 p-3">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-xs font-medium">{t("orchestrator.systemLayer")}</span>
-                {state.systemLayerSource && (
-                  <span className="truncate text-[11px] text-muted-foreground">
-                    {t("orchestrator.systemLayerSource", { title: state.systemLayerSource })}
-                  </span>
-                )}
-              </div>
-              <Select
-                value=""
-                options={[
-                  { value: "", label: t("orchestrator.systemLayerFromLibrary") },
-                  ...state.libraryPrompts.slice(0, 100).map((item) => ({
-                    value: item.id,
-                    label: item.title,
-                  })),
-                ]}
-                onChange={(value) => void state.applyLibraryPrompt(value)}
-                presentation="form"
-                ariaLabel={t("orchestrator.systemLayerFromLibrary")}
+            <div className="space-y-2">
+              {state.writingLayer.mode === "custom" && (
+                <Select
+                  value=""
+                  options={[
+                    { value: "", label: t("orchestrator.systemLayerFromLibrary") },
+                    ...state.libraryPrompts.slice(0, 100).map((item) => ({
+                      value: item.id,
+                      label: item.title,
+                    })),
+                  ]}
+                  onChange={(value) => void state.applyLibraryPrompt(value)}
+                  presentation="form"
+                  ariaLabel={t("orchestrator.systemLayerFromLibrary")}
+                />
+              )}
+              <PromptWritingLayerPanel
+                selection={state.writingLayer}
+                text={state.systemLayer}
+                source={state.systemLayerSource ?? null}
+                disabled={state.isRunning}
+                contextTokens={state.layerContextTokens}
+                contextLocked={state.modelSource === "local"}
+                budget={state.layerBudget}
+                budgetError={state.layerBudgetError}
+                onSelectionChange={state.setWritingLayer}
+                onTextChange={state.updateSystemLayerWithSource}
+                onContextTokensChange={state.setLayerContextTokens}
               />
-              <Textarea
-                value={state.systemLayer}
-                onChange={(event) => state.updateSystemLayer(event.target.value)}
-                placeholder={t("orchestrator.systemLayerPlaceholder")}
-                rows={4}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                {t("orchestrator.systemLayerHint")}
-              </p>
             </div>
           )}
           <div className="space-y-1.5">
@@ -612,9 +626,10 @@ export function PromptOrchestratorWorkbench() {
                 </span>
               </div>
               <LocalEngineQuickControl
+                engine={engine}
+                layerTokens={estimatePromptTokens(state.systemLayer)}
                 onConnected={() => state.setLlmModelId(LOCAL_LLAMA_MODEL_ID)}
                 onUnloaded={() => state.changeModelSource("cloud")}
-                systemPromptChars={state.systemLayer.trim().length}
               />
               <p className="text-[11px] text-muted-foreground">
                 {t("orchestrator.modelSource.localHint")}

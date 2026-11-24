@@ -80,4 +80,8 @@ export function registerPromptOrchestratorIPC(
     IPC_CHANNELS.PROMPT_ORCHESTRATOR_STATE_SAVE,
     (_, input: unknown) => reply(() => service.saveWorkspaceState(input)),
   );
+  ipcMain.handle(
+    IPC_CHANNELS.PROMPT_ORCHESTRATOR_LAYER_BUDGET,
+    (_, input: unknown) => reply(() => service.getLayerBudget(input)),
+  );
 }

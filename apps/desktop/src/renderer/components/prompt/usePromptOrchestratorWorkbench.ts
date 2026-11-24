@@ -13,8 +13,10 @@ import type {
   PromptTermDomain,
   PromptVideoOrchestrationInput,
   PromptVocabularySearchItem,
+  PromptWritingLayerBudgetPreview,
 } from "@prompthub/shared/types";
 import { supportsReferenceImages } from "@prompthub/shared/types";
+import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
 import { useSettingsStore } from "../../stores/settings.store";
 import { LOCAL_LLAMA_MODEL_ID } from "../../stores/settings/settings-ai-actions";
 import { usePromptStore } from "../../stores/prompt.store";
@@ -32,6 +34,10 @@ import {
   shouldBackfillProvenance,
 } from "./prompt-backfill";
 import { normalizeWorkspaceTerms } from "./prompt-workspace-state";
+import {
+  EMPTY_WRITING_LAYER,
+  type WritingLayerSelection,
+} from "./prompt-writing-layer";
 import { useMossLayoutEditor } from "./useMossLayoutEditor";
 
 export interface OrchestratorReferenceImage {
@@ -124,6 +130,10 @@ export function usePromptOrchestratorWorkbench() {
   const [result, setResult] = useState<PromptOrchestrationResult | null>(null);
   const [systemLayer, setSystemLayer] = useState("");
   const [systemLayerSource, setSystemLayerSource] = useState<string | undefined>();
+  const [writingLayer, setWritingLayer] = useState<WritingLayerSelection>(EMPTY_WRITING_LAYER);
+  const [layerContextTokens, setLayerContextTokens] = useState(8192);
+  const [layerBudget, setLayerBudget] = useState<PromptWritingLayerBudgetPreview | null>(null);
+  const [layerBudgetError, setLayerBudgetError] = useState("");
   const [savedPromptId, setSavedPromptId] = useState<string | null>(null);
   const [isSavingToLibrary, setIsSavingToLibrary] = useState(false);
   const [skillName, setSkillName] = useState("");
@@ -186,6 +196,14 @@ export function usePromptOrchestratorWorkbench() {
           setPrefabTerms(normalizeWorkspaceTerms(reply.data.prefabTerms));
           setModelId(reply.data.modelId ?? "");
           setLoraIds(reply.data.loraIds ?? "");
+          if (reply.data.systemLayerText) setSystemLayer(reply.data.systemLayerText);
+          setSystemLayerSource(reply.data.systemLayerSource ?? undefined);
+          setWritingLayer({
+            mode: reply.data.writingPresetId ? "preset" : "custom",
+            presetId: reply.data.writingPresetId ?? null,
+            variant: reply.data.writingPresetVariant ?? "compressed",
+            sectionIds: reply.data.writingPresetSectionIds ?? [],
+          });
         }
       })
       .catch((cause: unknown) => {
@@ -217,6 +235,15 @@ export function usePromptOrchestratorWorkbench() {
           })),
           modelId,
           loraIds,
+          ...(systemLayer.trim() ? { systemLayerText: systemLayer } : {}),
+          ...(systemLayerSource ? { systemLayerSource } : {}),
+          ...(writingLayer.mode === "preset" && writingLayer.presetId
+            ? {
+                writingPresetId: writingLayer.presetId,
+                writingPresetVariant: writingLayer.variant,
+                writingPresetSectionIds: writingLayer.sectionIds,
+              }
+            : { writingPresetId: null }),
         })
         .then((reply) => {
           if (reply.ok !== true) {
@@ -228,7 +255,49 @@ export function usePromptOrchestratorWorkbench() {
         });
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [prefabTerms, modelId, loraIds, workspaceHydrated]);
+  }, [prefabTerms, modelId, loraIds, systemLayer, systemLayerSource, writingLayer, workspaceHydrated]);
+
+  // The layer budget depends on the task shape, not on keystrokes; the layer
+  // text itself is estimated locally, so typing does not call the main process.
+  useEffect(() => {
+    let active = true;
+    const timer = window.setTimeout(() => {
+      void window.api.promptOrchestrator
+        .getLayerBudget({
+          skill,
+          mode,
+          outputFormat,
+          vocabularyTokenBudget,
+          imageCount: referenceImages.length,
+          contextTokens: layerContextTokens,
+          outputReserveTokens: 4096,
+        })
+        .then((reply) => {
+          if (!active) return;
+          if (reply.ok === true) {
+            setLayerBudget(reply.data);
+            setLayerBudgetError("");
+          } else {
+            setLayerBudget(null);
+            setLayerBudgetError(reply.error.message);
+          }
+        })
+        .catch((cause: unknown) => {
+          if (active) setLayerBudgetError(cause instanceof Error ? cause.message : String(cause));
+        });
+    }, 300);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [
+    skill,
+    mode,
+    outputFormat,
+    vocabularyTokenBudget,
+    referenceImages.length,
+    layerContextTokens,
+  ]);
 
   useEffect(() => {
     if (previousLayoutSignature.current === layoutSignature) return;
@@ -306,6 +375,12 @@ export function usePromptOrchestratorWorkbench() {
   function updateSystemLayer(text: string): void {
     setSystemLayer(text);
     setSystemLayerSource(undefined);
+  }
+
+  /** Panel calls carry the preset title so the source label stays truthful. */
+  function updateSystemLayerWithSource(text: string, source: string | null): void {
+    setSystemLayer(text);
+    setSystemLayerSource(source ?? undefined);
   }
 
   function applyLibraryLayer(text: string, title: string): void {
@@ -468,6 +543,17 @@ export function usePromptOrchestratorWorkbench() {
     if (!llmModelId) {
       blockers.push(t("orchestrator.blocker.model"));
     }
+    if (
+      systemLayer.trim() &&
+      layerBudget &&
+      estimatePromptTokens(systemLayer) > layerBudget.budgetTokens
+    ) {
+      blockers.push(
+        t("orchestrator.blocker.layerBudget", {
+          over: estimatePromptTokens(systemLayer) - layerBudget.budgetTokens,
+        }),
+      );
+    }
     const layoutMode =
       outputFormat === "layout" &&
       !isVideoTask(mode) &&
@@ -543,6 +629,11 @@ export function usePromptOrchestratorWorkbench() {
         ? {
             systemPromptLayer: systemLayer.trim(),
             ...(systemLayerSource ? { systemPromptLayerSource: systemLayerSource } : {}),
+            ...(writingLayer.mode === "preset" && writingLayer.presetId
+              ? { systemPromptLayerPresetId: writingLayer.presetId }
+              : {}),
+            systemPromptLayerContextSize: layerContextTokens,
+            systemPromptLayerOutputReserve: 4096,
           }
         : {}),
       series: series || undefined,
@@ -803,6 +894,10 @@ export function usePromptOrchestratorWorkbench() {
     ),
     generateSkill, saveSkill,
     systemLayer, updateSystemLayer, applyLibraryLayer, systemLayerSource,
+    updateSystemLayerWithSource,
+    writingLayer, setWritingLayer,
+    layerContextTokens, setLayerContextTokens,
+    layerBudget, layerBudgetError,
     libraryPrompts, applyLibraryPrompt,
     savedPromptId, isSavingToLibrary, saveResultToLibrary,
   };

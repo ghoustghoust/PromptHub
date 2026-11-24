@@ -3,6 +3,7 @@ import {
   PromptOrchestrator,
   PromptSkillGenerator,
   coreAIConfigService,
+  resolveSystemPromptLayerBudget,
   type CoreAIModelConfig,
 } from "@prompthub/core";
 import { PromptFeedbackDB, PromptOrchestratorStateDB, PromptVocabDB } from "@prompthub/db";
@@ -25,6 +26,7 @@ import type {
   PromptVocabularyBrowseResult,
   PromptVocabularySearchInput,
   PromptVocabularySearchItem,
+  PromptWritingLayerBudgetPreview,
 } from "@prompthub/shared/types";
 
 const MAX_REVERSE_IMAGES = 4;
@@ -86,6 +88,19 @@ function parseSkillRequest(
 
 function optionalModelId(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function optionalInteger(
+  value: unknown,
+  min: number,
+  max: number,
+  label: string,
+): number | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Number.isInteger(value) || (value as number) < min || (value as number) > max) {
+    throw new Error(`${label} must be an integer from ${min} to ${max}`);
+  }
+  return value as number;
 }
 
 function selectModel(
@@ -244,6 +259,53 @@ function parseWorkspaceState(value: unknown): PromptOrchestratorWorkspaceState {
     loraIds: typeof value.loraIds === "string"
       ? optionalWorkspaceText(value.loraIds, "loraIds", 500) ?? ""
       : "",
+    ...workspaceLayerState(value),
+  };
+}
+
+function workspaceNullableId(value: unknown, label: string): string | null | undefined {
+  if (value === null) return null;
+  if (value === undefined) return undefined;
+  return optionalWorkspaceText(value, label, 200);
+}
+
+function workspaceLayerState(
+  value: Record<string, unknown>,
+): Pick<
+  PromptOrchestratorWorkspaceState,
+  | "systemLayerText"
+  | "systemLayerSource"
+  | "writingPresetId"
+  | "writingPresetVariant"
+  | "writingPresetSectionIds"
+> {
+  const sectionIds = value.writingPresetSectionIds;
+  if (
+    sectionIds !== undefined &&
+    (!Array.isArray(sectionIds) ||
+      sectionIds.length > 200 ||
+      sectionIds.some((id) => typeof id !== "string" || !id.trim() || id.length > 200))
+  ) {
+    throw new Error("writingPresetSectionIds must be an array of at most 200 short ids");
+  }
+  const variantValue = value.writingPresetVariant;
+  if (variantValue !== undefined && variantValue !== "compressed" && variantValue !== "original") {
+    throw new Error("writingPresetVariant must be compressed or original");
+  }
+  const variant = variantValue as "compressed" | "original" | undefined;
+  const layerText = optionalWorkspaceText(value.systemLayerText, "systemLayerText", 20_000);
+  return {
+    ...(layerText ? { systemLayerText: layerText } : {}),
+    ...(workspaceNullableId(value.systemLayerSource, "systemLayerSource") !== undefined
+      ? { systemLayerSource: workspaceNullableId(value.systemLayerSource, "systemLayerSource") }
+      : {}),
+    ...(workspaceNullableId(value.writingPresetId, "writingPresetId") !== undefined
+      ? { writingPresetId: workspaceNullableId(value.writingPresetId, "writingPresetId") }
+      : {}),
+    ...(variant !== undefined ? { writingPresetVariant: variant } : {}),
+    ...(sectionIds !== undefined
+      ? { writingPresetSectionIds: (sectionIds as string[]).map((id) => id.trim()) }
+      : {}),
   };
 }
 
@@ -313,6 +375,66 @@ export class DesktopPromptOrchestratorService {
       llm: this.createLlm(request.llmModelId),
     });
     return orchestrator.orchestrate(request.input);
+  }
+
+  /**
+   * Preview of what the writing layer can spend under a declared context.
+   * The orchestrator repeats this check on the real input, so the preview can
+   * never authorize a layer the final request would reject.
+   */
+  getLayerBudget(value: unknown): PromptWritingLayerBudgetPreview {
+    if (!isRecord(value)) throw new Error("Layer budget input must be an object");
+    const contextTokens = optionalInteger(value.contextTokens, 4096, 131_072, "contextTokens");
+    const outputReserveTokens = optionalInteger(value.outputReserveTokens, 256, 65_536, "outputReserveTokens");
+    const vocabularyTokenBudget = optionalInteger(value.vocabularyTokenBudget, 0, 4000, "vocabularyTokenBudget");
+    const imageCount = optionalInteger(value.imageCount, 0, 4, "imageCount") ?? 0;
+    const skill = value.skill;
+    if (
+      skill !== undefined &&
+      skill !== "moodyMoss" &&
+      skill !== "moss" &&
+      skill !== "k2" &&
+      skill !== "minimaxH3"
+    ) {
+      throw new Error(`Unsupported prompt rule skill: ${String(skill)}`);
+    }
+    const normalizedSkill = skill as PromptOrchestrationInput["skill"];
+    const mode = value.mode;
+    if (mode !== undefined && typeof mode !== "string") {
+      throw new Error("Layer budget mode must be a string");
+    }
+    const outputFormat = value.outputFormat;
+    if (outputFormat !== undefined && typeof outputFormat !== "string") {
+      throw new Error("Layer budget outputFormat must be a string");
+    }
+    const budget = resolveSystemPromptLayerBudget(
+      {
+        ...(normalizedSkill !== undefined ? { skill: normalizedSkill } : {}),
+        ...(mode !== undefined ? { mode: mode as PromptOrchestrationInput["mode"] } : {}),
+        ...(outputFormat !== undefined
+          ? { outputFormat: outputFormat as PromptOrchestrationInput["outputFormat"] }
+          : {}),
+        ...(imageCount > 0
+          ? { imageUrls: Array.from({ length: imageCount }, () => "data:image/png;base64,x") }
+          : {}),
+      },
+      "",
+      {
+        ...(contextTokens !== undefined ? { contextTokens } : {}),
+        ...(outputReserveTokens !== undefined ? { outputReserveTokens } : {}),
+        ...(vocabularyTokenBudget !== undefined ? { vocabularyTokenBudget } : {}),
+      },
+    );
+    return {
+      contextTokens: budget.contextTokens,
+      outputReserveTokens: budget.outputReserveTokens,
+      contractTokens: budget.contractTokens,
+      inputTokens: budget.inputTokens,
+      vocabularyTokens: budget.vocabularyTokens,
+      imageTokens: budget.imageTokens,
+      safetyTokens: budget.safetyTokens,
+      budgetTokens: budget.budgetTokens,
+    };
   }
 
   /**

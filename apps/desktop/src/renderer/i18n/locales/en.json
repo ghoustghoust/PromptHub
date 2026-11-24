@@ -5141,7 +5141,58 @@
       "releaseHint": "Stopping requests does not unload the model; releasing ends the llama-server process and returns VRAM. The next run reloads it.",
       "contextNeedSystemPrompt": "A system prompt is present ({{chars}} characters). 8K leaves little room for tools and output; 32K is recommended.",
       "contextNeedLong": "The system prompt is long ({{chars}} characters). 64K is recommended for the extra headroom.",
+      "contextNeedLayer": "The writing layer uses about {{tokens}} tokens. 8K leaves little room for tools and output; 32K is recommended.",
       "openComfy": "Open ComfyUI"
+    },
+    "writingLayer": {
+      "title": "Writing layer",
+      "source": "From {{title}}",
+      "meter": "{{used}} / {{budget}} tokens",
+      "breakdown": "context {{context}} · output reserve {{output}} · contracts {{contract}} · vocabulary {{vocabulary}}",
+      "budgetPending": "Calculating the budget…",
+      "context": "Context",
+      "contextLocked": "Follows the local engine context preset; switch it there.",
+      "overBudget": "Over budget by {{over}} tokens. Remove sections, use the compressed version, or switch to a larger context.",
+      "modes": {
+        "preset": "Preset",
+        "custom": "Custom"
+      },
+      "preset": "Writing preset",
+      "pickPreset": "Choose a writing preset",
+      "pickHint": "Pick a preset to select and preview the sections that will be injected.",
+      "hideSections": "Hide sections",
+      "showSections": "Choose sections",
+      "sectionCount": "{{count}} of {{total}} sections selected",
+      "selectAll": "Select all",
+      "selectNone": "Select none",
+      "sectionTokens": "{{chars}} chars · {{tokens}} tokens",
+      "preview": "Preview of the injected text",
+      "emptyPreview": "No section is selected, so nothing will be injected.",
+      "variants": {
+        "compressed": "Compressed",
+        "original": "Original"
+      },
+      "targets": {
+        "any": "Any model",
+        "moss": "MOSS-Image (official)",
+        "moodyMoss": "MOSS-Image (moody)",
+        "k2": "Krea 2 / K2",
+        "minimaxH3": "MiniMax-H3"
+      },
+      "methodologies": {
+        "writing-guide": "Writing guide",
+        "unit-template": "Unit template",
+        "official-guide": "Official guide notes",
+        "reverse-guide": "Reverse-annotation guide"
+      },
+      "validation": {
+        "validated": "Validated",
+        "unverified": "Unverified",
+        "deprecated": "Deprecated"
+      },
+      "customPlaceholder": "Write the standing instruction to inject. It never overrides the rule card or the user's facts.",
+      "customHint": "Manual text uses the same token budget as presets and is never shortened automatically.",
+      "resultChip": "Writing layer {{used}} / {{budget}} tokens"
     },
     "title": "Prompt Orchestrator",
     "subtitle": "Build model-ready prompts with structured vocabulary and native rule cards.",
@@ -5276,6 +5327,7 @@
     "blocker": {
       "title": "Still missing before you can orchestrate",
       "model": "No usable text model is selected",
+      "layerBudget": "The writing layer exceeds the context budget by {{over}} tokens",
       "canvasSize": "Canvas width and height must be positive multiples of 16",
       "prompt": "The overall scene description is empty",
       "boxEmpty": "The canvas has no boxes yet",

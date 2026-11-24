@@ -5139,7 +5139,58 @@
       "releaseHint": "停止请求不会卸载模型；释放会结束 llama-server 进程并归还显存，下次使用需重新加载。",
       "contextNeedSystemPrompt": "检测到系统提示词（{{chars}} 字符）。8K 会挤压工具和输出预算，建议切到 32K。",
       "contextNeedLong": "系统提示词较长（{{chars}} 字符），建议切到 64K 留出余量。",
+      "contextNeedLayer": "写作层约 {{tokens}} token。8K 会挤压工具和输出预算，建议切到 32K。",
       "openComfy": "打开 ComfyUI"
+    },
+    "writingLayer": {
+      "title": "写作层",
+      "source": "来自 {{title}}",
+      "meter": "{{used}} / {{budget}} token",
+      "breakdown": "上下文 {{context}} · 输出预留 {{output}} · 契约 {{contract}} · 词库 {{vocabulary}}",
+      "budgetPending": "正在计算预算…",
+      "context": "上下文",
+      "contextLocked": "跟随本地引擎档位，请在本地模型设置里切换。",
+      "overBudget": "超出 {{over}} token。请减少章节、改用压缩版，或切到更大的上下文。",
+      "modes": {
+        "preset": "预设",
+        "custom": "自定义"
+      },
+      "preset": "写作预设",
+      "pickPreset": "选择写作预设",
+      "pickHint": "选择预设后可勾选章节并预览即将注入的文本。",
+      "hideSections": "收起章节",
+      "showSections": "选择章节",
+      "sectionCount": "已选 {{count}} / {{total}} 个章节",
+      "selectAll": "全选",
+      "selectNone": "全不选",
+      "sectionTokens": "{{chars}} 字符 · {{tokens}} token",
+      "preview": "注入文本预览",
+      "emptyPreview": "没有选中任何章节，因此不会注入内容。",
+      "variants": {
+        "compressed": "压缩版",
+        "original": "原文"
+      },
+      "targets": {
+        "any": "任意模型",
+        "moss": "MOSS-Image（官方）",
+        "moodyMoss": "MOSS-Image（moody）",
+        "k2": "Krea 2 / K2",
+        "minimaxH3": "MiniMax-H3"
+      },
+      "methodologies": {
+        "writing-guide": "写作规范",
+        "unit-template": "单元模板",
+        "official-guide": "官方规范速览",
+        "reverse-guide": "反推规范"
+      },
+      "validation": {
+        "validated": "已验证",
+        "unverified": "未验证",
+        "deprecated": "已弃用"
+      },
+      "customPlaceholder": "写下要长期生效的写作要求；它不会覆盖规则卡和用户给定的事实。",
+      "customHint": "手写文本与预设共用同一 token 预算，也不会被自动截短。",
+      "resultChip": "写作层 {{used}} / {{budget}} token"
     },
     "title": "提示词编排助手",
     "subtitle": "使用结构化词库与原生规则卡片，生成可直接用于目标模型的提示词。",
@@ -5274,6 +5325,7 @@
     "blocker": {
       "title": "还差这些才能开始编排",
       "model": "尚未选择可用的文本模型",
+      "layerBudget": "写作层超出上下文预算 {{over}} token",
       "canvasSize": "画布宽高必须是 16 的正整数倍",
       "prompt": "整体画面描述为空",
       "boxEmpty": "画布上还没有任何框",

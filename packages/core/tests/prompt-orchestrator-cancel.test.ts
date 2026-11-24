@@ -49,4 +49,19 @@ describe("orchestration cancellation", () => {
       orchestrator.orchestrate({ prompt: "a portrait", skill: "moss", outputFormat: "caption" }),
     ).rejects.toMatchObject({ code: "CANCELLED" });
   });
+
+  it("refuses layout refinement when the run is already cancelled", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const orchestrator = new PromptOrchestrator({
+      vocabulary,
+      llm: { complete: async () => "" },
+      signal: controller.signal,
+    });
+    await expect(
+      orchestrator.refineLayoutCaptions({
+        draft: { version: 1, canvas: { width: 1024, height: 1024 }, boxes: [] },
+      }),
+    ).rejects.toMatchObject({ code: "CANCELLED" });
+  });
 });

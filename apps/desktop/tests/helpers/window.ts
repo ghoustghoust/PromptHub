@@ -83,6 +83,8 @@ function createWindowApiDefaults() {
       save: vi.fn(),
       remove: vi.fn(),
       importFile: vi.fn().mockResolvedValue({ ok: true, data: null }),
+      exportPresets: vi.fn().mockResolvedValue({ ok: true, data: null }),
+      importPresetBundle: vi.fn().mockResolvedValue({ ok: true, data: null }),
     },
     localLlama: {
       getConfig: vi.fn(),

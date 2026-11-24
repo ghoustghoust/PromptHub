@@ -80,4 +80,21 @@ describe("orchestrator streaming panel", () => {
       "estimated counts",
     );
   });
+
+  it("keeps the partial text after the user stops a run", async () => {
+    renderPanel(
+      baseStreaming({
+        stopped: true,
+        text: '{"initialPrompt":"a work in progress',
+        fields: ["initialPrompt"],
+        percent: 20,
+      }),
+    );
+    expect(await screen.findByTestId("orchestrator-stopped-note")).toBeTruthy();
+    expect(screen.getByTestId("orchestrator-copy-partial")).toBeTruthy();
+    expect(screen.queryByTestId("orchestrator-cancel")).toBeNull();
+    expect(screen.getByTestId("orchestrator-streaming-text").textContent).toContain(
+      "work in progress",
+    );
+  });
 });

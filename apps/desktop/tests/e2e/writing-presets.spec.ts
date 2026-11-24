@@ -122,6 +122,26 @@ test("edits, deletes and imports writing presets on an isolated profile", async 
     await expect(launched.page.locator('[data-testid^="writing-preset-row-"]')).toHaveCount(6);
     await captureAppPage(app, launched.page, path.join(SCREENSHOT_DIR, "04-after-delete.png"));
 
+    // Portable bundle: only user presets are exported, and importing recreates them.
+    const bundlePath = path.join(root, "writing-presets.json");
+    await app.evaluate(({ dialog }, filePath) => {
+      Reflect.set(dialog, "showSaveDialog", async () => ({ canceled: false, filePath }));
+    }, bundlePath);
+    await launched.page.getByTestId("writing-preset-export").click();
+    await expect(launched.page.getByTestId("writing-preset-notice")).toContainText("Exported 1");
+    const bundle = JSON.parse(fs.readFileSync(bundlePath, "utf8")) as {
+      presets: Array<{ name: string; compressedContent: string }>;
+    };
+    expect(bundle.presets).toHaveLength(1);
+    expect(bundle.presets[0].compressedContent).toContain("Caption architecture");
+
+    await app.evaluate(({ dialog }, filePath) => {
+      Reflect.set(dialog, "showOpenDialog", async () => ({ canceled: false, filePaths: [filePath] }));
+    }, bundlePath);
+    await launched.page.getByTestId("writing-preset-import-bundle").click();
+    await expect(launched.page.getByTestId("writing-preset-notice")).toContainText("Imported 1");
+    await expect(launched.page.locator('[data-testid^="writing-preset-row-"]')).toHaveCount(7);
+
     await closePromptHub(app, profile);
     app = null;
   } finally {

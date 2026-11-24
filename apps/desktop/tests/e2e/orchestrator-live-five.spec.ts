@@ -109,7 +109,9 @@ test("five real orchestration runs, polish reuse, reverse and cancel", async () 
     await expect(page.getByTestId("orchestrator-streaming")).toBeVisible({ timeout: 60_000 });
     await page.waitForTimeout(2000);
     await page.getByTestId("orchestrator-cancel").click();
-    await expect(page.getByTestId("orchestrator-streaming")).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByTestId("orchestrator-stopped-note")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("orchestrator-copy-partial")).toBeVisible();
+    await expect(page.getByTestId("orchestrator-streaming").getByTestId("orchestrator-cancel")).toHaveCount(0);
     await expect(page.getByRole("alert")).toContainText("Generation stopped");
     await expect(page.getByTestId("orchestrator-reuse-intent")).toHaveCount(0);
 

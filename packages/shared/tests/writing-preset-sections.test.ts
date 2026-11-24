@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   assembleWritingLayerText,
+  removeSectionHeading,
   splitWritingPresetSections,
   splitWritingPresetSectionsWithContent,
 } from "@prompthub/shared/utils/writing-preset-sections";
@@ -47,6 +48,18 @@ describe("writing preset sections", () => {
     );
     assert.equal(assembleWritingLayerText(DOCUMENT, []), "");
     assert.equal(assembleWritingLayerText(DOCUMENT, ["missing-id"]), "");
+  });
+
+  it("merges a section by deleting its heading line", () => {
+    const merged = removeSectionHeading(DOCUMENT, "Second");
+    assert.equal(merged.includes("## Second"), false);
+    assert.equal(merged.includes("Beta body."), true);
+    assert.deepEqual(
+      splitWritingPresetSections(merged).map((section) => section.title),
+      ["概述", "First"],
+    );
+    // Unknown titles are a no-op, not a silent deletion.
+    assert.equal(removeSectionHeading(DOCUMENT, "Missing"), DOCUMENT);
   });
 
   it("treats a heading-free document as one whole-text section", () => {

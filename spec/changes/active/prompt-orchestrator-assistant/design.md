@@ -1096,7 +1096,8 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
 - **上下文来源**：本地引擎运行时锁定为引擎档位（需在本地模型设置里切换）；云端必须显式选
   8K/32K/64K，不假设模型窗口。预算预览走 `prompt:orchestrator:layerBudget`，只随任务形态
   变化请求，打字不触发 IPC。
-- **持久化**（D1）：工作区行新增 `systemLayerText`（≤20,000 字符）、`systemLayerSource`、
+- **持久化**（D1）：工作区行新增 `systemLayerText`（原记录为 ≤20,000 字符，第二十轮已提到
+  60,000，与运输上限一致）、`systemLayerSource`、
   `writingPresetId`、`writingPresetVariant`、`writingPresetSectionIds`；重载后恢复文本与
   章节选择，未知章节 id 自动忽略。
 
@@ -1351,6 +1352,54 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
   首批只接有机器规格或有明确规范的包，色卡图片库后置。
 - 后续按 Phase 1（P0）→ Phase 2（知识包）→ Phase 3（死代码/布局）→
   Phase 4（功能联动）→ Phase 5（稳定/兼容/性能）推进，每阶段独立验收。
+
+## 第二十轮：A6 Phase 1 的 P0 修复（2026-11-25）
+
+### 写作层不再静默截断
+
+- 持久化上限从 20,000 提到 60,000 字符，与 Core 运输上限共用
+  `MAX_WRITING_LAYER_CHARS`（`packages/shared/utils/prompt-orchestrator-limits.ts`）。
+- DB 与 IPC 校验都改成超限抛错，不再 `slice`；单测覆盖 55k 文本保存、关闭、重开后长度不变。
+- 逻辑框、精确文字与画布上限也收敛到同一份常量，Core 的校验值不变。
+
+### 补描述按框 id 回填
+
+- 请求前快照 box id 顺序，响应按快照映射；请求期间新增、删除或重排的框不会拿到别人的描述，
+  空描述也不会覆盖已有文案。
+- 布局助手运行期间禁用新增、删除、排序与画布新绘；几何与描述仍可编辑。
+
+### 编排与布局辅助互斥
+
+- `canRun` 增加 `!isAssistingLayout`，运行时启动被阻塞；补描述与反推增加 `!isRunning`。
+- 布局按钮随运行状态禁用，编排按钮随辅助状态禁用。
+
+### 反推覆盖确认与撤销
+
+- 画布非空时先走共享 `requestConfirmation`；取消不发起请求，框与选中项不变。
+- 确认后替换并保存上一版 boxes，辅助区提供一次性的“撤销上一版画布”。
+
+### 画布草稿持久化
+
+- `PromptOrchestratorWorkspaceState` 新增 `mossLayout`（version / canvas / boxes），DB 原样往返。
+- 服务端写入严格校验（画布、框数、id、标签、bbox、文案长度），读取时丢弃损坏草稿但保留
+  词条、写作层与归档；重启后恢复画布尺寸与框，比例/像素档位能匹配时一并恢复。
+
+### 验证
+
+- 单测：工作区状态 9/9（55k 重开、超限抛错、草稿往返、非法写入拒绝、损坏草稿丢弃）；
+  回填 helper 4/4；workbench hook 5/5（双向互斥、按 id 回填、覆盖确认与撤销、恢复与保存）。
+- 真实窗口 e2e（隔离 profile，headed，3/3）：结构锁定与按钮禁用 13.0s、覆盖确认取消 3.8s、
+  重启恢复 17.3s；截图 `outputs/a6-phase1-20261125/01-structure-locked.png`、
+  `02-reverse-confirm.png`、`03-restored-canvas.png`。
+- 全量 unit：6,758 用例 / 145 失败 / 44 文件（基线 6,744 / 145 / 44，无新增失败）。
+- typecheck（shared/db/core/desktop）、`typecheck:tests`、lint、生产构建通过。
+
+### 未验证
+
+- 反推“确认后替换 + 撤销”只有单测和“取消确认”的真实窗口路径；没有用视觉模型完整跑一次
+  反推后点撤销，避免再次加载 mmproj。
+- 60,000 字符上限接近但不等同于 64K token 预算；纯英文长文本仍可能先触发运输上限，
+  UI 没有把字符上限单独做成启动阻塞项。
 
 ## 评估方式
 

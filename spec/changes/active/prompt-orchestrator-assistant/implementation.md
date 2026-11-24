@@ -6,7 +6,7 @@ Desktop
 
 ## Status
 
-review-pending — 第一版已实现并做针对性真实验证；第四轮原生 MOSS 布局画布已实现并验证；选材台、风格/媒介素材包、预设组合、题材域与 NSFW 分类、参考数据导入已实现，真实窗口视觉验收待评审。
+review-pending — 第一版已实现并做针对性真实验证；第四轮原生 MOSS 布局画布已实现并验证；选材台、风格/媒介素材包、预设组合、题材域与 NSFW 分类、参考数据导入已实现；A6 Phase 1（5 个 P0）已完成并通过单测与真实窗口 e2e，下一步 Phase 2 知识包；真实窗口视觉验收待评审。
 
 - 权威需求与边界：[design.md](design.md)
 - 全链路审计与 A6 分阶段计划：[a6-integration-plan.md](a6-integration-plan.md)

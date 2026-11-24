@@ -188,16 +188,19 @@ CREATE UNIQUE INDEX idx_knowledge_modules_key ON prompt_knowledge_modules(pack_i
 
 ### Phase 1：P0 正确性（先做，独立可测）
 
-1. 写作层落库：去掉 `slice`，上限提高到与运输上限一致（或 200k 字符）；
+状态：已完成（2026-11-25），记录见 design.md 第二十轮。
+
+1. 写作层落库：去掉 `slice`，上限提高到与运输上限一致（60,000 字符）；
    超限明确抛错；补 DB 单测（保存→重开→长度不变）。
 2. 补描述按 `box.id` 回填：请求前快照 ids，响应按快照映射；框已删除则跳过；
-   assist 期间禁用增删/排序（或允许但结果不覆盖）。
+   assist 期间禁用增删/排序，并保留按 id 回填作为第二道防线。
 3. 互斥：`canRun`/`run` 增加 `!isAssistingLayout`；`refine`/`reverse` 增加 `!isRunning`；
    UI 按钮同步禁用。
 4. 反推覆盖确认：画布非空时弹确认；保存上一版 boxes 支持撤销。
-5. 画布持久化：workspace state 增加 `mossLayout`，限制体积；重启恢复。
+5. 画布持久化：workspace state 增加 `mossLayout`，写入严格校验、读取丢弃损坏草稿；重启恢复。
 
-验收：DB 单测、hook 单测、真实窗口 e2e（并发禁用、错框、覆盖确认、重启恢复）。
+验收：DB 单测、hook 单测、真实窗口 e2e（并发禁用、覆盖确认、重启恢复）均已完成；
+“错框”由按 id 回填的单测覆盖，真实窗口未构造该并发场景。
 
 ### Phase 2：知识包最小闭环
 
@@ -265,5 +268,6 @@ CREATE UNIQUE INDEX idx_knowledge_modules_key ON prompt_knowledge_modules(pack_i
 ## 9. 当前状态
 
 - P5（云端 DeepSeek 实跑 + 流式/取消）已完成并验证。
-- 本文件与 design.md 索引已提交；代码未动。
-- 下一步：Phase 1 的 5 个 P0 修复。
+- Phase 1 的 5 个 P0 已完成：写作层不再截断、补描述按 id 回填、编排/布局互斥、
+  反推确认与撤销、画布草稿持久化；单测、真实窗口 e2e、全量 unit 回归见 design.md 第二十轮。
+- 下一步：Phase 2（知识包最小闭环）。

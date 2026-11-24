@@ -372,12 +372,14 @@ export class DesktopPromptOrchestratorService {
   async run(
     value: unknown,
     onEvent?: (event: PromptOrchestratorStreamEvent) => void,
+    signal?: AbortSignal,
   ): Promise<PromptOrchestrationResult> {
     const request = parseRequest(value);
     const orchestrator = new PromptOrchestrator({
       vocabulary: this.vocabulary,
-      llm: this.createLlm(request.llmModelId),
+      llm: this.createLlm(request.llmModelId, signal),
       ...(onEvent ? { onEvent } : {}),
+      ...(signal ? { signal } : {}),
     });
     return orchestrator.orchestrate(request.input);
   }
@@ -550,7 +552,7 @@ export class DesktopPromptOrchestratorService {
     });
   }
 
-  private createLlm(llmModelId?: string): OpenAiCompatiblePromptLlm {
+  private createLlm(llmModelId?: string, signal?: AbortSignal): OpenAiCompatiblePromptLlm {
     const config = coreAIConfigService.read();
     const model = selectModel(
       config.models,
@@ -561,6 +563,7 @@ export class DesktopPromptOrchestratorService {
       endpoint: model.apiUrl,
       model: model.model,
       apiKey: model.apiKey,
+      ...(signal ? { signal } : {}),
     });
   }
 }

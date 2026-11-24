@@ -5277,6 +5277,9 @@
       "firstToken": "First token {{ms}} ms",
       "tokens": "{{tokens}} tokens",
       "speed": "{{tps}} tok/s",
+      "cancel": "Stop generating",
+      "canceling": "Stopping…",
+      "canceled": "Generation stopped.",
       "source": {
         "provider": "provider counts",
         "estimate": "estimated counts"

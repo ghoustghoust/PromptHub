@@ -102,6 +102,7 @@ export function PromptReferenceImageInput({
           size="sm"
           onClick={onNativePaste}
           disabled={images.length >= limit}
+          data-testid="orchestrator-paste-image"
         >
           <ClipboardIcon className="h-4 w-4" aria-hidden="true" />
           {t("orchestrator.pasteImage")}

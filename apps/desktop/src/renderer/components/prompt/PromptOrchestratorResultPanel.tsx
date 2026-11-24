@@ -47,6 +47,9 @@ interface Props {
   runStats: RunStats | null;
   /** Copies the generated prompt into the intent box without touching terms. */
   onReuseAsIntent: () => void;
+  /** Aborts the in-flight run. */
+  onCancel: () => void;
+  canceling: boolean;
 }
 
 function FieldRow({ field }: { field: PromptOrchestrationField }) {
@@ -65,7 +68,15 @@ function FieldRow({ field }: { field: PromptOrchestrationField }) {
   );
 }
 
-function StreamingRunCard({ streaming }: { streaming: OrchestratorStreamingState }) {
+function StreamingRunCard({
+  streaming,
+  onCancel,
+  canceling,
+}: {
+  streaming: OrchestratorStreamingState;
+  onCancel: () => void;
+  canceling: boolean;
+}) {
   const { t } = useTranslation();
   const stages = ["planning", "retrieval", "compose"] as const;
   const activeIndex = Math.max(0, stages.indexOf(streaming.stage));
@@ -73,12 +84,23 @@ function StreamingRunCard({ streaming }: { streaming: OrchestratorStreamingState
     <div className="space-y-4" data-testid="orchestrator-streaming" data-mode={streaming.mode}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-medium">{t("orchestrator.streaming.title")}</h2>
-        <span className="text-[11px] text-muted-foreground">
-          {t(`orchestrator.streaming.phases.${streaming.stage}`)}
-          {streaming.stage === "retrieval" && streaming.round > 0
-            ? ` · ${t("orchestrator.streaming.round", { round: streaming.round })}`
-            : ""}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-muted-foreground">
+            {t(`orchestrator.streaming.phases.${streaming.stage}`)}
+            {streaming.stage === "retrieval" && streaming.round > 0
+              ? ` · ${t("orchestrator.streaming.round", { round: streaming.round })}`
+              : ""}
+          </span>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onCancel}
+            disabled={canceling}
+            data-testid="orchestrator-cancel"
+          >
+            {canceling ? t("orchestrator.streaming.canceling") : t("orchestrator.streaming.cancel")}
+          </Button>
+        </div>
       </div>
       <div className="grid grid-cols-3 gap-1.5" aria-hidden="true">
         {stages.map((stage, index) => (
@@ -151,6 +173,8 @@ export function PromptOrchestratorResultPanel({
   streaming,
   runStats,
   onReuseAsIntent,
+  onCancel,
+  canceling,
 }: Props) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<ResultTab>("complete");
@@ -264,7 +288,7 @@ export function PromptOrchestratorResultPanel({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {streaming ? (
-          <StreamingRunCard streaming={streaming} />
+          <StreamingRunCard streaming={streaming} onCancel={onCancel} canceling={canceling} />
         ) : !result ? (
           <div className="flex h-full min-h-48 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
             <SparklesIcon className="h-8 w-8" aria-hidden="true" />
@@ -528,7 +552,7 @@ export function PromptOrchestratorResultPanel({
               </section>
             )}
             {result.warnings.length > 0 && (
-              <section className="space-y-2 rounded-md border border-border p-3">
+              <section className="space-y-2 rounded-md border border-border p-3" data-testid="orchestrator-warnings">
                 <h4 className="text-xs font-semibold">{t("orchestrator.warnings")}</h4>
                 <ul className="list-disc space-y-1 pl-4 text-[11px] text-muted-foreground">
                   {result.warnings.map((warning) => (

@@ -20,6 +20,7 @@ import {
   isBlockedHostname,
 } from "../services/skill-installer-remote";
 import { getHttpRequestAgent } from "../services/network-proxy";
+import { extractClipboardPaths } from "../services/clipboard-files";
 import { getImagesDir, getVideosDir } from "../runtime-paths";
 
 const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
@@ -411,14 +412,16 @@ async function readImagePayload(filePath: string): Promise<SelectedImagePayload>
   };
 }
 
-function clipboardFilePath(): string | null {
-  if (process.platform === "win32") {
-    const raw = clipboard.readBuffer("FileNameW").toString("utf16le");
-    const candidate = raw.split("\0")[0]?.trim();
-    if (candidate && path.isAbsolute(candidate)) return candidate;
-  }
-  const text = clipboard.readText().trim();
-  return text && path.isAbsolute(text) ? text : null;
+function clipboardFilePaths(): string[] {
+  const isWindows = process.platform === "win32";
+  return extractClipboardPaths({
+    fileNameW: isWindows && clipboard.has("FileNameW") ? clipboard.readBuffer("FileNameW") : null,
+    fileName: isWindows && clipboard.has("FileName") ? clipboard.readBuffer("FileName") : null,
+    uriList: clipboard.has("text/uri-list")
+      ? clipboard.readBuffer("text/uri-list").toString("utf8")
+      : null,
+    text: clipboard.readText(),
+  });
 }
 
 export function registerImageIPC(): void {
@@ -452,13 +455,19 @@ export function registerImageIPC(): void {
         base64: buffer.toString("base64"),
       } satisfies SelectedImagePayload;
     }
-    const filePath = clipboardFilePath();
-    if (!filePath) return null;
-    try {
-      return await readImagePayload(filePath);
-    } catch {
-      return null;
+    const candidates = clipboardFilePaths();
+    for (const candidate of candidates) {
+      try {
+        return await readImagePayload(candidate);
+      } catch {
+        // Try the next clipboard entry; a copied folder or non-image file is common.
+      }
     }
+    if (candidates.length === 0) {
+      // Diagnostic only: formats and counts, never file contents or absolute paths.
+      console.info("[image] clipboard has no usable path", clipboard.availableFormats());
+    }
+    return null;
   });
 
   // Save images to app data directory

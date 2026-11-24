@@ -39,6 +39,7 @@ export function registerPromptOrchestratorIPC(
   db: Database.Database,
 ): void {
   const service = new DesktopPromptOrchestratorService(db);
+  const activeRuns = new Map<string, AbortController>();
   ipcMain.handle(IPC_CHANNELS.PROMPT_ORCHESTRATOR_SERIES, () =>
     reply(() => service.listSeries()),
   );
@@ -47,6 +48,8 @@ export function registerPromptOrchestratorIPC(
       input && typeof input === "object" && typeof (input as { runId?: unknown }).runId === "string"
         ? ((input as { runId?: string }).runId ?? "").trim()
         : "";
+    const controller = runId ? new AbortController() : null;
+    if (runId && controller) activeRuns.set(runId, controller);
     const emit = runId
       ? (streamEvent: PromptOrchestratorStreamEvent) => {
           if (!event.sender.isDestroyed()) {
@@ -57,7 +60,24 @@ export function registerPromptOrchestratorIPC(
           }
         }
       : undefined;
-    return reply(() => service.run(input, emit));
+    return reply(async () => {
+      try {
+        return await service.run(input, emit, controller?.signal);
+      } finally {
+        if (runId) activeRuns.delete(runId);
+      }
+    });
+  });
+  ipcMain.handle(IPC_CHANNELS.PROMPT_ORCHESTRATOR_CANCEL, (_, runId: unknown) => {
+    if (typeof runId !== "string" || !runId.trim()) {
+      return { ok: false, error: { code: "INVALID_INPUT", message: "runId is required" } };
+    }
+    const controller = activeRuns.get(runId.trim());
+    if (!controller) {
+      return { ok: false, error: { code: "NOT_RUNNING", message: "That run is not active" } };
+    }
+    controller.abort();
+    return { ok: true, data: { cancelled: true } };
   });
   ipcMain.handle(
     IPC_CHANNELS.PROMPT_ORCHESTRATOR_VOCABULARY_SEARCH,

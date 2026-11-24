@@ -50,6 +50,10 @@ export const promptOrchestratorApi = {
       ipcRenderer.removeListener(IPC_CHANNELS.PROMPT_ORCHESTRATOR_STREAM_EVENT, listener);
     }
   },
+  cancel: (runId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROMPT_ORCHESTRATOR_CANCEL, runId) as Promise<
+      PromptOrchestratorIPCReply<{ cancelled: boolean }>
+    >,
   generateSkill: (request: DesktopPromptSkillGenerationRequest) =>
     ipcRenderer.invoke(
       IPC_CHANNELS.PROMPT_ORCHESTRATOR_GENERATE_SKILL,

@@ -1051,6 +1051,8 @@ export function PromptOrchestratorWorkbench() {
               streaming={state.streaming}
               runStats={state.lastRunStats}
               onReuseAsIntent={state.reuseResultAsIntent}
+              onCancel={() => void state.cancelRun()}
+              canceling={state.canceling}
             />
           </div>
         )}

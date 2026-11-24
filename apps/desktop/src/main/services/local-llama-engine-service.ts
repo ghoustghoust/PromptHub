@@ -488,6 +488,20 @@ export class LocalLlamaEngineService {
       this.child = null;
     }
 
+    // Test-only fault injection for the context-switch rollback path. It is
+    // gated by the E2E flag, fires once, and never affects packaged runs.
+    if (
+      process.env.PROMPTHUB_E2E === "1" &&
+      process.env.PROMPTHUB_E2E_FAIL_NEXT_START === "1"
+    ) {
+      process.env.PROMPTHUB_E2E_FAIL_NEXT_START = "0";
+      this.phase = "error";
+      this.stage = "idle";
+      this.managed = false;
+      this.message = "Injected start failure (E2E rollback)";
+      throw new Error(this.message);
+    }
+
     await assertRegularFile(config.executablePath, "llama-server executable");
     await assertRegularFile(config.modelPath, "GGUF model");
     if (config.mmprojPath) await assertRegularFile(config.mmprojPath, "mmproj projector");

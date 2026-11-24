@@ -151,6 +151,7 @@ export function usePromptOrchestratorWorkbench() {
   const [rightPanel, setRightPanel] = useState<"result" | "prefab">("result");
   const [result, setResult] = useState<PromptOrchestrationResult | null>(null);
   const [streaming, setStreaming] = useState<OrchestratorStreamingState | null>(null);
+  const [canceling, setCanceling] = useState(false);
   const [lastRunStats, setLastRunStats] = useState<RunStats | null>(null);
   const [promptOrigin, setPromptOrigin] = useState<"user" | "result">("user");
   const [systemLayer, setSystemLayer] = useState("");
@@ -724,6 +725,7 @@ export function usePromptOrchestratorWorkbench() {
     const runId = crypto.randomUUID();
     setIsRunning(true);
     setError("");
+    setCanceling(false);
     setLastRunStats(null);
     setStreaming({
       runId,
@@ -772,6 +774,7 @@ export function usePromptOrchestratorWorkbench() {
         {
           input: buildInput(),
           llmModelId,
+          runId,
         },
         { onEvent: applyEvent },
       );
@@ -781,7 +784,11 @@ export function usePromptOrchestratorWorkbench() {
         setSavedPromptId(null);
         setRightPanel("result");
       } else {
-        setError(reply.error.message);
+        setError(
+          reply.error.code === "CANCELLED"
+            ? t("orchestrator.streaming.canceled")
+            : reply.error.message,
+        );
       }
     } catch (cause) {
       if (id === requestId.current) setError(cause instanceof Error ? cause.message : String(cause));
@@ -789,7 +796,21 @@ export function usePromptOrchestratorWorkbench() {
       if (id === requestId.current) {
         setIsRunning(false);
         setStreaming(null);
+        setCanceling(false);
       }
+    }
+  }
+
+  /** Stops the in-flight run; the server aborts the request and reports CANCELLED. */
+  async function cancelRun(): Promise<void> {
+    const runId = streaming?.runId;
+    if (!runId || canceling) return;
+    setCanceling(true);
+    try {
+      await window.api.promptOrchestrator.cancel(runId);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+      setCanceling(false);
     }
   }
 
@@ -976,7 +997,7 @@ export function usePromptOrchestratorWorkbench() {
     backfillResultTerms,
     vocabularyTokenBudget, setVocabularyTokenBudget,
     rightPanel, setRightPanel, result, error, isRunning, canRun, runBlockers, run,
-    streaming, reuseResultAsIntent, lastRunStats,
+    streaming, reuseResultAsIntent, lastRunStats, cancelRun, canceling,
     acceptReferenceFiles, pasteReferenceImage,
     isAssistingLayout, layoutAssistNote, refineLayoutCaptions, reverseLayoutFromImage,
     skillName, setSkillName, skillDraft, savedSkillId, isGeneratingSkill,

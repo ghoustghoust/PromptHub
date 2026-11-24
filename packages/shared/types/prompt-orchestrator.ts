@@ -212,8 +212,17 @@ export interface PromptOrchestrationInput {
    * composition and is never copied verbatim into the final prompt.
    */
   systemPromptLayer?: string;
-  /** Title of the saved prompt the layer came from, for provenance display. */
+  /** Title of the saved prompt or preset the layer came from, for provenance display. */
   systemPromptLayerSource?: string;
+  /** Writing preset id; recorded for provenance, never used to authorize content. */
+  systemPromptLayerPresetId?: string;
+  /**
+   * Context window the layer must fit in. Local runs use the engine setting;
+   * cloud runs must declare it explicitly instead of assuming a model window.
+   */
+  systemPromptLayerContextSize?: number;
+  /** Output tokens reserved so the layer cannot eat the answer budget. */
+  systemPromptLayerOutputReserve?: number;
   /** Adds a structured payload without turning JSON into a separate authoring task. */
   includePayload?: boolean;
   /** Estimated automatic-vocabulary budget; explicit user selections are retained. */
@@ -511,8 +520,16 @@ export interface PromptOrchestratorWorkspaceState {
   prefabTerms: PromptOrchestratorWorkspaceTerm[];
   modelId: string;
   loraIds: string;
+  /** Assembled writing layer text, persisted so a manual edit survives reload. */
+  systemLayerText?: string;
+  systemLayerSource?: string | null;
+  writingPresetId?: string | null;
+  writingPresetVariant?: PromptWritingLayerVariant;
+  writingPresetSectionIds?: string[];
   updatedAt?: string;
 }
+
+export type PromptWritingLayerVariant = "compressed" | "original";
 
 export type PromptResultRating = "usable" | "unusable";
 
@@ -569,6 +586,41 @@ export interface DesktopPromptFeedbackRequest {
   feedback: PromptResultFeedbackInput;
 }
 
+export interface PromptWritingLayerBudgetPreview {
+  contextTokens: number;
+  outputReserveTokens: number;
+  contractTokens: number;
+  inputTokens: number;
+  vocabularyTokens: number;
+  imageTokens: number;
+  safetyTokens: number;
+  /** Tokens left for the writing layer in this configuration. */
+  budgetTokens: number;
+}
+
+export interface DesktopPromptWritingBudgetRequest {
+  skill?: PromptOrchestrationSkill;
+  mode?: PromptOrchestrationMode;
+  outputFormat?: PromptOrchestrationOutputFormat;
+  vocabularyTokenBudget?: number;
+  imageCount?: number;
+  contextTokens?: number;
+  outputReserveTokens?: number;
+}
+
+export interface PromptSystemPromptLayerMetrics {
+  /** Estimated tokens of the injected writing layer (not the model tokenizer). */
+  tokens: number;
+  /** Tokens available for the layer under the declared context and reserve. */
+  budgetTokens: number;
+  contextTokens: number;
+  outputReserveTokens: number;
+  /** Static rule card and contract tokens counted against the same context. */
+  contractTokens: number;
+  safetyTokens: number;
+  presetId?: string;
+}
+
 export interface PromptOrchestrationResult {
   mode: PromptOrchestrationMode;
   skill: PromptOrchestrationSkill;
@@ -602,6 +654,8 @@ export interface PromptOrchestrationResult {
   artistRoutes?: PromptArtistRoute[];
   /** Cross-mode decision trail for terms, identities, artists and constraints. */
   provenance?: PromptProvenanceEntry[];
+  /** Present when a writing layer was injected, with the budget it had to fit. */
+  systemPromptLayerMetrics?: PromptSystemPromptLayerMetrics;
 }
 
 export function isVideoOrchestrationMode(

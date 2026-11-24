@@ -2,14 +2,9 @@ import type {
   PromptOrchestrationResult,
   PromptSelectedTerm,
 } from "@prompthub/shared/types";
+import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
 
-/** Deterministic estimate used only for budgeting, not an official model tokenizer. */
-export function estimatePromptTokens(text: string): number {
-  return (
-    text.match(/[A-Za-z0-9_]+(?:[-'][A-Za-z0-9_]+)*|[\u3400-\u9fff]|[^\s]/g)
-      ?.length ?? 0
-  );
-}
+export { estimatePromptTokens };
 
 export function estimateVocabularyTokens(
   terms: PromptSelectedTerm[],

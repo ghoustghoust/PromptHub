@@ -1290,6 +1290,51 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
 - 图片反推取消。
 - 云端端点与本机 8K+mmproj 的取消/流式表现。
 
+## 第十八轮：取消收口与云端 DeepSeek（P5，2026-11-24）
+
+### 通用 AI 传输按请求取消
+
+- 主进程 `ai.ipc` 为每个带 `requestId` 的请求保存 `AbortController`，新增
+  `ai:httpCancel`；缓冲与流式请求都把外部信号和超时信号合并。
+- 渲染层 `ai.cancel(requestId)` 暴露给所有调用方；`chatCompletion` 与 `requestStream`
+  透传 `requestId`。
+- 图片反推弹窗生成 requestId，反推中显示“停止”，取消后提示“已停止反推”，不报失败。
+- 真实 e2e（慢速 SSE mock）：请求开始 1.2 秒后按 id 取消，`cancel` 返回 true、
+  response 为失败、错误文本非空；10 秒通过。
+- **未验证**：图片反推弹窗只做了接线与类型检查，没有用视觉模型真实点一次停止。
+
+### 布局补描述停止（真实窗口）
+
+- 6 个框触发补描述，真实点击“停止”；停止后无任何框被写入、按钮消失、辅助区显示
+  “Layout description refinement stopped.”。
+- 修复：布局辅助此前把取消吞成 degraded（warnings “This operation was aborted”），
+  现在 Core 在辅助返回后再次检查取消并抛 `CANCELLED`。
+- 用例 38.9 秒通过（8K + mmproj 的隔离 profile）。
+
+### P5：云端 DeepSeek
+
+- 通过设置写入 `aiModels`：`deepseek-chat`、`https://api.deepseek.com`、OpenAI 协议，
+  key 来自根目录 `.env` 的 `DEEPSEEK_API_KEY`（只在测试进程内读取，不写入仓库）。
+- 真实云端编排（短提示）：首字 **433 ms**、**173.4 tok/s**、模型上报计数、
+  714 字符成稿、无 fallback 警告。
+- 同一轮验证停止：长提示生成中被取消，界面保留部分输出并显示“已停止”。
+- 产物：`outputs/p9-deepseek-20261124/01-deepseek-result.png`、`02-deepseek-stopped.png`、
+  `cloud-run.json`。
+- 说明：核心编排的云端请求走 Node `fetch`，没有走渲染层代理；本机直连 DeepSeek 成功，
+  需要代理的网络环境未验证。
+
+### 回归
+
+- 全量 unit：6,744 用例、145 失败（44 文件），与上一轮一致，无新增失败。
+- typecheck、typecheck:tests、lint、生产构建通过。
+
+### 未验证
+
+- 图片反推弹窗的停止只完成接线，没有视觉模型下的真实点击。
+- DeepSeek 的 tool 轮细节（是否每轮都调工具、token 统计）未逐项核对，只确认最终流式、
+  用量与取消可用。
+- 需要代理的云端网络环境未验证。
+
 ## 评估方式
 
 A/B/C 三版对比：A 原始输入、B 普通大模型扩写、C 编排结果。固定底模、LoRA、

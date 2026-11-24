@@ -550,6 +550,7 @@ function createWindowApiDefaults() {
     ai: {
       request: vi.fn(),
       requestStream: vi.fn(),
+      cancel: vi.fn().mockResolvedValue({ cancelled: true }),
     },
     on: vi.fn(),
     off: vi.fn(),

@@ -18,6 +18,8 @@ function createRequestId(): string {
 export const aiApi = {
   request: (request: AITransportRequest): Promise<AITransportResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.AI_HTTP_REQUEST, request),
+  cancel: (requestId: string): Promise<{ cancelled: boolean }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.AI_HTTP_CANCEL, requestId),
   requestStream: async (
     request: AITransportRequest,
     handlers?: {

@@ -134,6 +134,7 @@ export function ImagePromptReverseModal({
     undefined,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reverseRequestId, setReverseRequestId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [draft, setDraft] = useState<QuickAddGeneratedDraft | null>(null);
@@ -406,6 +407,8 @@ export function ImagePromptReverseModal({
     }
 
     setIsSubmitting(true);
+    const requestId = crypto.randomUUID();
+    setReverseRequestId(requestId);
 
     try {
       const folderNames = folders.map((folder) => folder.name).join(", ");
@@ -437,7 +440,7 @@ export function ImagePromptReverseModal({
             ],
           },
         ],
-        { temperature: 0.45, maxTokens: 2048 },
+        { temperature: 0.45, maxTokens: 2048, requestId },
       );
 
       if (!canApplyAsyncResult(reverseSession)) {
@@ -461,13 +464,23 @@ export function ImagePromptReverseModal({
       if (!canApplyAsyncResult(reverseSession)) {
         return;
       }
+      if (error instanceof Error && /cancel/i.test(error.message)) {
+        showToast(t("imageReverse.stopped", "Reverse stopped"), "info");
+        return;
+      }
       console.error("Image prompt reverse generation failed:", error);
       showToast(t("imageReverse.failed", "Image prompt reverse failed"), "error");
     } finally {
       if (canApplyAsyncResult(reverseSession)) {
         setIsSubmitting(false);
+        setReverseRequestId(null);
       }
     }
+  };
+
+  const handleCancelReverse = async (): Promise<void> => {
+    if (!reverseRequestId) return;
+    await window.api.ai.cancel(reverseRequestId);
   };
 
   const handleCreate = async () => {
@@ -851,6 +864,16 @@ export function ImagePromptReverseModal({
           >
             {t("common.cancel", "Cancel")}
           </button>
+          {isSubmitting && reverseRequestId && (
+            <button
+              type="button"
+              onClick={() => void handleCancelReverse()}
+              data-testid="image-reverse-stop"
+              className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {t("imageReverse.stop", "Stop")}
+            </button>
+          )}
           <button
             type="button"
             onClick={handleReverse}

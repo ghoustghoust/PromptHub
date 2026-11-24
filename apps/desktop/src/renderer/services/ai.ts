@@ -189,6 +189,7 @@ export async function chatCompletion(
       headers,
       body: requestBody,
       timeoutMs: requestTimeoutMs,
+      ...(options?.requestId ? { requestId: options.requestId } : {}),
     });
 
     if (!response.ok) {
@@ -305,6 +306,7 @@ export async function chatCompletion(
           headers,
           body: requestBody,
           timeoutMs: requestTimeoutMs,
+          ...(options?.requestId ? { requestId: options.requestId } : {}),
         },
         {
           onChunk: (chunk) => {
@@ -360,6 +362,7 @@ export async function chatCompletion(
         headers,
         body: requestBody,
         timeoutMs: requestTimeoutMs,
+        ...(options?.requestId ? { requestId: options.requestId } : {}),
       });
       return { response: createResponseLike(response) };
     }
@@ -407,6 +410,7 @@ export async function chatCompletion(
         headers,
         body: requestBody,
         timeoutMs: requestTimeoutMs,
+        ...(options?.requestId ? { requestId: options.requestId } : {}),
       }),
     };
   };

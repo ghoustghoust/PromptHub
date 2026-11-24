@@ -926,11 +926,15 @@ export class PromptOrchestrator {
     throwIfCancelled(this.options.signal);
     const validationError = mossLayoutValidationError(input.draft);
     if (validationError) throw new Error(validationError);
-    return refineMossLayoutCaptions({
+    const refined = await refineMossLayoutCaptions({
       draft: input.draft,
       intent: input.intent,
       llm: this.options.llm,
     });
+    // The helper degrades to warnings on failure; a cancelled run must surface
+    // as CANCELLED instead of a partial "not refined" result.
+    throwIfCancelled(this.options.signal);
+    return refined;
   }
 
   /** Reverses a poster or graphic into editable normalized layout boxes. */
@@ -948,11 +952,13 @@ export class PromptOrchestrator {
     ) {
       throw new Error("Layout canvas dimensions must be positive integers");
     }
-    return reverseMossLayoutFromImages({
+    const reversed = await reverseMossLayoutFromImages({
       images: input.images,
       canvas: input.canvas,
       intent: input.intent,
       llm: this.options.llm,
     });
+    throwIfCancelled(this.options.signal);
+    return reversed;
   }
 }

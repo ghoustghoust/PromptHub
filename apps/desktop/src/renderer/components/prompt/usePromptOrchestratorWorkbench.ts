@@ -837,7 +837,11 @@ export function usePromptOrchestratorWorkbench() {
         llmModelId,
       });
       if (reply.ok !== true) {
-        setError(reply.error.message);
+        setError(
+          reply.error.code === "CANCELLED"
+            ? t("orchestrator.streaming.canceled")
+            : reply.error.message,
+        );
         return;
       }
       const { captions, status, warnings } = reply.data;
@@ -865,7 +869,10 @@ export function usePromptOrchestratorWorkbench() {
   async function cancelAssistLayout(): Promise<void> {
     if (!assistRunId) return;
     try {
-      await window.api.promptOrchestrator.cancel(assistRunId);
+      const result = await window.api.promptOrchestrator.cancel(assistRunId);
+      if (result.ok === true) {
+        setLayoutAssistNote(t("orchestrator.layout.assistStopped"));
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
@@ -888,7 +895,11 @@ export function usePromptOrchestratorWorkbench() {
         llmModelId,
       });
       if (reply.ok !== true) {
-        setError(reply.error.message);
+        setError(
+          reply.error.code === "CANCELLED"
+            ? t("orchestrator.streaming.canceled")
+            : reply.error.message,
+        );
         return;
       }
       const { draft, summary, status, warnings } = reply.data;

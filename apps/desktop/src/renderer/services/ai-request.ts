@@ -54,6 +54,7 @@ export async function requestAIEndpoint(request: {
   body?: string;
   multipart?: AITransportMultipartBody;
   timeoutMs?: number;
+  requestId?: string;
 }): Promise<ResponseLike> {
   const timeoutMs = request.timeoutMs ?? AI_REQUEST_TIMEOUT_MS;
   const normalizedRequest = { ...request, timeoutMs };

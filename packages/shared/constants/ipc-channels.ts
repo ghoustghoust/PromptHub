@@ -175,6 +175,7 @@ export const IPC_CHANNELS = {
   // AI transport
   AI_HTTP_REQUEST: "ai:httpRequest",
   AI_HTTP_STREAM: "ai:httpStream",
+  AI_HTTP_CANCEL: "ai:httpCancel",
   AI_HTTP_STREAM_CHUNK: "ai:httpStreamChunk",
   AI_HTTP_STREAM_ERROR: "ai:httpStreamError",
 

@@ -147,6 +147,8 @@ export interface ChatCompletionOptions {
   presencePenalty?: number;
   stream?: boolean;
   enableThinking?: boolean;
+  /** Cancellation id for `window.api.ai.cancel`; optional for every caller. */
+  requestId?: string;
   onStream?: (chunk: string) => void;
   streamCallbacks?: StreamCallbacks;
   responseFormat?: {

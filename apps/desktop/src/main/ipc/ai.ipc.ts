@@ -129,6 +129,7 @@ async function requestToResponse(
 async function performRequest<T>(
   request: AITransportRequest,
   consume: (response: Response) => Promise<T>,
+  externalSignal?: AbortSignal,
 ): Promise<T> {
   const controller = new AbortController();
   const timeoutMs =
@@ -138,6 +139,9 @@ async function performRequest<T>(
   const timeoutId = setTimeout(() => {
     controller.abort(new Error(`Request timeout after ${timeoutMs}ms`));
   }, timeoutMs);
+  const signal = externalSignal
+    ? AbortSignal.any([controller.signal, externalSignal])
+    : controller.signal;
 
   try {
     const multipartBody = buildMultipartBody(request);
@@ -145,7 +149,7 @@ async function performRequest<T>(
       method: request.method,
       headers: normalizeHeaders(request.headers, Boolean(multipartBody)),
       body: multipartBody ?? request.body,
-      signal: controller.signal,
+      signal,
     });
     return await consume(response);
   } finally {
@@ -154,19 +158,34 @@ async function performRequest<T>(
 }
 
 export function registerAIIPC(): void {
-  ipcMain.handle(
-    IPC_CHANNELS.AI_HTTP_REQUEST,
-    async (
-      _event,
-      request: AITransportRequest,
-    ): Promise<AITransportResponse> => {
-      try {
-        return await performRequest(request, requestToResponse);
-      } catch (error) {
-        return toErrorResponse(error);
-      }
-    },
-  );
+  const activeRequests = new Map<string, AbortController>();
+  /** Registers a request id so the renderer can abort it by id. */
+  const withRequestAbort = async <T>(
+    request: AITransportRequest,
+    operation: (signal?: AbortSignal) => Promise<T>,
+  ): Promise<T> => {
+    const requestId = request.requestId?.trim();
+    if (!requestId) return operation();
+    const controller = new AbortController();
+    activeRequests.set(requestId, controller);
+    try {
+      return await operation(controller.signal);
+    } finally {
+      activeRequests.delete(requestId);
+    }
+  };
+  ipcMain.handle(IPC_CHANNELS.AI_HTTP_REQUEST, async (
+    _event,
+    request: AITransportRequest,
+  ): Promise<AITransportResponse> => {
+    try {
+      return await withRequestAbort(request, (signal) =>
+        performRequest(request, requestToResponse, signal),
+      );
+    } catch (error) {
+      return toErrorResponse(error);
+    }
+  });
 
   ipcMain.handle(
     IPC_CHANNELS.AI_HTTP_STREAM,
@@ -175,61 +194,67 @@ export function registerAIIPC(): void {
       request: AITransportRequest,
     ): Promise<AITransportResponse> => {
       try {
-        return await performRequest(request, async (response) => {
-          if (
-            !response.ok ||
-            !response.body ||
-            response.headers.get("content-type")?.includes("application/json")
-          ) {
-            return await requestToResponse(response);
-          }
-
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) {
-                break;
+        return await withRequestAbort(request, (signal) =>
+          performRequest(
+            request,
+            async (response) => {
+              if (
+                !response.ok ||
+                !response.body ||
+                response.headers.get("content-type")?.includes("application/json")
+              ) {
+                return await requestToResponse(response);
               }
 
-              const chunk = decoder.decode(value, { stream: true });
-              if (chunk) {
-                event.sender.send(IPC_CHANNELS.AI_HTTP_STREAM_CHUNK, {
+              const reader = response.body.getReader();
+              const decoder = new TextDecoder();
+
+              try {
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) {
+                    break;
+                  }
+
+                  const chunk = decoder.decode(value, { stream: true });
+                  if (chunk) {
+                    event.sender.send(IPC_CHANNELS.AI_HTTP_STREAM_CHUNK, {
+                      requestId: request.requestId,
+                      chunk,
+                    });
+                  }
+                }
+
+                const tail = decoder.decode();
+                if (tail) {
+                  event.sender.send(IPC_CHANNELS.AI_HTTP_STREAM_CHUNK, {
+                    requestId: request.requestId,
+                    chunk: tail,
+                  });
+                }
+              } catch (error) {
+                const message =
+                  error instanceof Error ? error.message : "Unknown stream error";
+                event.sender.send(IPC_CHANNELS.AI_HTTP_STREAM_ERROR, {
                   requestId: request.requestId,
-                  chunk,
+                  error: message,
                 });
+                return toErrorResponse(error);
+              } finally {
+                reader.releaseLock();
               }
-            }
 
-            const tail = decoder.decode();
-            if (tail) {
-              event.sender.send(IPC_CHANNELS.AI_HTTP_STREAM_CHUNK, {
-                requestId: request.requestId,
-                chunk: tail,
-              });
-            }
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message : "Unknown stream error";
-            event.sender.send(IPC_CHANNELS.AI_HTTP_STREAM_ERROR, {
-              requestId: request.requestId,
-              error: message,
-            });
-            return toErrorResponse(error);
-          } finally {
-            reader.releaseLock();
-          }
-
-          return {
-            ok: true,
-            status: response.status,
-            statusText: response.statusText,
-            body: "",
-            headers: headersToObject(response.headers),
-          };
-        });
+              return {
+                ok: true,
+                status: response.status,
+                statusText: response.statusText,
+                body: "",
+                headers: headersToObject(response.headers),
+              };
+            },
+            signal,
+          ),
+        );
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Unknown stream error";
@@ -241,4 +266,11 @@ export function registerAIIPC(): void {
       }
     },
   );
+  ipcMain.handle(IPC_CHANNELS.AI_HTTP_CANCEL, (_event, requestId: unknown) => {
+    if (typeof requestId !== "string" || !requestId.trim()) return { cancelled: false };
+    const controller = activeRequests.get(requestId.trim());
+    if (!controller) return { cancelled: false };
+    controller.abort(new Error("Request cancelled by the user"));
+    return { cancelled: true };
+  });
 }

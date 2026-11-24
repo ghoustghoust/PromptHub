@@ -53,6 +53,12 @@ import {
 import type { PromptComposition } from "./prompt-orchestrator-composition";
 import { mossLayoutValidationError } from "./prompt-moss-layout";
 import {
+  MAX_LAYER_CHARS,
+  MAX_LAYER_CONTEXT_TOKENS,
+  MIN_LAYER_CONTEXT_TOKENS,
+  resolveSystemPromptLayerBudget,
+} from "./prompt-writing-budget";
+import {
   refineMossLayoutCaptions,
   reverseMossLayoutFromImages,
 } from "./prompt-moss-layout-assist";
@@ -98,7 +104,10 @@ interface CompositionRun {
 
 export class PromptOrchestratorError extends Error {
   constructor(
-    readonly code: "INVALID_INPUT" | "MODEL_PROFILE_NOT_FOUND",
+    readonly code:
+      | "INVALID_INPUT"
+      | "MODEL_PROFILE_NOT_FOUND"
+      | "SYSTEM_PROMPT_LAYER_OVER_BUDGET",
     message: string,
   ) {
     super(message);
@@ -337,17 +346,57 @@ function validateOutputFormat(input: PromptOrchestrationInput): void {
 function validateOptions(input: PromptOrchestrationInput): void {
   if (input.prompt !== undefined) requireText(input.prompt, "prompt");
   if (input.modelId !== undefined) requireText(input.modelId, "modelId");
+  if (
+    input.systemPromptLayerContextSize !== undefined &&
+    (!Number.isInteger(input.systemPromptLayerContextSize) ||
+      input.systemPromptLayerContextSize < MIN_LAYER_CONTEXT_TOKENS ||
+      input.systemPromptLayerContextSize > MAX_LAYER_CONTEXT_TOKENS)
+  ) {
+    throw new PromptOrchestratorError(
+      "INVALID_INPUT",
+      `systemPromptLayerContextSize must be an integer from ${MIN_LAYER_CONTEXT_TOKENS} to ${MAX_LAYER_CONTEXT_TOKENS}`,
+    );
+  }
+  if (
+    input.systemPromptLayerOutputReserve !== undefined &&
+    (!Number.isInteger(input.systemPromptLayerOutputReserve) ||
+      input.systemPromptLayerOutputReserve < 256 ||
+      input.systemPromptLayerOutputReserve > 65_536)
+  ) {
+    throw new PromptOrchestratorError(
+      "INVALID_INPUT",
+      "systemPromptLayerOutputReserve must be an integer from 256 to 65536",
+    );
+  }
   if (input.systemPromptLayer !== undefined) {
     const layer = requireText(input.systemPromptLayer, "systemPromptLayer");
-    if (layer.length > 4000) {
+    if (layer.length > MAX_LAYER_CHARS) {
       throw new PromptOrchestratorError(
         "INVALID_INPUT",
-        "systemPromptLayer must be 4000 characters or fewer",
+        `systemPromptLayer must be ${MAX_LAYER_CHARS.toLocaleString("en-US")} characters or fewer`,
+      );
+    }
+    const budget = resolveSystemPromptLayerBudget(input, layer);
+    if (!budget.fits) {
+      throw new PromptOrchestratorError(
+        "SYSTEM_PROMPT_LAYER_OVER_BUDGET",
+        `systemPromptLayer needs ${budget.usedTokens} tokens, but only ${budget.budgetTokens} are available ` +
+          `in a ${budget.contextTokens}-token context (${budget.overBy} over). ` +
+          "Remove sections, use the compressed version, or switch to a larger context preset.",
       );
     }
   }
   if (input.systemPromptLayerSource !== undefined) {
     requireText(input.systemPromptLayerSource, "systemPromptLayerSource");
+  }
+  if (input.systemPromptLayerPresetId !== undefined) {
+    const presetId = requireText(input.systemPromptLayerPresetId, "systemPromptLayerPresetId");
+    if (presetId.length > 200) {
+      throw new PromptOrchestratorError(
+        "INVALID_INPUT",
+        "systemPromptLayerPresetId must be 200 characters or fewer",
+      );
+    }
   }
   if (input.editInstruction !== undefined) {
     requireText(input.editInstruction, "editInstruction");
@@ -691,6 +740,22 @@ export class PromptOrchestrator {
     ];
     const fixedFields = buildFixedFields(input, compositionTerms, directives);
     const identityFields = resolvedIdentityFields(entities);
+    const layerBudget = input.systemPromptLayer?.trim()
+      ? resolveSystemPromptLayerBudget(input, input.systemPromptLayer.trim())
+      : null;
+    const layerMetrics = layerBudget
+      ? {
+          tokens: layerBudget.usedTokens,
+          budgetTokens: layerBudget.budgetTokens,
+          contextTokens: layerBudget.contextTokens,
+          outputReserveTokens: layerBudget.outputReserveTokens,
+          contractTokens: layerBudget.contractTokens,
+          safetyTokens: layerBudget.safetyTokens,
+          ...(input.systemPromptLayerPresetId
+            ? { presetId: input.systemPromptLayerPresetId }
+            : {}),
+        }
+      : null;
     try {
       const completed = await this.compose(
         input,
@@ -758,6 +823,7 @@ export class PromptOrchestrator {
           ? { artistRoutes: artistRouting.routes }
           : {}),
         alignment: buildPromptAlignment(input.prompt ?? "", composition.completePrompt),
+        ...(layerMetrics ? { systemPromptLayerMetrics: layerMetrics } : {}),
       };
     } catch (error) {
       const composition = buildFallbackComposition(
@@ -822,6 +888,7 @@ export class PromptOrchestrator {
           input.prompt ?? "",
           composition.completePrompt,
         ),
+        ...(layerMetrics ? { systemPromptLayerMetrics: layerMetrics } : {}),
       };
     }
   }

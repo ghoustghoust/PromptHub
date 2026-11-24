@@ -12,6 +12,7 @@ export * from "./rules-workspace-default";
 export * from "./ai-client";
 export * from "./ai-config";
 export * from "./prompt-orchestrator";
+export * from "./prompt-writing-budget";
 export * from "./prompt-writing-presets";
 export * from "./prompt-alignment";
 export * from "./prompt-moss-layout";

@@ -23,10 +23,30 @@ export function migratePromptOrchestratorState(db: Database.Database): void {
 
 const WORKSPACE_ID = "default";
 const MAX_STATE_CHARS = 4_000_000;
+const MAX_LAYER_TEXT = 20_000;
+const MAX_SECTION_IDS = 200;
 
 interface WorkspaceRow {
   state_json: string;
   updated_at: number;
+}
+
+function optionalLayerText(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim()
+    ? value.slice(0, MAX_LAYER_TEXT)
+    : undefined;
+}
+
+function optionalId(value: unknown): string | null | undefined {
+  if (value === null) return null;
+  return typeof value === "string" && value.trim() ? value.slice(0, 200) : undefined;
+}
+
+function sectionIds(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .slice(0, MAX_SECTION_IDS);
 }
 
 export class PromptOrchestratorStateDB {
@@ -57,6 +77,21 @@ export class PromptOrchestratorStateDB {
       prefabTerms,
       modelId: typeof value.modelId === "string" ? value.modelId : "",
       loraIds: typeof value.loraIds === "string" ? value.loraIds : "",
+      ...(optionalLayerText(value.systemLayerText) !== undefined
+        ? { systemLayerText: optionalLayerText(value.systemLayerText) }
+        : {}),
+      ...(optionalId(value.systemLayerSource) !== undefined
+        ? { systemLayerSource: optionalId(value.systemLayerSource) }
+        : {}),
+      ...(optionalId(value.writingPresetId) !== undefined
+        ? { writingPresetId: optionalId(value.writingPresetId) }
+        : {}),
+      ...(value.writingPresetVariant === "compressed" || value.writingPresetVariant === "original"
+        ? { writingPresetVariant: value.writingPresetVariant }
+        : {}),
+      ...(sectionIds(value.writingPresetSectionIds) !== undefined
+        ? { writingPresetSectionIds: sectionIds(value.writingPresetSectionIds) }
+        : {}),
       updatedAt: new Date(row.updated_at).toISOString(),
     };
   }
@@ -66,6 +101,19 @@ export class PromptOrchestratorStateDB {
       prefabTerms: state.prefabTerms,
       modelId: state.modelId,
       loraIds: state.loraIds,
+      ...(state.systemLayerText !== undefined
+        ? { systemLayerText: state.systemLayerText.slice(0, MAX_LAYER_TEXT) }
+        : {}),
+      ...(state.systemLayerSource !== undefined
+        ? { systemLayerSource: state.systemLayerSource }
+        : {}),
+      ...(state.writingPresetId !== undefined ? { writingPresetId: state.writingPresetId } : {}),
+      ...(state.writingPresetVariant !== undefined
+        ? { writingPresetVariant: state.writingPresetVariant }
+        : {}),
+      ...(state.writingPresetSectionIds !== undefined
+        ? { writingPresetSectionIds: state.writingPresetSectionIds.slice(0, MAX_SECTION_IDS) }
+        : {}),
     });
     if (json.length > MAX_STATE_CHARS) {
       throw new Error("Orchestrator workspace state exceeds its size limit");
@@ -87,6 +135,19 @@ export class PromptOrchestratorStateDB {
       prefabTerms: state.prefabTerms,
       modelId: state.modelId,
       loraIds: state.loraIds,
+      ...(state.systemLayerText !== undefined
+        ? { systemLayerText: state.systemLayerText.slice(0, MAX_LAYER_TEXT) }
+        : {}),
+      ...(state.systemLayerSource !== undefined
+        ? { systemLayerSource: state.systemLayerSource }
+        : {}),
+      ...(state.writingPresetId !== undefined ? { writingPresetId: state.writingPresetId } : {}),
+      ...(state.writingPresetVariant !== undefined
+        ? { writingPresetVariant: state.writingPresetVariant }
+        : {}),
+      ...(state.writingPresetSectionIds !== undefined
+        ? { writingPresetSectionIds: state.writingPresetSectionIds.slice(0, MAX_SECTION_IDS) }
+        : {}),
       updatedAt: new Date(updatedAt).toISOString(),
     };
   }

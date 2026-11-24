@@ -11,6 +11,7 @@ import {
   SparklesIcon,
   Trash2Icon,
   TypeIcon,
+  Undo2Icon,
 } from "lucide-react";
 import type {
   PromptMossLayoutBox,
@@ -66,6 +67,8 @@ export function PromptMossLayoutCanvas({
   editor,
   onRefineCaptions,
   onReverseFromImage,
+  onUndoReverse,
+  canUndoReverse = false,
   isAssisting = false,
   assistNote = "",
   assistDisabled = false,
@@ -73,6 +76,8 @@ export function PromptMossLayoutCanvas({
   editor: Editor;
   onRefineCaptions?: () => void;
   onReverseFromImage?: (file: File) => void;
+  onUndoReverse?: () => void;
+  canUndoReverse?: boolean;
   isAssisting?: boolean;
   assistNote?: string;
   assistDisabled?: boolean;
@@ -99,6 +104,7 @@ export function PromptMossLayoutCanvas({
   }
 
   function beginDraw(event: ReactPointerEvent<HTMLDivElement>): void {
+    if (isAssisting) return;
     if (event.button !== 0 || editor.boxes.length >= 32) return;
     if ((event.target as HTMLElement).closest("[data-layout-box]")) return;
     const start = point(event);
@@ -325,6 +331,23 @@ export function PromptMossLayoutCanvas({
           <span className="text-[11px] text-muted-foreground">
             {t("orchestrator.layout.assistHint")}
           </span>
+          {canUndoReverse && onUndoReverse && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={onUndoReverse}
+              disabled={isAssisting}
+              data-testid="layout-undo-reverse"
+            >
+              <Undo2Icon className="h-3.5 w-3.5" />
+              {t("orchestrator.layout.undoReverse")}
+            </Button>
+          )}
+          {isAssisting && (
+            <span className="text-[11px] text-amber-600 dark:text-amber-400" data-testid="layout-structure-locked">
+              {t("orchestrator.layout.structureLocked")}
+            </span>
+          )}
           {assistNote && (
             <p className="basis-full text-[11px] text-amber-600 dark:text-amber-400" data-testid="layout-assist-note">
               {assistNote}
@@ -336,13 +359,13 @@ export function PromptMossLayoutCanvas({
       <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0 space-y-3">
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" onClick={() => editor.addBox("background")} data-testid="layout-add-background">
+            <Button size="sm" variant="secondary" onClick={() => editor.addBox("background")} disabled={isAssisting} data-testid="layout-add-background">
               <PlusIcon className="h-3.5 w-3.5" />{t("orchestrator.layout.addBackground")}
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => editor.addBox("object")} data-testid="layout-add-object">
+            <Button size="sm" variant="secondary" onClick={() => editor.addBox("object")} disabled={isAssisting} data-testid="layout-add-object">
               <BoxIcon className="h-3.5 w-3.5" />{t("orchestrator.layout.addObject")}
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => editor.addBox("text")} data-testid="layout-add-text">
+            <Button size="sm" variant="secondary" onClick={() => editor.addBox("text")} disabled={isAssisting} data-testid="layout-add-text">
               <TypeIcon className="h-3.5 w-3.5" />{t("orchestrator.layout.addText")}
             </Button>
             <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
@@ -445,13 +468,13 @@ export function PromptMossLayoutCanvas({
                   {t("orchestrator.layout.boxNumber", { index: selectedIndex + 1 })}
                 </span>
                 <div className="flex gap-1">
-                  <Button size="sm" variant="ghost" aria-label={t("orchestrator.layout.moveUp")} disabled={selectedIndex <= 0} onClick={() => editor.moveBox(editor.selectedBox!.id, -1)}>
+                  <Button size="sm" variant="ghost" aria-label={t("orchestrator.layout.moveUp")} disabled={isAssisting || selectedIndex <= 0} onClick={() => editor.moveBox(editor.selectedBox!.id, -1)}>
                     <ArrowUpIcon className="h-3.5 w-3.5" />
                   </Button>
-                  <Button size="sm" variant="ghost" aria-label={t("orchestrator.layout.moveDown")} disabled={selectedIndex === editor.boxes.length - 1} onClick={() => editor.moveBox(editor.selectedBox!.id, 1)}>
+                  <Button size="sm" variant="ghost" aria-label={t("orchestrator.layout.moveDown")} disabled={isAssisting || selectedIndex === editor.boxes.length - 1} onClick={() => editor.moveBox(editor.selectedBox!.id, 1)}>
                     <ArrowDownIcon className="h-3.5 w-3.5" />
                   </Button>
-                  <Button size="sm" variant="ghost" aria-label={t("orchestrator.layout.deleteBox")} onClick={() => editor.removeBox(editor.selectedBox!.id)} data-testid="layout-delete-box">
+                  <Button size="sm" variant="ghost" aria-label={t("orchestrator.layout.deleteBox")} disabled={isAssisting} onClick={() => editor.removeBox(editor.selectedBox!.id)} data-testid="layout-delete-box">
                     <Trash2Icon className="h-3.5 w-3.5 text-destructive" />
                   </Button>
                 </div>

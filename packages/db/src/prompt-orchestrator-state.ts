@@ -1,8 +1,10 @@
 import type Database from "./adapter";
 import type {
+  PromptMossLayoutDraft,
   PromptOrchestratorWorkspaceState,
   PromptOrchestratorWorkspaceTerm,
 } from "@prompthub/shared/types";
+import { MAX_WRITING_LAYER_CHARS } from "@prompthub/shared/utils/prompt-orchestrator-limits";
 
 /**
  * One durable workspace row for the orchestrator picker: selected/locked/
@@ -23,7 +25,6 @@ export function migratePromptOrchestratorState(db: Database.Database): void {
 
 const WORKSPACE_ID = "default";
 const MAX_STATE_CHARS = 4_000_000;
-const MAX_LAYER_TEXT = 20_000;
 const MAX_SECTION_IDS = 200;
 
 interface WorkspaceRow {
@@ -31,10 +32,9 @@ interface WorkspaceRow {
   updated_at: number;
 }
 
+/** Read path: keep whatever was stored verbatim; the service validates it. */
 function optionalLayerText(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim()
-    ? value.slice(0, MAX_LAYER_TEXT)
-    : undefined;
+  return typeof value === "string" && value.trim() ? value : undefined;
 }
 
 function optionalId(value: unknown): string | null | undefined {
@@ -47,6 +47,31 @@ function sectionIds(value: unknown): string[] | undefined {
   return value
     .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
     .slice(0, MAX_SECTION_IDS);
+}
+
+/**
+ * Write path: an oversized writing layer is an error, never a silent slice.
+ * The cap matches the core transport guard, so anything longer could not run.
+ */
+function persistedLayerText(value: string): string {
+  if (value.length > MAX_WRITING_LAYER_CHARS) {
+    throw new Error(
+      `Orchestrator writing layer is ${value.length} characters; the limit is ${MAX_WRITING_LAYER_CHARS}`,
+    );
+  }
+  if (value.includes("\0")) {
+    throw new Error("Orchestrator writing layer contains a null byte");
+  }
+  return value;
+}
+
+/** Read path only; the canvas draft shape is validated by the service. */
+function layoutDraft(value: unknown): PromptMossLayoutDraft | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const candidate = value as Partial<PromptMossLayoutDraft>;
+  return candidate.version === 1 && Array.isArray(candidate.boxes)
+    ? candidate as PromptMossLayoutDraft
+    : undefined;
 }
 
 export class PromptOrchestratorStateDB {
@@ -73,13 +98,13 @@ export class PromptOrchestratorStateDB {
     const prefabTerms = Array.isArray(value.prefabTerms)
       ? value.prefabTerms as PromptOrchestratorWorkspaceTerm[]
       : [];
+    const layerText = optionalLayerText(value.systemLayerText);
+    const layout = layoutDraft(value.mossLayout);
     return {
       prefabTerms,
       modelId: typeof value.modelId === "string" ? value.modelId : "",
       loraIds: typeof value.loraIds === "string" ? value.loraIds : "",
-      ...(optionalLayerText(value.systemLayerText) !== undefined
-        ? { systemLayerText: optionalLayerText(value.systemLayerText) }
-        : {}),
+      ...(layerText !== undefined ? { systemLayerText: layerText } : {}),
       ...(optionalId(value.systemLayerSource) !== undefined
         ? { systemLayerSource: optionalId(value.systemLayerSource) }
         : {}),
@@ -92,18 +117,20 @@ export class PromptOrchestratorStateDB {
       ...(sectionIds(value.writingPresetSectionIds) !== undefined
         ? { writingPresetSectionIds: sectionIds(value.writingPresetSectionIds) }
         : {}),
+      ...(layout !== undefined ? { mossLayout: layout } : {}),
       updatedAt: new Date(row.updated_at).toISOString(),
     };
   }
 
   save(state: PromptOrchestratorWorkspaceState): PromptOrchestratorWorkspaceState {
-    const json = JSON.stringify({
+    const layerText = state.systemLayerText !== undefined
+      ? persistedLayerText(state.systemLayerText)
+      : undefined;
+    const base = {
       prefabTerms: state.prefabTerms,
       modelId: state.modelId,
       loraIds: state.loraIds,
-      ...(state.systemLayerText !== undefined
-        ? { systemLayerText: state.systemLayerText.slice(0, MAX_LAYER_TEXT) }
-        : {}),
+      ...(layerText !== undefined ? { systemLayerText: layerText } : {}),
       ...(state.systemLayerSource !== undefined
         ? { systemLayerSource: state.systemLayerSource }
         : {}),
@@ -114,12 +141,11 @@ export class PromptOrchestratorStateDB {
       ...(state.writingPresetSectionIds !== undefined
         ? { writingPresetSectionIds: state.writingPresetSectionIds.slice(0, MAX_SECTION_IDS) }
         : {}),
-    });
+      ...(state.mossLayout !== undefined ? { mossLayout: state.mossLayout } : {}),
+    };
+    const json = JSON.stringify(base);
     if (json.length > MAX_STATE_CHARS) {
       throw new Error("Orchestrator workspace state exceeds its size limit");
-    }
-    if (json.includes("\0")) {
-      throw new Error("Orchestrator workspace state contains a null byte");
     }
     const updatedAt = Date.now();
     this.db
@@ -131,24 +157,6 @@ export class PromptOrchestratorStateDB {
            updated_at = excluded.updated_at`,
       )
       .run(WORKSPACE_ID, json, updatedAt);
-    return {
-      prefabTerms: state.prefabTerms,
-      modelId: state.modelId,
-      loraIds: state.loraIds,
-      ...(state.systemLayerText !== undefined
-        ? { systemLayerText: state.systemLayerText.slice(0, MAX_LAYER_TEXT) }
-        : {}),
-      ...(state.systemLayerSource !== undefined
-        ? { systemLayerSource: state.systemLayerSource }
-        : {}),
-      ...(state.writingPresetId !== undefined ? { writingPresetId: state.writingPresetId } : {}),
-      ...(state.writingPresetVariant !== undefined
-        ? { writingPresetVariant: state.writingPresetVariant }
-        : {}),
-      ...(state.writingPresetSectionIds !== undefined
-        ? { writingPresetSectionIds: state.writingPresetSectionIds.slice(0, MAX_SECTION_IDS) }
-        : {}),
-      updatedAt: new Date(updatedAt).toISOString(),
-    };
+    return { ...base, updatedAt: new Date(updatedAt).toISOString() };
   }
 }

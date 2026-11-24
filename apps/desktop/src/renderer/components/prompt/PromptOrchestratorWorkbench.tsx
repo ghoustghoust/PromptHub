@@ -770,9 +770,11 @@ export function PromptOrchestratorWorkbench() {
                   editor={state.mossLayout}
                   onRefineCaptions={() => void state.refineLayoutCaptions()}
                   onReverseFromImage={(file) => void state.reverseLayoutFromImage(file)}
+                  onUndoReverse={state.undoReverseLayout}
+                  canUndoReverse={state.canUndoReverse}
                   isAssisting={state.isAssistingLayout}
                   assistNote={state.layoutAssistNote}
-                  assistDisabled={!state.llmModelId}
+                  assistDisabled={!state.llmModelId || state.isRunning}
                 />
               )}
               {state.isAssistingLayout && (
@@ -902,9 +904,11 @@ export function PromptOrchestratorWorkbench() {
                           editor={state.mossLayout}
                           onRefineCaptions={() => void state.refineLayoutCaptions()}
                           onReverseFromImage={(file) => void state.reverseLayoutFromImage(file)}
+                          onUndoReverse={state.undoReverseLayout}
+                          canUndoReverse={state.canUndoReverse}
                           isAssisting={state.isAssistingLayout}
                           assistNote={state.layoutAssistNote}
-                          assistDisabled={!state.llmModelId}
+                          assistDisabled={!state.llmModelId || state.isRunning}
                         />
                       </div>
                     </>

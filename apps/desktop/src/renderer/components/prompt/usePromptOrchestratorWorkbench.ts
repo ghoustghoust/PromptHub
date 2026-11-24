@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type {
   PromptArtistPipeline,
   PromptGuidanceMode,
+  PromptMossLayoutBox,
   PromptOrchestrationInput,
   PromptOrchestrationMode,
   PromptOrchestrationOutputFormat,
@@ -41,6 +42,8 @@ import {
   type WritingLayerSelection,
 } from "./prompt-writing-layer";
 import { useMossLayoutEditor } from "./useMossLayoutEditor";
+import { applyCaptionsToBoxes } from "./prompt-layout-assist";
+import { requestConfirmation } from "../ui/confirmation";
 
 export interface OrchestratorReferenceImage {
   id: string;
@@ -174,6 +177,11 @@ export function usePromptOrchestratorWorkbench() {
   const [isAssistingLayout, setIsAssistingLayout] = useState(false);
   const [assistRunId, setAssistRunId] = useState<string | null>(null);
   const [layoutAssistNote, setLayoutAssistNote] = useState("");
+  /** One-step undo for a reverse that replaced a non-empty canvas. */
+  const [layoutUndo, setLayoutUndo] = useState<{
+    boxes: PromptMossLayoutBox[];
+    selectedBoxId: string | null;
+  } | null>(null);
   const requestId = useRef(0);
   const skillRequestId = useRef(0);
   const layoutSignature = JSON.stringify({
@@ -233,6 +241,7 @@ export function usePromptOrchestratorWorkbench() {
             variant: reply.data.writingPresetVariant ?? "compressed",
             sectionIds: reply.data.writingPresetSectionIds ?? [],
           });
+          if (reply.data.mossLayout) mossLayout.restore(reply.data.mossLayout);
         }
       })
       .catch((cause: unknown) => {
@@ -248,6 +257,13 @@ export function usePromptOrchestratorWorkbench() {
 
   useEffect(() => {
     if (!workspaceHydrated) return;
+    const layoutWidth = Number(mossLayout.width);
+    const layoutHeight = Number(mossLayout.height);
+    const validLayoutCanvas =
+      Number.isInteger(layoutWidth) &&
+      layoutWidth > 0 &&
+      Number.isInteger(layoutHeight) &&
+      layoutHeight > 0;
     const timer = window.setTimeout(() => {
       void window.api.promptOrchestrator
         .saveWorkspaceState({
@@ -273,10 +289,22 @@ export function usePromptOrchestratorWorkbench() {
                 writingPresetSectionIds: writingLayer.sectionIds,
               }
             : { writingPresetId: null }),
+          ...(validLayoutCanvas
+            ? {
+                mossLayout: {
+                  version: 1 as const,
+                  canvas: { width: layoutWidth, height: layoutHeight },
+                  boxes: mossLayout.boxes,
+                },
+              }
+            : {}),
         })
         .then((reply) => {
           if (reply.ok !== true) {
             console.warn("Failed to save orchestrator workspace state", reply.error.message);
+            setError(
+              t("orchestrator.workspaceSaveFailed", { message: reply.error.message }),
+            );
           }
         })
         .catch((cause: unknown) => {
@@ -284,7 +312,18 @@ export function usePromptOrchestratorWorkbench() {
         });
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [prefabTerms, modelId, loraIds, systemLayer, systemLayerSource, writingLayer, workspaceHydrated]);
+  }, [
+    prefabTerms,
+    modelId,
+    loraIds,
+    systemLayer,
+    systemLayerSource,
+    writingLayer,
+    mossLayout.width,
+    mossLayout.height,
+    mossLayout.boxes,
+    workspaceHydrated,
+  ]);
 
   // The layer budget depends on the task shape, not on keystrokes; the layer
   // text itself is estimated locally, so typing does not call the main process.
@@ -653,7 +692,8 @@ export function usePromptOrchestratorWorkbench() {
     return blockers;
   })();
 
-  const canRun = runBlockers.length === 0 && !isRunning && !isGeneratingSkill;
+  const canRun =
+    runBlockers.length === 0 && !isRunning && !isGeneratingSkill && !isAssistingLayout;
 
   function toggleRandomCategory(category: string): void {
     setRandomCategories((current) => current.includes(category)
@@ -819,10 +859,12 @@ export function usePromptOrchestratorWorkbench() {
   }
 
   async function refineLayoutCaptions(): Promise<void> {
-    if (!llmModelId || mossLayout.boxes.length === 0 || isAssistingLayout) return;
+    if (!llmModelId || mossLayout.boxes.length === 0 || isAssistingLayout || isRunning) return;
     setIsAssistingLayout(true);
     setError("");
     setLayoutAssistNote("");
+    // The API answers in request order, so keep the ids to map captions back.
+    const requestedIds = mossLayout.boxes.map((box) => box.id);
     const runId = crypto.randomUUID();
     setAssistRunId(runId);
     try {
@@ -845,12 +887,7 @@ export function usePromptOrchestratorWorkbench() {
         return;
       }
       const { captions, status, warnings } = reply.data;
-      mossLayout.setBoxes((current) =>
-        current.map((box, index) => {
-          const caption = captions[index]?.trim();
-          return caption ? { ...box, caption } : box;
-        }),
-      );
+      mossLayout.setBoxes((current) => applyCaptionsToBoxes(current, requestedIds, captions));
       setLayoutAssistNote(
         status === "degraded"
           ? warnings.join(" ")
@@ -879,7 +916,22 @@ export function usePromptOrchestratorWorkbench() {
   }
 
   async function reverseLayoutFromImage(file: File): Promise<void> {
-    if (!llmModelId || isAssistingLayout) return;
+    if (!llmModelId || isAssistingLayout || isRunning) return;
+    if (mossLayout.boxes.length > 0) {
+      const confirmed = await requestConfirmation({
+        title: t("orchestrator.layout.reverseOverwriteTitle"),
+        message: t("orchestrator.layout.reverseOverwriteMessage", {
+          count: mossLayout.boxes.length,
+        }),
+        confirmText: t("orchestrator.layout.reverseOverwriteConfirm"),
+        variant: "destructive",
+      });
+      if (!confirmed) return;
+    }
+    const previous = {
+      boxes: mossLayout.boxes,
+      selectedBoxId: mossLayout.selectedBoxId,
+    };
     setIsAssistingLayout(true);
     setError("");
     setLayoutAssistNote("");
@@ -907,6 +959,7 @@ export function usePromptOrchestratorWorkbench() {
         setLayoutAssistNote(warnings.join(" ") || t("orchestrator.layout.reverseEmpty"));
         return;
       }
+      setLayoutUndo(previous.boxes.length > 0 ? previous : null);
       mossLayout.setBoxes(draft.boxes);
       mossLayout.setSelectedBoxId(draft.boxes[0].id);
       if (summary && !prompt.trim()) setPrompt(summary);
@@ -927,6 +980,15 @@ export function usePromptOrchestratorWorkbench() {
       setIsAssistingLayout(false);
       setAssistRunId(null);
     }
+  }
+
+  /** Restores the boxes replaced by the last reverse; one step only. */
+  function undoReverseLayout(): void {
+    if (!layoutUndo) return;
+    mossLayout.setBoxes(layoutUndo.boxes);
+    mossLayout.setSelectedBoxId(layoutUndo.selectedBoxId);
+    setLayoutUndo(null);
+    setLayoutAssistNote(t("orchestrator.layout.reverseUndone"));
   }
 
   async function generateSkill(): Promise<void> {
@@ -1035,6 +1097,7 @@ export function usePromptOrchestratorWorkbench() {
     streaming, reuseResultAsIntent, lastRunStats, cancelRun, canceling,
     acceptReferenceFiles, pasteReferenceImage,
     isAssistingLayout, layoutAssistNote, refineLayoutCaptions, reverseLayoutFromImage, cancelAssistLayout,
+    canUndoReverse: layoutUndo !== null, undoReverseLayout,
     skillName, setSkillName, skillDraft, savedSkillId, isGeneratingSkill,
     isSavingSkill, canGenerateSkill: Boolean(
       prompt.trim() && llmModelId && !isVideoTask(mode) && !isRunning && !isGeneratingSkill,

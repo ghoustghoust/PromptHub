@@ -1,4 +1,5 @@
 import type { PromptOrchestrationInput } from "@prompthub/shared/types";
+import { MAX_WRITING_LAYER_CHARS } from "@prompthub/shared/utils/prompt-orchestrator-limits";
 import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
 import { buildCompositionMessages } from "./prompt-orchestrator-composition";
 
@@ -8,7 +9,7 @@ export const DEFAULT_LAYER_OUTPUT_RESERVE = 4096;
 export const MIN_LAYER_CONTEXT_TOKENS = 4096;
 export const MAX_LAYER_CONTEXT_TOKENS = 131_072;
 /** Transport/DB guard only; the token budget is the real limit. */
-export const MAX_LAYER_CHARS = 60_000;
+export const MAX_LAYER_CHARS = MAX_WRITING_LAYER_CHARS;
 /** Conservative per-image prompt cost on top of the text budget. */
 const IMAGE_PROMPT_TOKENS = 1024;
 

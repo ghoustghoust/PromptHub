@@ -556,6 +556,8 @@ export interface PromptOrchestratorWorkspaceState {
   writingPresetId?: string | null;
   writingPresetVariant?: PromptWritingLayerVariant;
   writingPresetSectionIds?: string[];
+  /** Canvas draft (size and boxes) so a reload keeps the current layout. */
+  mossLayout?: PromptMossLayoutDraft;
   updatedAt?: string;
 }
 

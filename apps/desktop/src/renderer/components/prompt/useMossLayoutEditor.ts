@@ -1,11 +1,30 @@
 import { useMemo, useState } from "react";
 import type {
   PromptMossLayoutBox,
+  PromptMossLayoutDraft,
   PromptMossLayoutLabel,
 } from "@prompthub/shared/types";
-import { mossResolution, MOSS_DEFAULT_MEGAPIXELS } from "./prompt-orchestrator-catalog";
+import {
+  mossResolution,
+  MOSS_ASPECT_RATIOS,
+  MOSS_DEFAULT_MEGAPIXELS,
+  MOSS_MEGAPIXEL_OPTIONS,
+} from "./prompt-orchestrator-catalog";
 
 export type MossLayoutPreset = "background" | PromptMossLayoutLabel;
+
+/** Finds the preset pair that produces exactly the restored canvas size. */
+function matchPreset(width: number, height: number): { ratio: string; megapixels: string } | null {
+  for (const ratio of MOSS_ASPECT_RATIOS) {
+    for (const megapixels of MOSS_MEGAPIXEL_OPTIONS) {
+      const size = mossResolution(ratio.label, Number(megapixels));
+      if (size?.width === width && size.height === height) {
+        return { ratio: ratio.label, megapixels };
+      }
+    }
+  }
+  return null;
+}
 
 function newBox(kind: MossLayoutPreset): PromptMossLayoutBox {
   const label = kind === "text" ? "text" : "object";
@@ -94,6 +113,17 @@ export function useMossLayoutEditor() {
     });
   }
 
+  /** Restores a persisted draft; the ratio and megapixel chips follow the size when they still match. */
+  function restore(draft: PromptMossLayoutDraft): void {
+    setWidthState(String(draft.canvas.width));
+    setHeightState(String(draft.canvas.height));
+    setBoxes(draft.boxes);
+    setSelectedBoxId(draft.boxes[0]?.id ?? null);
+    const preset = matchPreset(draft.canvas.width, draft.canvas.height);
+    setRatioState(preset?.ratio ?? "custom");
+    if (preset) setMegapixelsState(preset.megapixels);
+  }
+
   // Captions may stay empty: the orchestrator fills them before compiling.
   const complete = boxes.length > 0 && boxes.every((box) =>
     box.label !== "text" || Boolean(box.text?.trim()),
@@ -103,6 +133,6 @@ export function useMossLayoutEditor() {
     width, setWidth, height, setHeight,
     ratio, setRatio, megapixels, setMegapixels,
     boxes, setBoxes, selectedBoxId, setSelectedBoxId, selectedBox,
-    addBox, updateBox, removeBox, moveBox, complete,
+    addBox, updateBox, removeBox, moveBox, restore, complete,
   };
 }

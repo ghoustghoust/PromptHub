@@ -15,6 +15,7 @@ import type {
   PromptMossCaptionRefinement,
   PromptMossLayoutDraft,
   PromptMossLayoutReverse,
+  PromptMossNormalizedBBox,
   PromptOrchestrationInput,
   PromptOrchestrationResult,
   PromptOrchestratorWorkspaceState,
@@ -29,6 +30,13 @@ import type {
   PromptWritingLayerBudgetPreview,
   PromptOrchestratorStreamEvent,
 } from "@prompthub/shared/types";
+import {
+  MAX_LAYOUT_BOXES,
+  MAX_LAYOUT_CANVAS_SIDE,
+  MAX_LAYOUT_ID_CHARS,
+  MAX_LAYOUT_TEXT_CHARS,
+  MAX_WRITING_LAYER_CHARS,
+} from "@prompthub/shared/utils/prompt-orchestrator-limits";
 
 const MAX_REVERSE_IMAGES = 4;
 const MAX_IMAGE_CHARS = 16_000_000;
@@ -209,12 +217,117 @@ function optionalWorkspaceText(
   const text = value.trim();
   if (!text) return null;
   if (text.length > maxLength || text.includes("\0")) {
-    throw new Error(`${label} exceeds its length limit or contains a null byte`);
+    throw new Error(`${label} exceeds its length limit (${maxLength}) or contains a null byte`);
   }
   return text;
 }
 
-function parseWorkspaceState(value: unknown): PromptOrchestratorWorkspaceState {
+/** Canvas captions and exact text are persisted verbatim; only length is checked. */
+function exactWorkspaceText(value: unknown, label: string, maxLength: number): string {
+  if (typeof value !== "string") throw new Error(`${label} must be a string`);
+  if (value.length > maxLength || value.includes("\0")) {
+    throw new Error(`${label} exceeds its length limit (${maxLength}) or contains a null byte`);
+  }
+  return value;
+}
+
+function workspaceCanvasSide(value: unknown): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value <= 0 ||
+    value > MAX_LAYOUT_CANVAS_SIDE
+  ) {
+    throw new Error(`mossLayout canvas sides must be integers from 1 to ${MAX_LAYOUT_CANVAS_SIDE}`);
+  }
+  return value;
+}
+
+function workspaceBBox(value: unknown, label: string): PromptMossNormalizedBBox {
+  if (!Array.isArray(value) || value.length !== 4) {
+    throw new Error(`${label} must be four integers from 0 to 1000`);
+  }
+  const coordinates: number[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "number" || !Number.isInteger(entry) || entry < 0 || entry > 1000) {
+      throw new Error(`${label} must be four integers from 0 to 1000`);
+    }
+    coordinates.push(entry);
+  }
+  const [top, left, bottom, right] = coordinates;
+  if (top >= bottom || left >= right) {
+    throw new Error(`${label} must keep top < bottom and left < right`);
+  }
+  return [top, left, bottom, right];
+}
+
+function readWorkspaceLayout(value: unknown): PromptMossLayoutDraft {
+  if (!isRecord(value) || value.version !== 1) {
+    throw new Error("mossLayout.version must be 1");
+  }
+  if (!isRecord(value.canvas)) throw new Error("mossLayout.canvas is required");
+  const width = workspaceCanvasSide(value.canvas.width);
+  const height = workspaceCanvasSide(value.canvas.height);
+  if (!Array.isArray(value.boxes) || value.boxes.length > MAX_LAYOUT_BOXES) {
+    throw new Error(`mossLayout.boxes must be an array of at most ${MAX_LAYOUT_BOXES} boxes`);
+  }
+  const seen = new Set<string>();
+  const boxes = value.boxes.map((entry, index) => {
+    const label = `mossLayout.boxes[${index}]`;
+    if (!isRecord(entry)) throw new Error(`${label} must be an object`);
+    const id = workspaceText(entry.id, `${label}.id`, MAX_LAYOUT_ID_CHARS);
+    if (seen.has(id)) throw new Error(`${label}.id must be unique`);
+    seen.add(id);
+    const rawLabel = entry.label;
+    if (rawLabel !== "object" && rawLabel !== "text") {
+      throw new Error(`${label}.label must be object or text`);
+    }
+    const boxLabel: "object" | "text" = rawLabel === "text" ? "text" : "object";
+    const caption = exactWorkspaceText(entry.caption, `${label}.caption`, MAX_LAYOUT_TEXT_CHARS);
+    const text = entry.text === undefined
+      ? undefined
+      : exactWorkspaceText(entry.text, `${label}.text`, MAX_LAYOUT_TEXT_CHARS);
+    if (entry.character !== undefined && typeof entry.character !== "boolean") {
+      throw new Error(`${label}.character must be a boolean`);
+    }
+    if (entry.needsReview !== undefined && typeof entry.needsReview !== "boolean") {
+      throw new Error(`${label}.needsReview must be a boolean`);
+    }
+    return {
+      id,
+      label: boxLabel,
+      caption,
+      ...(text !== undefined ? { text } : {}),
+      ...(entry.character === true ? { character: true } : {}),
+      ...(entry.needsReview === true ? { needsReview: true } : {}),
+      bbox: workspaceBBox(entry.bbox, `${label}.bbox`),
+    };
+  });
+  return { version: 1, canvas: { width, height }, boxes };
+}
+
+/**
+ * Write path rejects an invalid draft; the read path drops it so a damaged
+ * canvas never costs the rest of the workspace (terms, layer, archive).
+ */
+function parseWorkspaceLayout(
+  value: unknown,
+  tolerate: boolean,
+): PromptMossLayoutDraft | undefined {
+  if (value === undefined || value === null) return undefined;
+  try {
+    return readWorkspaceLayout(value);
+  } catch (error) {
+    if (!tolerate) throw error;
+    console.warn("Ignoring invalid orchestrator canvas draft", error);
+    return undefined;
+  }
+}
+
+function parseWorkspaceState(
+  value: unknown,
+  tolerateLayout = false,
+): PromptOrchestratorWorkspaceState {
   if (!isRecord(value)) {
     throw new Error("Orchestrator workspace state must be an object");
   }
@@ -252,6 +365,7 @@ function parseWorkspaceState(value: unknown): PromptOrchestratorWorkspaceState {
       state: state as PromptOrchestratorWorkspaceTerm["state"],
     });
   });
+  const layout = parseWorkspaceLayout(value.mossLayout, tolerateLayout);
   return {
     prefabTerms,
     modelId: typeof value.modelId === "string"
@@ -261,6 +375,7 @@ function parseWorkspaceState(value: unknown): PromptOrchestratorWorkspaceState {
       ? optionalWorkspaceText(value.loraIds, "loraIds", 500) ?? ""
       : "",
     ...workspaceLayerState(value),
+    ...(layout !== undefined ? { mossLayout: layout } : {}),
   };
 }
 
@@ -294,7 +409,11 @@ function workspaceLayerState(
     throw new Error("writingPresetVariant must be compressed or original");
   }
   const variant = variantValue as "compressed" | "original" | undefined;
-  const layerText = optionalWorkspaceText(value.systemLayerText, "systemLayerText", 20_000);
+  const layerText = optionalWorkspaceText(
+    value.systemLayerText,
+    "systemLayerText",
+    MAX_WRITING_LAYER_CHARS,
+  );
   return {
     ...(layerText ? { systemLayerText: layerText } : {}),
     ...(workspaceNullableId(value.systemLayerSource, "systemLayerSource") !== undefined
@@ -325,7 +444,7 @@ export class DesktopPromptOrchestratorService {
     const stored = this.workspace.get();
     if (!stored) return null;
     try {
-      return parseWorkspaceState(stored);
+      return parseWorkspaceState(stored, true);
     } catch (error) {
       console.warn("Ignoring corrupted orchestrator workspace state", error);
       return null;

@@ -5,9 +5,11 @@ import type {
   PromptMossLayoutResult,
   PromptMossNormalizedBBox,
 } from "@prompthub/shared/types";
-
-const MAX_LAYOUT_BOXES = 32;
-const MAX_LAYOUT_TEXT = 4000;
+import {
+  MAX_LAYOUT_BOXES,
+  MAX_LAYOUT_ID_CHARS,
+  MAX_LAYOUT_TEXT_CHARS,
+} from "@prompthub/shared/utils/prompt-orchestrator-limits";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -17,7 +19,7 @@ function validText(value: unknown, allowEmpty = false): value is string {
   return (
     typeof value === "string" &&
     (allowEmpty || value.trim().length > 0) &&
-    value.length <= MAX_LAYOUT_TEXT &&
+    value.length <= MAX_LAYOUT_TEXT_CHARS &&
     !value.includes("\0")
   );
 }
@@ -67,7 +69,7 @@ export function mossLayoutValidationError(value: unknown): string | null {
     const box: unknown = value.boxes[index];
     const label = `layout.boxes[${index}]`;
     if (!isRecord(box)) return `${label} must be an object`;
-    if (!validText(box.id) || box.id.length > 128) return `${label}.id is invalid`;
+    if (!validText(box.id) || box.id.length > MAX_LAYOUT_ID_CHARS) return `${label}.id is invalid`;
     if (ids.has(box.id)) return `${label}.id must be unique`;
     ids.add(box.id);
     if (box.label !== "object" && box.label !== "text") {

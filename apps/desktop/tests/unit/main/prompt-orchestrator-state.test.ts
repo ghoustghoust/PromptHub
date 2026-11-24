@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   PromptOrchestratorStateDB,
@@ -142,9 +145,41 @@ describe("orchestrator workspace state", () => {
     expect(() =>
       service.saveWorkspaceState({
         ...state(),
-        systemLayerText: "x".repeat(20_001),
+        systemLayerText: "x".repeat(60_001),
       }),
     ).toThrow("length limit");
+  });
+
+  it("keeps a long writing layer intact after closing and reopening the database", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "prompthub-orchestrator-state-"));
+    const file = path.join(directory, "prompthub.db");
+    const layerText = "## Section\n" + "x".repeat(54_000);
+    try {
+      const first = new DatabaseAdapter(file);
+      first.exec(SCHEMA_TABLES);
+      const saved = new PromptOrchestratorStateDB(first).save(state({ systemLayerText: layerText }));
+      expect(saved.systemLayerText).toHaveLength(layerText.length);
+      first.close();
+
+      const second = new DatabaseAdapter(file);
+      try {
+        expect(new PromptOrchestratorStateDB(second).get()?.systemLayerText).toHaveLength(
+          layerText.length,
+        );
+      } finally {
+        second.close();
+      }
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a writing layer above the transport limit instead of truncating it", () => {
+    const db = new PromptOrchestratorStateDB(rawDb);
+    expect(() => db.save(state({ systemLayerText: "x".repeat(60_001) }))).toThrow(
+      "60000",
+    );
+    expect(db.get()).toBeNull();
   });
 
   it("treats a corrupted row as empty instead of breaking the workbench", () => {
@@ -155,5 +190,84 @@ describe("orchestrator workspace state", () => {
       .run("{not json", Date.now());
     const service = new DesktopPromptOrchestratorService(rawDb);
     expect(service.getWorkspaceState()).toBeNull();
+  });
+
+  it("round-trips the canvas draft verbatim and rejects invalid boxes", () => {
+    const service = new DesktopPromptOrchestratorService(rawDb);
+    const mossLayout = {
+      version: 1 as const,
+      canvas: { width: 1536, height: 1024 },
+      boxes: [
+        {
+          id: "box-1",
+          label: "text" as const,
+          caption: "  keeps surrounding spaces  ",
+          text: "EXACT",
+          bbox: [10, 20, 300, 400] as [number, number, number, number],
+        },
+        {
+          id: "box-2",
+          label: "object" as const,
+          caption: "A tower",
+          character: true,
+          needsReview: true,
+          bbox: [400, 100, 900, 800] as [number, number, number, number],
+        },
+      ],
+    };
+    service.saveWorkspaceState({ ...state(), mossLayout });
+    expect(service.getWorkspaceState()?.mossLayout).toEqual(mossLayout);
+
+    expect(() =>
+      service.saveWorkspaceState({
+        ...state(),
+        mossLayout: { ...mossLayout, canvas: { width: 0, height: 1024 } },
+      }),
+    ).toThrow("canvas sides");
+    expect(() =>
+      service.saveWorkspaceState({
+        ...state(),
+        mossLayout: {
+          ...mossLayout,
+          boxes: [{ ...mossLayout.boxes[0], bbox: [300, 20, 10, 400] as [number, number, number, number] }],
+        },
+      }),
+    ).toThrow("top < bottom");
+    expect(() =>
+      service.saveWorkspaceState({
+        ...state(),
+        mossLayout: {
+          ...mossLayout,
+          boxes: Array.from({ length: 33 }, (_, index) => ({
+            ...mossLayout.boxes[1],
+            id: `box-${index}`,
+          })),
+        },
+      }),
+    ).toThrow("at most 32 boxes");
+  });
+
+  it("drops a damaged stored canvas but keeps the rest of the workspace", () => {
+    rawDb
+      .prepare(
+        "INSERT INTO prompt_orchestrator_state (id, state_json, updated_at) VALUES ('default', ?, ?)",
+      )
+      .run(
+        JSON.stringify({
+          prefabTerms: [],
+          modelId: "moss-base",
+          loraIds: "",
+          mossLayout: {
+            version: 1,
+            canvas: { width: 1024, height: 1024 },
+            boxes: [{ id: "bad", label: "object", caption: "", bbox: [0, 0, 0, 0] }],
+          },
+        }),
+        Date.now(),
+      );
+    const service = new DesktopPromptOrchestratorService(rawDb);
+    const restored = service.getWorkspaceState();
+    expect(restored?.modelId).toBe("moss-base");
+    expect(restored?.mossLayout).toBeUndefined();
   });
 });

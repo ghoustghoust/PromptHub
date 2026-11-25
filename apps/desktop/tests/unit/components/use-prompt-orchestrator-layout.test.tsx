@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PromptMossLayoutBox } from "@prompthub/shared/types";
 import { usePromptOrchestratorWorkbench } from "../../../src/renderer/components/prompt/usePromptOrchestratorWorkbench";
-import { settleConfirmation } from "../../../src/renderer/components/ui/confirmation";
+import { settleConfirmation, useConfirmationState } from "../../../src/renderer/components/ui/confirmation";
 import { useSettingsStore } from "../../../src/renderer/stores/settings.store";
 import { installWindowMocks } from "../../helpers/window";
 
@@ -160,6 +160,52 @@ describe("usePromptOrchestratorWorkbench layout safety", () => {
 
     act(() => hook.result.current.undoReverseLayout());
     expect(hook.result.current.mossLayout.boxes.map((entry) => entry.id)).toEqual(["kept"]);
+    expect(hook.result.current.canUndoReverse).toBe(false);
+  });
+
+  it("clears the canvas only after confirmation and drops the reverse undo", async () => {
+    const draft = { version: 1 as const, canvas: { width: 1024, height: 1024 }, boxes: [box("reversed")] };
+    const reverseLayout = vi.fn().mockResolvedValue({
+      ok: true,
+      data: { draft, summary: "Poster", status: "complete", warnings: [] },
+    });
+    installWindowMocks({ api: { promptOrchestrator: { reverseLayout } } });
+
+    const hook = await mountWorkbench();
+    act(() => hook.result.current.mossLayout.setBoxes([box("kept")]));
+    const file = new File(["image"], "poster.png", { type: "image/png" });
+    let reversed!: Promise<void>;
+    act(() => {
+      reversed = hook.result.current.reverseLayoutFromImage(file);
+    });
+    act(() => settleConfirmation(true));
+    await act(async () => {
+      await reversed;
+    });
+    expect(hook.result.current.canUndoReverse).toBe(true);
+
+    let clearing!: Promise<void>;
+    act(() => {
+      clearing = hook.result.current.clearLayoutCanvas();
+    });
+    await waitFor(() => expect(useConfirmationState.getState().pending).not.toBeNull());
+    act(() => settleConfirmation(false));
+    await act(async () => {
+      await clearing;
+    });
+    expect(hook.result.current.mossLayout.boxes.map((entry) => entry.id)).toEqual(["reversed"]);
+    expect(hook.result.current.canUndoReverse).toBe(true);
+
+    act(() => {
+      clearing = hook.result.current.clearLayoutCanvas();
+    });
+    await waitFor(() => expect(useConfirmationState.getState().pending).not.toBeNull());
+    act(() => settleConfirmation(true));
+    await act(async () => {
+      await clearing;
+    });
+    expect(hook.result.current.mossLayout.boxes).toEqual([]);
+    expect(hook.result.current.mossLayout.selectedBoxId).toBeNull();
     expect(hook.result.current.canUndoReverse).toBe(false);
   });
 

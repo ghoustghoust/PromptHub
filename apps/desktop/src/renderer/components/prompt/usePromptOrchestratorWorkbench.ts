@@ -991,6 +991,24 @@ export function usePromptOrchestratorWorkbench() {
     setLayoutAssistNote(t("orchestrator.layout.reverseUndone"));
   }
 
+  /**
+   * Empties the canvas after confirmation. There is no undo, so the pending
+   * reverse snapshot is dropped to avoid restoring boxes onto a blank canvas.
+   */
+  async function clearLayoutCanvas(): Promise<void> {
+    if (mossLayout.boxes.length === 0 || isAssistingLayout || isRunning) return;
+    const confirmed = await requestConfirmation({
+      title: t("orchestrator.layout.clearCanvasTitle"),
+      message: t("orchestrator.layout.clearCanvasMessage", { count: mossLayout.boxes.length }),
+      confirmText: t("orchestrator.layout.clearCanvasConfirm"),
+      variant: "destructive",
+    });
+    if (!confirmed) return;
+    mossLayout.clearBoxes();
+    setLayoutUndo(null);
+    setLayoutAssistNote("");
+  }
+
   async function generateSkill(): Promise<void> {
     if (!prompt.trim() || !llmModelId || isVideoTask(mode) || isRunning || isGeneratingSkill) return;
     const id = ++skillRequestId.current;
@@ -1097,7 +1115,9 @@ export function usePromptOrchestratorWorkbench() {
     streaming, reuseResultAsIntent, lastRunStats, cancelRun, canceling,
     acceptReferenceFiles, pasteReferenceImage,
     isAssistingLayout, layoutAssistNote, refineLayoutCaptions, reverseLayoutFromImage, cancelAssistLayout,
-    canUndoReverse: layoutUndo !== null, undoReverseLayout,
+    canUndoReverse: layoutUndo !== null,
+    undoReverseLayout,
+    clearLayoutCanvas,
     skillName, setSkillName, skillDraft, savedSkillId, isGeneratingSkill,
     isSavingSkill, canGenerateSkill: Boolean(
       prompt.trim() && llmModelId && !isVideoTask(mode) && !isRunning && !isGeneratingSkill,

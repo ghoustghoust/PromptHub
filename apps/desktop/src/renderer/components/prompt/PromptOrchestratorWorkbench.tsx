@@ -771,6 +771,7 @@ export function PromptOrchestratorWorkbench() {
                   onRefineCaptions={() => void state.refineLayoutCaptions()}
                   onReverseFromImage={(file) => void state.reverseLayoutFromImage(file)}
                   onUndoReverse={state.undoReverseLayout}
+                  onClearCanvas={() => void state.clearLayoutCanvas()}
                   canUndoReverse={state.canUndoReverse}
                   isAssisting={state.isAssistingLayout}
                   assistNote={state.layoutAssistNote}
@@ -905,6 +906,7 @@ export function PromptOrchestratorWorkbench() {
                           onRefineCaptions={() => void state.refineLayoutCaptions()}
                           onReverseFromImage={(file) => void state.reverseLayoutFromImage(file)}
                           onUndoReverse={state.undoReverseLayout}
+                          onClearCanvas={() => void state.clearLayoutCanvas()}
                           canUndoReverse={state.canUndoReverse}
                           isAssisting={state.isAssistingLayout}
                           assistNote={state.layoutAssistNote}

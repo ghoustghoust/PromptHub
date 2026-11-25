@@ -26,18 +26,41 @@ function matchPreset(width: number, height: number): { ratio: string; megapixels
   return null;
 }
 
-function newBox(kind: MossLayoutPreset): PromptMossLayoutBox {
+/**
+ * Steps a new box down-right by a fixed amount so repeated clicks stay
+ * visible instead of stacking exactly on top of each other.
+ */
+function cascadeBBox(
+  bbox: [number, number, number, number],
+  existingCount: number,
+): [number, number, number, number] {
+  const step = 24;
+  const shift = (existingCount % 8) * step;
+  const height = bbox[2] - bbox[0];
+  const width = bbox[3] - bbox[1];
+  const top = Math.min(bbox[0] + shift, 1000 - height);
+  const left = Math.min(bbox[1] + shift, 1000 - width);
+  return [top, left, top + height, left + width];
+}
+
+function newBox(
+  id: string,
+  kind: MossLayoutPreset,
+  existingCount: number,
+): PromptMossLayoutBox {
   const label = kind === "text" ? "text" : "object";
+  // A background always covers the whole canvas; offsetting it would leave gaps.
+  const base: [number, number, number, number] = kind === "background"
+    ? [0, 0, 1000, 1000]
+    : kind === "text"
+      ? [100, 100, 300, 900]
+      : [300, 300, 700, 700];
   return {
-    id: crypto.randomUUID(),
+    id,
     label,
     caption: "",
     ...(label === "text" ? { text: "" } : {}),
-    bbox: kind === "background"
-      ? [0, 0, 1000, 1000]
-      : kind === "text"
-        ? [100, 100, 300, 900]
-        : [300, 300, 700, 700],
+    bbox: kind === "background" ? base : cascadeBBox(base, existingCount),
   };
 }
 
@@ -84,9 +107,15 @@ export function useMossLayoutEditor() {
   }
 
   function addBox(kind: MossLayoutPreset): void {
-    const box = newBox(kind);
-    setBoxes((current) => [...current, box]);
-    setSelectedBoxId(box.id);
+    const id = crypto.randomUUID();
+    setBoxes((current) => [...current, newBox(id, kind, current.length)]);
+    setSelectedBoxId(id);
+  }
+
+  /** Removes every box; used by the canvas "clear" action after confirmation. */
+  function clearBoxes(): void {
+    setBoxes([]);
+    setSelectedBoxId(null);
   }
 
   function updateBox(id: string, patch: Partial<PromptMossLayoutBox>): void {
@@ -133,6 +162,6 @@ export function useMossLayoutEditor() {
     width, setWidth, height, setHeight,
     ratio, setRatio, megapixels, setMegapixels,
     boxes, setBoxes, selectedBoxId, setSelectedBoxId, selectedBox,
-    addBox, updateBox, removeBox, moveBox, restore, complete,
+    addBox, updateBox, removeBox, moveBox, restore, clearBoxes, complete,
   };
 }

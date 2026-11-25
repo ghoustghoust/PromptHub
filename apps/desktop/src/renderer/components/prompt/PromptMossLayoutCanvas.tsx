@@ -68,6 +68,7 @@ export function PromptMossLayoutCanvas({
   onRefineCaptions,
   onReverseFromImage,
   onUndoReverse,
+  onClearCanvas,
   canUndoReverse = false,
   isAssisting = false,
   assistNote = "",
@@ -77,6 +78,7 @@ export function PromptMossLayoutCanvas({
   onRefineCaptions?: () => void;
   onReverseFromImage?: (file: File) => void;
   onUndoReverse?: () => void;
+  onClearCanvas?: () => void;
   canUndoReverse?: boolean;
   isAssisting?: boolean;
   assistNote?: string;
@@ -368,6 +370,18 @@ export function PromptMossLayoutCanvas({
             <Button size="sm" variant="secondary" onClick={() => editor.addBox("text")} disabled={isAssisting} data-testid="layout-add-text">
               <TypeIcon className="h-3.5 w-3.5" />{t("orchestrator.layout.addText")}
             </Button>
+            {onClearCanvas && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onClearCanvas}
+                disabled={isAssisting || editor.boxes.length === 0}
+                data-testid="layout-clear-canvas"
+                className="text-destructive hover:text-destructive"
+              >
+                <Trash2Icon className="h-3.5 w-3.5" />{t("orchestrator.layout.clearCanvas")}
+              </Button>
+            )}
             <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
               <input type="checkbox" checked={showGrid} onChange={(event) => setShowGrid(event.target.checked)} />
               {t("orchestrator.layout.grid")}

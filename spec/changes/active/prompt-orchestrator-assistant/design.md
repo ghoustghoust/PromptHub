@@ -1582,6 +1582,13 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
   `07-contract-roles.png`。
 - 预算提醒：s9 的 7 条 contract 共 4,322 token、斯坦尼 contract 共 12,379 token；8K 档
   （预算约 2,061）选包即超预算，真实引擎复测需要 32K 上下文，旧的双包 8K e2e 已移除。
+- **32K 实测（2026-11-25）**：8GB 显存可正常启动 32K（q4_0 KV）；写作层预算 25,654，
+  s9 4,322 / 25,654 无超限告警，首字 2,057ms、27.6 tok/s；斯坦尼 12,379 / 25,654 无告警，
+  首字 6,180ms、20.7 tok/s。两次 Term trace 均显示 contract 模块 `Injected as parameters`，
+  生成结果完整。数据 `outputs/a6-phase2-20261125/live-contract-32k.json`，截图
+  `08-s9-contract-32k.png`、`09-stani-contract-32k.png`。
+- 注意：斯坦尼一次注入分镜/剧本/小说三篇共 18 条 contract，语义上偏多；后续应按项目类型
+  （只写剧本 / 只做分镜）拆分 contract 组，而不是整包全开。
 
 ### 未做
 

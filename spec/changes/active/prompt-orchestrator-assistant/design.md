@@ -1670,6 +1670,15 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
   desktop typecheck、typecheck:tests、lint、构建通过。
 - 未做：没有用真实引擎跑“选色卡”的对比样本。
 
+### 32K 色卡对比尝试（未完成）
+
+- 目标：同一提示词，32K 上下文，分别不选色卡 / 选 3 张，落盘 prompt 与 provenance。
+- 结果：多次尝试中首轮生成可用，但后续 32K 会话反复出现本地引擎 `Stopped`，第二轮
+  Term trace 为空（无 provenance）；尝试过同会话连续两轮、每次重启、先选卡再启引擎，
+  均未稳定拿到两份结果。8GB 显存下 32K + 连续生成的稳定性不足，未改预算或引擎策略。
+- 没有把失败样本伪装成对比数据；`live-reference-32k.json` 未生成。Core 注入、预算与
+  provenance 已由单测覆盖（5/5）；真实对比待更大显存或在 8K/16K 下另行评估。
+
 ### 未做
 
 - 选择尚未进入 Core；下一步加 `referenceStyles` 输入、紧凑注入与 provenance，并在预算里

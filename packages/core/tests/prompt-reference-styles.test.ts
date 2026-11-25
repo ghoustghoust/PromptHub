@@ -106,6 +106,22 @@ describe("reference color cards in Core", () => {
     expect(result.systemPromptLayerMetrics?.referenceTokens).toBeGreaterThan(10);
   });
 
+  it("keeps reference provenance in the deterministic fallback", async () => {
+    const failing: PromptOrchestratorLlm = {
+      complete: async () => {
+        throw new Error("engine stopped");
+      },
+    };
+    const result = await new PromptOrchestrator({ vocabulary, llm: failing }).orchestrate({
+      prompt: "a duel",
+      skill: "moss",
+      mode: "expand",
+      outputFormat: "caption",
+      referenceStyles: [reference()],
+    });
+    expect(result.provenance?.some((entry) => entry.kind === "reference")).toBe(true);
+  });
+
   it("rejects more than three references", async () => {
     await expect(
       new PromptOrchestrator({ vocabulary, llm: llm() }).orchestrate({

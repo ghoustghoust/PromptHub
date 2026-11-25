@@ -1437,10 +1437,25 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
   超过 200 个模块；`listPacks` 按更新时间倒序、`listModules` 按 ord。
 - 已接入 `SCHEMA_TABLES` 与初始化迁移；DB 单测 3/3（往返、重复键、级联删除）。
 
+### 扫描、解析与导入预览
+
+- 新增 `previewKnowledgePack(root)`：读 `SKILL.md` frontmatter（name/version/kind/variant），
+  模块来源优先 `知识/` 下逐文件，其次 `index.md` 的 `##` 段，再退到 `SKILL.md` 的 `##` 段，
+  最后整篇作为 overview；`##` 切分跳过代码围栏。
+- 逐文件 frontmatter 支持 `module/name/category/scope/priority/triggers/depends_on/inject`：
+  `inject: false` 不再入库；`源/`（source copy）默认跳过，保留注入版；
+  moduleKey 优先用 `module:`，否则用“标题 slug + 路径/内容哈希前 8 位”。
+- 单模块 50KB / 6k token 超限、脚本与非 Markdown 文件、备份/agents/tools/source 目录统一进
+  `skipped` 并带原因；同内容哈希去重并报 `duplicate-content`，同 module_key 报 `module-key`；
+  去重后超过 200 个模块直接拒绝。
+- 单测 7/7；用真实 `prompt/new` 只读试跑：Skill-Film 160 个模块、0 冲突（与包内索引一致），
+  moss-prompt 8 个、老唐 s9 7 个。
+
 ### 未做
 
-- 扫描/解析/导入预览服务、IPC/preload、Core 的 `knowledgeModules` 预算注入与 UI 尚未开始；
-  选择状态（knowledgePackIds / knowledgeModuleIds）也尚未进入 workspace state。
+- 导入提交（DB 写入 + 预览到记录的组装）、IPC/preload、Core 的 `knowledgeModules`
+  预算注入与 UI 尚未开始；选择状态（knowledgePackIds / knowledgeModuleIds）
+  也尚未进入 workspace state。
 
 ## 评估方式
 

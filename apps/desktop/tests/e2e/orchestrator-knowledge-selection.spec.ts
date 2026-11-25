@@ -15,7 +15,7 @@ async function openOrchestrator(page: Page): Promise<void> {
   await expect(page.getByTestId("orchestrator-writing-layer")).toBeVisible();
 }
 
-test("imports a pack, selects modules and restores the selection after a restart", async () => {
+test("imports a pack through the UI, selects modules, restores and deletes it", async () => {
   test.setTimeout(300_000);
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "prompthub-e2e-knowledge-"));
   let launched: Awaited<ReturnType<typeof launchPromptHub>> | null = null;
@@ -27,18 +27,17 @@ test("imports a pack, selects modules and restores the selection after a restart
     await expect(launched.page.getByTestId("writing-layer-knowledge")).toBeVisible();
     await expect(launched.page.getByTestId("writing-layer-knowledge-empty")).toBeVisible();
 
-    const committed = await launched.page.evaluate(async (rootPath) => {
-      const preview = await window.api.promptKnowledge.previewPack({ rootPath });
-      if (preview.ok !== true) return { stage: "preview", message: preview.error.message };
-      const result = await window.api.promptKnowledge.commitImport({ preview: preview.data });
-      if (result.ok !== true) return { stage: "commit", message: result.error.message };
-      return { stage: "done", moduleCount: result.data.moduleCount };
-    }, PACK_ROOT) as { stage: string; moduleCount?: number; message?: string };
-    expect(committed).toMatchObject({ stage: "done" });
-    expect(committed.moduleCount).toBe(160);
+    // The hidden picker carries webkitdirectory; Electron maps each File back to
+    // its real path, so choosing any file inside the pack yields the root.
+    await launched.page.getByTestId("writing-layer-knowledge-directory").setInputFiles(PACK_ROOT);
+    const dialog = launched.page.getByTestId("knowledge-import-dialog");
+    await expect(dialog).toBeVisible({ timeout: 60_000 });
+    await expect(dialog).toContainText("160 modules");
+    fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+    await captureAppPage(launched.app, launched.page, path.join(SCREENSHOT_DIR, "02-import-preview.png"));
 
-    await launched.page.reload();
-    await openOrchestrator(launched.page);
+    await launched.page.getByTestId("knowledge-import-confirm").click();
+    await expect(dialog).toHaveCount(0, { timeout: 60_000 });
     await expect(launched.page.getByText("film-creative-kb")).toBeVisible({ timeout: 30_000 });
 
     const firstPack = launched.page.locator('[data-testid^="writing-layer-knowledge-pack-"]').first();
@@ -52,7 +51,6 @@ test("imports a pack, selects modules and restores the selection after a restart
       "0 module tokens",
     );
     await launched.page.waitForTimeout(1200);
-    fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
     await captureAppPage(launched.app, launched.page, path.join(SCREENSHOT_DIR, "01-knowledge-selected.png"));
 
     await launched.app.close();
@@ -68,6 +66,16 @@ test("imports a pack, selects modules and restores the selection after a restart
       .locator('[data-testid^="writing-layer-knowledge-module-"]')
       .first();
     await expect(restoredModule).toBeChecked({ timeout: 30_000 });
+
+    const deleteButton = launched.page
+      .locator('[data-testid^="writing-layer-knowledge-delete-"]')
+      .first();
+    await deleteButton.click();
+    const confirm = launched.page.getByRole("alertdialog");
+    await expect(confirm).toBeVisible();
+    await confirm.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(restoredPack).toHaveCount(0, { timeout: 30_000 });
+    await expect(launched.page.getByTestId("writing-layer-knowledge-empty")).toBeVisible();
   } finally {
     if (launched) await launched.app.close();
     fs.rmSync(userDataDir, { recursive: true, force: true });

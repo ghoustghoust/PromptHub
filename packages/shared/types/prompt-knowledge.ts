@@ -20,6 +20,9 @@ export type PromptKnowledgeModulePriority = "P0" | "P1" | "P2";
  */
 export type PromptKnowledgeModuleRole = "contract" | "knowledge" | "reference";
 
+/** Contract groups let one pack ship separate always-on sets per project type. */
+export type PromptKnowledgeContractGroup = "script" | "storyboard" | "novel";
+
 export type PromptKnowledgeLinkRelation =
   | "uses"
   | "recommends"
@@ -59,6 +62,8 @@ export interface PromptKnowledgeModule {
   scope?: string;
   priority?: PromptKnowledgeModulePriority;
   role: PromptKnowledgeModuleRole;
+  /** Contract-only: which project group(s) activate this contract. */
+  contractGroups: PromptKnowledgeContractGroup[];
   layer?: PromptKnowledgeModuleLayer;
   triggers: string[];
   dependsOn: string[];
@@ -91,6 +96,7 @@ export interface PromptKnowledgeModulePreview {
   scope?: string;
   priority?: PromptKnowledgeModulePriority;
   role: PromptKnowledgeModuleRole;
+  contractGroups: PromptKnowledgeContractGroup[];
   layer: PromptKnowledgeModuleLayer;
   triggers: string[];
   dependsOn: string[];

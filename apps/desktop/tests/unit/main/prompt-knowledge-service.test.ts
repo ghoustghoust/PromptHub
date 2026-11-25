@@ -186,6 +186,26 @@ describe("knowledge pack scan and preview", () => {
     ]);
   });
 
+  it("assigns contract groups from the 篇 prefix", () => {
+    write("剧本篇.md", "## 铁律\nscript body");
+    write("分镜篇.md", "## 执行流程\nstoryboard body");
+    write("小说篇.md", "## 输出格式\nnovel body");
+
+    const modules = previewKnowledgePack(root).packs[0].modules;
+    expect(modules.find((entry) => entry.title.includes("剧本篇"))).toMatchObject({
+      role: "contract",
+      contractGroups: ["script"],
+    });
+    expect(modules.find((entry) => entry.title.includes("分镜篇"))).toMatchObject({
+      role: "contract",
+      contractGroups: ["storyboard"],
+    });
+    expect(modules.find((entry) => entry.title.includes("小说篇"))).toMatchObject({
+      role: "contract",
+      contractGroups: ["novel"],
+    });
+  });
+
   it("splits standalone knowledge documents by heading into knowledge modules", () => {
     write(
       "剧本.md",

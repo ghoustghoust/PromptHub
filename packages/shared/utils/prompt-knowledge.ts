@@ -1,5 +1,6 @@
 import type {
   PromptKnowledgeConflictReason,
+  PromptKnowledgeContractGroup,
   PromptKnowledgeModuleLayer,
   PromptKnowledgeModuleRole,
 } from "../types/prompt-knowledge";
@@ -115,6 +116,23 @@ export function resolveKnowledgeModuleRole(
   ];
   if (contract.some((keyword) => text.includes(keyword))) return "contract";
   return "knowledge";
+}
+
+/**
+ * Contract groups are derived from the document/篇 prefix. "三篇的串联" is the
+ * handoff chapter and belongs to every group; non-contract modules have none.
+ */
+export function resolveKnowledgeContractGroups(
+  title: string,
+  role: PromptKnowledgeModuleRole = "knowledge",
+): PromptKnowledgeContractGroup[] {
+  if (role !== "contract") return [];
+  const text = title.trim();
+  if (text.includes("三篇的串联")) return ["script", "storyboard", "novel"];
+  if (text.includes("分镜篇")) return ["storyboard"];
+  if (text.includes("剧本篇")) return ["script"];
+  if (text.includes("小说篇")) return ["novel"];
+  return [];
 }
 
 /** Returns the reason a module exceeds the per-module limits, or null. */

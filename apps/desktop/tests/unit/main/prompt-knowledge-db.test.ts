@@ -34,6 +34,7 @@ function module(
     category: "knowledge",
     priority: "P0",
     role: "knowledge",
+    contractGroups: [],
     layer: "P",
     triggers: ["分镜"],
     dependsOn: [],
@@ -126,7 +127,10 @@ describe("PromptKnowledgeDB", () => {
         ],
       }),
       [
-        module("rules", 0, { role: "contract" }),
+        module("rules", 0, {
+          role: "contract",
+          contractGroups: ["script", "storyboard", "novel"],
+        }),
         module("examples", 1, { role: "knowledge", contentHash: "hash-examples" }),
         module("color-card", 2, {
           role: "reference",
@@ -143,6 +147,11 @@ describe("PromptKnowledgeDB", () => {
       "contract",
       "knowledge",
       "reference",
+    ]);
+    expect(knowledge.listModules("pack-1")[0].contractGroups).toEqual([
+      "script",
+      "storyboard",
+      "novel",
     ]);
   });
 
@@ -186,6 +195,7 @@ describe("PromptKnowledgeDB", () => {
       .map((entry) => entry.name);
     expect(packColumns).toContain("links_json");
     expect(moduleColumns).toContain("role");
+    expect(moduleColumns).toContain("groups_json");
 
     legacy
       .prepare(

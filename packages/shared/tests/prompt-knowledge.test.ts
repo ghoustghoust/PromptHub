@@ -4,6 +4,7 @@ import {
   dedupeKnowledgeModules,
   isSkippedKnowledgePath,
   knowledgeModuleSizeError,
+  resolveKnowledgeContractGroups,
   resolveKnowledgeLayer,
   resolveKnowledgeModuleRole,
 } from "@prompthub/shared/utils/prompt-knowledge";
@@ -70,6 +71,29 @@ describe("knowledge pack parsing rules", () => {
     assert.equal(resolveKnowledgeModuleRole("导演色卡 · 王家卫"), "reference");
     assert.equal(resolveKnowledgeModuleRole("核心工具", "reference"), "reference");
     assert.equal(resolveKnowledgeModuleRole("执行流程", "knowledge"), "knowledge");
+  });
+
+  it("routes contracts into script, storyboard or novel groups", () => {
+    assert.deepEqual(
+      resolveKnowledgeContractGroups("剧本篇 · 四、铁律", "contract"),
+      ["script"],
+    );
+    assert.deepEqual(
+      resolveKnowledgeContractGroups("分镜篇 · 六、执行流程", "contract"),
+      ["storyboard"],
+    );
+    assert.deepEqual(
+      resolveKnowledgeContractGroups("小说篇 · 十二、输出格式", "contract"),
+      ["novel"],
+    );
+    assert.deepEqual(
+      resolveKnowledgeContractGroups("分镜篇 · 十四、三篇的串联", "contract"),
+      ["script", "storyboard", "novel"],
+    );
+    assert.deepEqual(
+      resolveKnowledgeContractGroups("分镜篇 · 三、核心工具", "knowledge"),
+      [],
+    );
   });
 
   it("keeps one copy per content hash and reports key conflicts", () => {

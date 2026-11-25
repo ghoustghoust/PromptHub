@@ -21,6 +21,7 @@ import {
   knowledgeModuleSizeError,
   MAX_KNOWLEDGE_PACK_MODULES,
   resolveKnowledgeLayer,
+  resolveKnowledgeContractGroups,
   resolveKnowledgeModuleRole,
 } from "@prompthub/shared/utils/prompt-knowledge";
 import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
@@ -292,6 +293,7 @@ function modulePreview(
     return null;
   }
   const priority = candidate.priority ?? priorityOf(candidate.title);
+  const role = candidate.role ?? resolveKnowledgeModuleRole(candidate.title);
   const layer: PromptKnowledgeModuleLayer = resolveKnowledgeLayer(
     candidate.layerHint ? `${candidate.title} ${candidate.layerHint}` : candidate.title,
   );
@@ -303,7 +305,8 @@ function modulePreview(
     ...(candidate.category ? { category: candidate.category } : {}),
     ...(candidate.scope ? { scope: candidate.scope } : {}),
     ...(priority ? { priority } : {}),
-    role: candidate.role ?? resolveKnowledgeModuleRole(candidate.title),
+    role,
+    contractGroups: resolveKnowledgeContractGroups(candidate.title, role),
     layer,
     triggers: candidate.triggers ?? [],
     dependsOn: candidate.dependsOn ?? [],
@@ -516,6 +519,7 @@ export function commitKnowledgeImport(
       const scannedModule = byKey.get(key)!;
       const entry = scannedModule.preview;
       const requested = packPreview.modules.find((module) => module.moduleKey === key)!;
+      const role = moduleRole(requested.role);
       return {
         id: crypto.randomUUID(),
         packId,
@@ -524,7 +528,8 @@ export function commitKnowledgeImport(
         ...(entry.category ? { category: entry.category } : {}),
         ...(entry.scope ? { scope: entry.scope } : {}),
         ...(entry.priority ? { priority: entry.priority } : {}),
-        role: moduleRole(requested.role),
+        role,
+        contractGroups: resolveKnowledgeContractGroups(entry.title, role),
         layer: entry.layer,
         triggers: entry.triggers,
         dependsOn: entry.dependsOn,

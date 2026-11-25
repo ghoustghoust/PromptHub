@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS prompt_knowledge_modules (
   priority TEXT CHECK(priority IS NULL OR priority IN ('P0', 'P1', 'P2')),
   role TEXT NOT NULL DEFAULT 'knowledge'
     CHECK(role IN ('contract', 'knowledge', 'reference')),
+  groups_json TEXT NOT NULL DEFAULT '[]',
   layer TEXT CHECK(layer IS NULL OR layer IN ('P', 'S', 'H')),
   triggers_json TEXT NOT NULL DEFAULT '[]',
   depends_on_json TEXT NOT NULL DEFAULT '[]',
@@ -68,6 +69,7 @@ export function migratePromptKnowledge(db: Database.Database): void {
     "role",
     "TEXT NOT NULL DEFAULT 'knowledge' CHECK(role IN ('contract', 'knowledge', 'reference'))",
   );
+  ensureColumn(db, "prompt_knowledge_modules", "groups_json", "TEXT NOT NULL DEFAULT '[]'");
 }
 
 /** CREATE TABLE IF NOT EXISTS does not add columns to an existing table. */
@@ -106,6 +108,7 @@ interface ModuleRow {
   scope: string | null;
   priority: PromptKnowledgeModulePriority | null;
   role: PromptKnowledgeModuleRole;
+  groups_json: string;
   layer: PromptKnowledgeModuleLayer | null;
   triggers_json: string;
   depends_on_json: string;
@@ -167,6 +170,7 @@ function toModule(row: ModuleRow): PromptKnowledgeModule {
     ...(row.scope ? { scope: row.scope } : {}),
     ...(row.priority ? { priority: row.priority } : {}),
     role: row.role ?? "knowledge",
+    contractGroups: stringArray(row.groups_json) as PromptKnowledgeModule["contractGroups"],
     ...(row.layer ? { layer: row.layer } : {}),
     triggers: stringArray(row.triggers_json),
     dependsOn: stringArray(row.depends_on_json),
@@ -251,8 +255,8 @@ export class PromptKnowledgeDB {
     const insert = this.db.prepare(
       `INSERT INTO prompt_knowledge_modules (
          id, pack_id, module_key, title, category, scope, priority, role,
-         layer, triggers_json, depends_on_json, content, content_hash, tokens, ord
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         groups_json, layer, triggers_json, depends_on_json, content, content_hash, tokens, ord
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     for (const entry of modules) {
       insert.run(
@@ -264,6 +268,7 @@ export class PromptKnowledgeDB {
         entry.scope ?? null,
         entry.priority ?? null,
         entry.role,
+        JSON.stringify(entry.contractGroups ?? []),
         entry.layer ?? null,
         JSON.stringify(entry.triggers),
         JSON.stringify(entry.dependsOn),

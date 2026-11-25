@@ -1668,16 +1668,16 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
 - 校验：最多 3 条；id/name/category/summary 必填、summary ≤1000 字符、palette 必须是数组。
 - 单测：Core 注入/预算/ provenance/上限 4/4，既有预算用例通过；hook 选择即进入 run 输入；
   desktop typecheck、typecheck:tests、lint、构建通过。
-- 未做：没有用真实引擎跑“选色卡”的对比样本。
+- 真实引擎对比已完成（见下节）。
 
-### 32K 色卡对比尝试（未完成）
+### 32K 色卡对比（完成，2026-11-25）
 
-- 目标：同一提示词，32K 上下文，分别不选色卡 / 选 3 张，落盘 prompt 与 provenance。
-- 结果：多次尝试中首轮生成可用，但后续 32K 会话反复出现本地引擎 `Stopped`，第二轮
-  Term trace 为空（无 provenance）；尝试过同会话连续两轮、每次重启、先选卡再启引擎，
-  均未稳定拿到两份结果。8GB 显存下 32K + 连续生成的稳定性不足，未改预算或引擎策略。
-- 没有把失败样本伪装成对比数据；`live-reference-32k.json` 未生成。Core 注入、预算与
-  provenance 已由单测覆盖（5/5）；真实对比待更大显存或在 8K/16K 下另行评估。
+- 同一提示词、moodyMoss、32K 本地引擎，先 baseline 后选 3 张卡；引擎全程 running。
+- baseline：29.3s，593 tokens，35.6 tok/s，provenance 0（无参考层，Term trace 正常禁用）。
+- 选卡：32.2s，567 tokens，29.2 tok/s，3 条 `reference:*` locked/injected，referenceTokens 211。
+- 输出符合预期：冷蓝/灰主调与暖灯对比、浅景深进入画面，未泄漏导演名或 hex。
+- 之前“第二轮 Stopped”是测试脚本把 baseline 的空 provenance 当成失败；不是引擎或注入问题。
+- 原始证据：`outputs/a6-phase2-20261125/engine-32k-diagnosis/`；未改预算或引擎策略。
 
 ### 未做
 

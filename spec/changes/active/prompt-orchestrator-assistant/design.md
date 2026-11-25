@@ -1677,6 +1677,8 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
 - 选卡：32.2s，567 tokens，29.2 tok/s，3 条 `reference:*` locked/injected，referenceTokens 211。
 - 输出符合预期：冷蓝/灰主调与暖灯对比、浅景深进入画面，未泄漏导演名或 hex。
 - 之前“第二轮 Stopped”是测试脚本把 baseline 的空 provenance 当成失败；不是引擎或注入问题。
+- UI 点击复核：baseline 30.4s、选卡 37.3s，均 running；选卡后等待 Term trace 可用再读表，
+  3 行 reference/Locked/Injected；截图无红色 Over budget。
 - 原始证据：`outputs/a6-phase2-20261125/engine-32k-diagnosis/`；未改预算或引擎策略。
 
 ### 未做

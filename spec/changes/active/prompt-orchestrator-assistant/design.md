@@ -1590,6 +1590,22 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
 - 注意：斯坦尼一次注入分镜/剧本/小说三篇共 18 条 contract，语义上偏多；后续应按项目类型
   （只写剧本 / 只做分镜）拆分 contract 组，而不是整包全开。
 
+### 斯坦尼 contract 分组
+
+- 模块新增 `contractGroups`（script / storyboard / novel），DB 增 `groups_json`，
+  `PRAGMA table_info` 检测后 ALTER；旧库默认 `[]`。
+- 分组规则：标题含“分镜篇/剧本篇/小说篇”分别归 storyboard/script/novel；
+  “三篇的串联”同时归三组；非 contract 一律 `[]`。
+- 清单（共 18 条 contract，串联重复计入三组）：
+  - 只写剧本 script：8 条 / 5,104 tokens（剧本篇 7 + 串联）
+  - 只做分镜 storyboard：5 条 / 3,059 tokens（分镜篇 5，含串联）
+  - 只写小说 novel：7 条 / 5,428 tokens（小说篇 6 + 串联）
+- 已更新隔离库的 groups_json（先备份 `contract-groups-*.db`）；报告
+  `outputs/a6-phase2-20261125/stani-contract-groups.json|md`。
+- 单测：shared 分组路由、DB 往返/迁移、service 按篇前缀分组；service 16/16。
+- UI 尚未按组过滤：当前选斯坦尼仍会注入全部 18 条 contract，下一步在包里增加
+  “剧本/分镜/小说”组选择后再按组注入。
+
 ### 未做
 
 - reference（色卡）尚未进入选择器；写作层尚未展示“某包 contract 因预算超限”的专门提示。

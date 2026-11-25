@@ -1527,6 +1527,50 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
 - 结果面板只显示模块标题/kind，尚未提供跳转到知识包或模块正文的入口。
 - 知识包“另存为写作预设”与包内模块的多选批量操作尚未开始。
 
+## 第二十五轮：知识分层与软引用（2026-11-25）
+
+### 五层职责
+
+- 规则卡：输出语法（caption / tags / layout），不承载知识。
+- Skill：执行契约、流程、模式、输出格式；选包即整套生效。
+- 知识库：可复用方法论，P/S/H 分层、受 token 预算、可勾选。
+- 参考库：色卡/导演风格等素材，按标签检索，限量注入，不进写作层预算。
+- 词库：`prompt_terms`，只给候选，不并入知识包。
+
+关系是声明式软引用：Skill 推荐/引用知识包，知识模块可 `depends_on` 其他模块，写作预设由
+模块或整篇文档单向“另存为”。引用只记 `uses / recommends / depends_on / derivedFrom`，
+目标缺失只警告“依赖未导入”，不复制正文、不自动拉包、不建硬依赖；合成时按 content_hash 去重。
+
+### 模块角色
+
+- `role: contract | knowledge | reference`：contract 随包常开且不可勾选；
+  knowledge 才进入写作层选择；reference 走独立参考选择器。
+- 分类规则：显式 frontmatter `role:` 优先；标题命中“版本/适用范围/读取顺序/执行入口/
+  指令优先级/输入边界/铁律/红线/回复方式/公共坐标/核心命题/执行流程/校验清单/输出格式/
+  接口约定/串联/分工”归 contract；“色卡/导演风格/参考图”归 reference；其余 knowledge。
+  “目标”仅整标题命中，避免误伤“人物目标”等知识。
+- 包级 `links` 存 `links_json`，v1 不建关系表，按包名/module_key 软解析。
+
+### 数据与迁移
+
+- `prompt_knowledge_modules` 增 `role`（默认 knowledge，CHECK 三值）；
+  `prompt_knowledge_packs` 增 `links_json`（默认 `[]`）。`migratePromptKnowledge` 用
+  `PRAGMA table_info` 检测并 `ALTER TABLE ADD COLUMN`，旧库升级后默认 knowledge。
+- 导入预览与提交都携带 role；DB 往返保留 role/links；单测覆盖角色分类、旧表迁移与往返。
+
+### 现有 49 条重分类
+
+- 先 `VACUUM INTO` 备份再原地更新，不重导、不改 id 与选择。
+- 老唐 s9：7 条全部 contract，`links` 记“recommends Skill-Film”。
+- 斯坦尼 Kimi 规范版：18 contract / 24 knowledge（公共坐标、核心命题、铁律、执行流程、
+  校验、输出格式、接口约定、串联为 contract；工具、档位、示例、人物小传、非人角色、
+  去 AI 味、范文库为 knowledge）。
+- 报告：`outputs/a6-phase2-20261125/knowledge-role-report.json|md`。
+
+### 未做
+
+- 写作层尚未按 role 过滤（第 3 步），导入预览尚未显示/允许改角色；色卡 reference 库未开始。
+
 ## 评估方式
 
 A/B/C 三版对比：A 原始输入、B 普通大模型扩写、C 编排结果。固定底模、LoRA、

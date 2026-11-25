@@ -136,6 +136,30 @@ export class PromptKnowledgeDB {
 
   /** Writes a pack and all of its modules atomically. */
   createPack(pack: PromptKnowledgePack, modules: PromptKnowledgeModule[]): void {
+    this.assertModules(pack, modules);
+    this.db.transaction(() => this.insertPack(pack, modules))();
+  }
+
+  /**
+   * Re-imports a pack rooted at the same source path: the previous rows are
+   * removed in the same transaction, so a failed insert never loses them.
+   */
+  replacePack(pack: PromptKnowledgePack, modules: PromptKnowledgeModule[]): void {
+    this.assertModules(pack, modules);
+    this.db.transaction(() => {
+      if (pack.sourcePath) {
+        this.db
+          .prepare(`DELETE FROM prompt_knowledge_packs WHERE source_path = ?`)
+          .run(pack.sourcePath);
+      }
+      this.insertPack(pack, modules);
+    })();
+  }
+
+  private assertModules(
+    pack: PromptKnowledgePack,
+    modules: PromptKnowledgeModule[],
+  ): void {
     if (modules.length > MAX_KNOWLEDGE_PACK_MODULES) {
       throw new Error(
         `Knowledge pack supports at most ${MAX_KNOWLEDGE_PACK_MODULES} modules`,
@@ -151,53 +175,56 @@ export class PromptKnowledgeDB {
       }
       seen.add(entry.moduleKey);
     }
+  }
 
-    this.db.transaction(() => {
-      this.db
-        .prepare(
-          `INSERT INTO prompt_knowledge_packs (
-             id, name, kind, source_path, source_hash, version, variant,
-             status, created_at, updated_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          pack.id,
-          pack.name,
-          pack.kind,
-          pack.sourcePath ?? null,
-          pack.sourceHash,
-          pack.version ?? null,
-          pack.variant ?? null,
-          pack.status,
-          pack.createdAt,
-          pack.updatedAt,
-        );
-
-      const insert = this.db.prepare(
-        `INSERT INTO prompt_knowledge_modules (
-           id, pack_id, module_key, title, category, scope, priority, layer,
-           triggers_json, depends_on_json, content, content_hash, tokens, ord
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  private insertPack(
+    pack: PromptKnowledgePack,
+    modules: PromptKnowledgeModule[],
+  ): void {
+    this.db
+      .prepare(
+        `INSERT INTO prompt_knowledge_packs (
+           id, name, kind, source_path, source_hash, version, variant,
+           status, created_at, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        pack.id,
+        pack.name,
+        pack.kind,
+        pack.sourcePath ?? null,
+        pack.sourceHash,
+        pack.version ?? null,
+        pack.variant ?? null,
+        pack.status,
+        pack.createdAt,
+        pack.updatedAt,
       );
-      for (const entry of modules) {
-        insert.run(
-          entry.id,
-          entry.packId,
-          entry.moduleKey,
-          entry.title,
-          entry.category ?? null,
-          entry.scope ?? null,
-          entry.priority ?? null,
-          entry.layer ?? null,
-          JSON.stringify(entry.triggers),
-          JSON.stringify(entry.dependsOn),
-          entry.content,
-          entry.contentHash,
-          entry.tokens,
-          entry.ord,
-        );
-      }
-    })();
+
+    const insert = this.db.prepare(
+      `INSERT INTO prompt_knowledge_modules (
+         id, pack_id, module_key, title, category, scope, priority, layer,
+         triggers_json, depends_on_json, content, content_hash, tokens, ord
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    for (const entry of modules) {
+      insert.run(
+        entry.id,
+        entry.packId,
+        entry.moduleKey,
+        entry.title,
+        entry.category ?? null,
+        entry.scope ?? null,
+        entry.priority ?? null,
+        entry.layer ?? null,
+        JSON.stringify(entry.triggers),
+        JSON.stringify(entry.dependsOn),
+        entry.content,
+        entry.contentHash,
+        entry.tokens,
+        entry.ord,
+      );
+    }
   }
 
   listPacks(): PromptKnowledgePack[] {

@@ -101,4 +101,18 @@ describe("PromptKnowledgeDB", () => {
     expect(knowledge.listModules("pack-1")).toEqual([]);
     expect(knowledge.deletePack("pack-1")).toBe(false);
   });
+
+  it("replaces the pack imported from the same source path", () => {
+    knowledge.createPack(pack(), [module("rules", 0)]);
+    knowledge.replacePack(
+      pack({ id: "pack-2", sourceHash: "pack-hash-2" }),
+      [module("intro", 0, { id: "module-intro-2", packId: "pack-2" })],
+    );
+
+    const packs = knowledge.listPacks();
+    expect(packs).toHaveLength(1);
+    expect(packs[0]).toMatchObject({ id: "pack-2", sourceHash: "pack-hash-2" });
+    expect(knowledge.listModules("pack-2").map((entry) => entry.moduleKey)).toEqual(["intro"]);
+    expect(knowledge.listModules("pack-1")).toEqual([]);
+  });
 });

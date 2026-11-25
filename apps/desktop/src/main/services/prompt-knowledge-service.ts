@@ -2,14 +2,18 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import type {
+  PromptKnowledgeImportCommitResult,
   PromptKnowledgeImportConflict,
   PromptKnowledgeImportPreview,
   PromptKnowledgeImportSkipped,
+  PromptKnowledgeModule,
   PromptKnowledgeModuleLayer,
   PromptKnowledgeModulePreview,
+  PromptKnowledgePack,
   PromptKnowledgePackKind,
   PromptKnowledgePackPreview,
 } from "@prompthub/shared/types";
+import type { PromptKnowledgeDB } from "@prompthub/db";
 import {
   dedupeKnowledgeModules,
   isSkippedKnowledgePath,
@@ -263,12 +267,24 @@ function modulePreview(
   };
 }
 
+interface ScannedModule {
+  preview: PromptKnowledgeModulePreview;
+  content: string;
+}
+
+interface ScannedPack {
+  preview: PromptKnowledgePackPreview;
+  sourceHash: string;
+  modules: ScannedModule[];
+  conflicts: PromptKnowledgeImportConflict[];
+}
+
 /**
- * Scans one pack directory and returns what an import would write. Sources:
- * markdown under `知识/`, else level-2 sections of `index.md`, else the
- * level-2 sections of `SKILL.md`, else the whole SKILL.md body.
+ * Scans one pack directory and keeps module bodies in main memory only. The
+ * IPC preview drops them; commit re-scans and verifies the hashes instead of
+ * trusting renderer-supplied content.
  */
-export function previewKnowledgePack(rootPath: string): PromptKnowledgeImportPreview {
+function scanKnowledgePack(rootPath: string): ScannedPack {
   const resolved = path.resolve(rootPath);
   const stat = fs.statSync(resolved);
   if (!stat.isDirectory()) throw new Error(`Knowledge pack root is not a directory: ${resolved}`);
@@ -304,10 +320,13 @@ export function previewKnowledgePack(rootPath: string): PromptKnowledgeImportPre
     throw new Error("No readable markdown modules found (知识/, index.md or SKILL.md)");
   }
 
+  const contentByKey = new Map<string, string>();
   const previews: Array<Omit<PromptKnowledgeModulePreview, "ord">> = [];
   candidates.forEach((candidate) => {
     const preview = modulePreview(candidate, packName, skipped);
-    if (preview) previews.push(preview);
+    if (!preview) return;
+    previews.push(preview);
+    contentByKey.set(preview.moduleKey, candidate.content);
   });
 
   const { kept, conflicts } = dedupeKnowledgeModules(previews);
@@ -338,15 +357,126 @@ export function previewKnowledgePack(rootPath: string): PromptKnowledgeImportPre
     skipped,
   };
 
-  const totalBytes = modules.reduce((sum, entry) => sum + entry.bytes, 0);
-  const totalTokens = modules.reduce((sum, entry) => sum + entry.tokens, 0);
+  const scannedModules: ScannedModule[] = modules.map((preview) => ({
+    preview,
+    content: contentByKey.get(preview.moduleKey) ?? "",
+  }));
+  const sourceHash = hashText(
+    skillFile
+      ? readText(skillFile.absolutePath)
+      : scannedModules.map((entry) => entry.preview.contentHash).join("\n"),
+  );
 
+  return { preview: pack, sourceHash, modules: scannedModules, conflicts: packConflicts };
+}
+
+/** Scans one pack directory and returns what an import would write. */
+export function previewKnowledgePack(rootPath: string): PromptKnowledgeImportPreview {
+  const scanned = scanKnowledgePack(rootPath);
+  const modules = scanned.preview.modules;
   return {
-    packs: [pack],
+    packs: [scanned.preview],
     moduleCount: modules.length,
-    totalBytes,
-    totalTokens,
-    skipped,
-    conflicts: packConflicts,
+    totalBytes: modules.reduce((sum, entry) => sum + entry.bytes, 0),
+    totalTokens: modules.reduce((sum, entry) => sum + entry.tokens, 0),
+    skipped: scanned.preview.skipped,
+    conflicts: scanned.conflicts,
   };
+}
+
+export interface KnowledgeCommitOptions {
+  /** Optional display name override for the imported pack. */
+  packName?: string;
+  /** Import only these module keys; defaults to the whole preview. */
+  moduleKeys?: string[];
+}
+
+function sameKeys(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  const sorted = [...right].sort();
+  return [...left].sort().every((key, index) => key === sorted[index]);
+}
+
+/**
+ * Writes a preview into the knowledge tables. Re-scans the source so the
+ * renderer cannot inject content, verifies every selected hash, and replaces
+ * a previous import rooted at the same path.
+ */
+export function commitKnowledgeImport(
+  knowledge: PromptKnowledgeDB,
+  preview: PromptKnowledgeImportPreview,
+  options: KnowledgeCommitOptions = {},
+): PromptKnowledgeImportCommitResult {
+  const packIds: string[] = [];
+  let moduleCount = 0;
+  const skipped: PromptKnowledgeImportSkipped[] = [];
+  const conflicts: PromptKnowledgeImportConflict[] = [];
+  const now = Date.now();
+
+  for (const packPreview of preview.packs) {
+    const scanned = scanKnowledgePack(packPreview.sourcePath);
+    const previewKeys = packPreview.modules.map((entry) => entry.moduleKey);
+    if (!sameKeys(previewKeys, scanned.modules.map((entry) => entry.preview.moduleKey))) {
+      throw new Error(
+        `Knowledge pack "${packPreview.name}" changed since preview; preview it again`,
+      );
+    }
+    const byKey = new Map(scanned.modules.map((entry) => [entry.preview.moduleKey, entry]));
+    const selectedKeys = options.moduleKeys ?? previewKeys;
+    for (const key of selectedKeys) {
+      const previewModule = packPreview.modules.find((entry) => entry.moduleKey === key);
+      const scannedModule = byKey.get(key);
+      if (!previewModule || !scannedModule) {
+        throw new Error(`Module "${key}" is not part of this preview`);
+      }
+      if (previewModule.contentHash !== scannedModule.preview.contentHash) {
+        throw new Error(
+          `Knowledge pack "${packPreview.name}" changed since preview; preview it again`,
+        );
+      }
+    }
+
+    const packId = crypto.randomUUID();
+    const name = options.packName?.trim() || packPreview.name;
+    const pack: PromptKnowledgePack = {
+      id: packId,
+      name,
+      kind: packPreview.kind,
+      sourcePath: packPreview.sourcePath,
+      sourceHash: scanned.sourceHash,
+      ...(packPreview.version ? { version: packPreview.version } : {}),
+      ...(packPreview.variant ? { variant: packPreview.variant } : {}),
+      status: "ready",
+      createdAt: now,
+      updatedAt: now,
+    };
+    const modules: PromptKnowledgeModule[] = selectedKeys.map((key, ord) => {
+      const scannedModule = byKey.get(key)!;
+      const entry = scannedModule.preview;
+      return {
+        id: crypto.randomUUID(),
+        packId,
+        moduleKey: entry.moduleKey,
+        title: entry.title,
+        ...(entry.category ? { category: entry.category } : {}),
+        ...(entry.scope ? { scope: entry.scope } : {}),
+        ...(entry.priority ? { priority: entry.priority } : {}),
+        layer: entry.layer,
+        triggers: entry.triggers,
+        dependsOn: entry.dependsOn,
+        content: scannedModule.content,
+        contentHash: entry.contentHash,
+        tokens: entry.tokens,
+        ord,
+      };
+    });
+
+    knowledge.replacePack(pack, modules);
+    packIds.push(packId);
+    moduleCount += modules.length;
+    skipped.push(...packPreview.skipped);
+    conflicts.push(...preview.conflicts);
+  }
+
+  return { packIds, moduleCount, skipped, conflicts };
 }

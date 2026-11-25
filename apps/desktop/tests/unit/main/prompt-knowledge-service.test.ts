@@ -2,9 +2,16 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { previewKnowledgePack } from "../../../src/main/services/prompt-knowledge-service";
+import { PromptKnowledgeDB, migratePromptKnowledge } from "@prompthub/db";
+import DatabaseAdapter from "../../../src/main/database/sqlite";
+import {
+  commitKnowledgeImport,
+  previewKnowledgePack,
+} from "../../../src/main/services/prompt-knowledge-service";
 
 let root: string;
+let rawDb: DatabaseAdapter.Database;
+let knowledge: PromptKnowledgeDB;
 
 function write(relativePath: string, content: string): void {
   const target = path.join(root, relativePath);
@@ -14,9 +21,14 @@ function write(relativePath: string, content: string): void {
 
 beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "prompthub-knowledge-"));
+  rawDb = new DatabaseAdapter(":memory:");
+  rawDb.pragma("foreign_keys = ON");
+  migratePromptKnowledge(rawDb);
+  knowledge = new PromptKnowledgeDB(rawDb);
 });
 
 afterEach(() => {
+  rawDb.close();
   fs.rmSync(root, { recursive: true, force: true });
 });
 
@@ -153,6 +165,83 @@ describe("knowledge pack scan and preview", () => {
     expect(preview.packs[0].modules[0]).toMatchObject({
       title: "overview",
       layer: "H",
+    });
+  });
+
+  describe("commitKnowledgeImport", () => {
+    function seed(): void {
+      write("SKILL.md", "---\nname: Pack\nversion: 1.2.3\n---\n");
+      write(
+        "知识/a.md",
+        "---\nmodule: alpha\nname: Alpha\npriority: P0\n---\n## Rules\nalpha body",
+      );
+      write("知识/b.md", "---\nmodule: beta\nname: Beta\n---\n## 时间码\nbeta body");
+    }
+
+    it("writes the preview into packs and modules", () => {
+      seed();
+      const preview = previewKnowledgePack(root);
+      const result = commitKnowledgeImport(knowledge, preview);
+
+      expect(result.packIds).toHaveLength(1);
+      expect(result.moduleCount).toBe(2);
+      const packs = knowledge.listPacks();
+      expect(packs[0]).toMatchObject({
+        id: result.packIds[0],
+        name: "Pack",
+        version: "1.2.3",
+        status: "ready",
+      });
+      expect(packs[0].sourceHash).toMatch(/^[0-9a-f]{64}$/);
+      const modules = knowledge.listModules(result.packIds[0]);
+      expect(modules.map((entry) => entry.moduleKey)).toEqual(["alpha", "beta"]);
+      expect(modules[0]).toMatchObject({
+        title: "Alpha",
+        priority: "P0",
+        content: "## Rules\nalpha body",
+        ord: 0,
+      });
+      expect(modules[1].content).toBe("## 时间码\nbeta body");
+    });
+
+    it("imports only the selected module keys", () => {
+      seed();
+      const preview = previewKnowledgePack(root);
+      const result = commitKnowledgeImport(knowledge, preview, { moduleKeys: ["beta"] });
+
+      expect(result.moduleCount).toBe(1);
+      expect(knowledge.listModules(result.packIds[0]).map((entry) => entry.moduleKey)).toEqual([
+        "beta",
+      ]);
+    });
+
+    it("replaces a previous import from the same source path", () => {
+      seed();
+      const preview = previewKnowledgePack(root);
+      const first = commitKnowledgeImport(knowledge, preview);
+      const second = commitKnowledgeImport(knowledge, preview);
+
+      expect(knowledge.listPacks()).toHaveLength(1);
+      expect(second.packIds[0]).not.toBe(first.packIds[0]);
+      expect(knowledge.listModules(second.packIds[0])).toHaveLength(2);
+      expect(knowledge.listModules(first.packIds[0])).toEqual([]);
+    });
+
+    it("rejects a preview whose source content changed", () => {
+      seed();
+      const preview = previewKnowledgePack(root);
+      write("知识/a.md", "---\nmodule: alpha\nname: Alpha\n---\n## Rules\nchanged body");
+
+      expect(() => commitKnowledgeImport(knowledge, preview)).toThrow(/changed/i);
+      expect(knowledge.listPacks()).toEqual([]);
+    });
+
+    it("rejects an unknown module key", () => {
+      seed();
+      const preview = previewKnowledgePack(root);
+      expect(() =>
+        commitKnowledgeImport(knowledge, preview, { moduleKeys: ["missing"] }),
+      ).toThrow(/missing/);
     });
   });
 });

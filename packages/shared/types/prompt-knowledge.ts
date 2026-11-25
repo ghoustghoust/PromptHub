@@ -101,3 +101,19 @@ export interface PromptKnowledgeImportCommitResult {
   skipped: PromptKnowledgeImportSkipped[];
   conflicts: PromptKnowledgeImportConflict[];
 }
+
+export type PromptKnowledgeIPCReply<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string } };
+
+export interface DesktopPromptKnowledgePreviewRequest {
+  rootPath: string;
+}
+
+export interface DesktopPromptKnowledgeCommitRequest {
+  preview: PromptKnowledgeImportPreview;
+  /** Optional display name override (for example the directory name). */
+  packName?: string;
+  /** Import only these module keys; defaults to the whole preview. */
+  moduleKeys?: string[];
+}

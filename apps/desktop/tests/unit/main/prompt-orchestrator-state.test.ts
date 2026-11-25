@@ -202,6 +202,22 @@ describe("orchestrator workspace state", () => {
     ).toThrow("knowledgeContractGroup");
   });
 
+  it("round-trips at most three reference color cards", () => {
+    const service = new DesktopPromptOrchestratorService(rawDb);
+    const saved = service.saveWorkspaceState({
+      ...state(),
+      referenceItemIds: ["ref-1", "ref-2", "ref-3"],
+    });
+    expect(saved.referenceItemIds).toEqual(["ref-1", "ref-2", "ref-3"]);
+    expect(service.getWorkspaceState()?.referenceItemIds).toEqual(["ref-1", "ref-2", "ref-3"]);
+    expect(() =>
+      service.saveWorkspaceState({
+        ...state(),
+        referenceItemIds: ["ref-1", "ref-2", "ref-3", "ref-4"],
+      }),
+    ).toThrow("referenceItemIds");
+  });
+
   it("keeps a long writing layer intact after closing and reopening the database", () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), "prompthub-orchestrator-state-"));
     const file = path.join(directory, "prompthub.db");

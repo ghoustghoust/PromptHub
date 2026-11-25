@@ -134,6 +134,9 @@ export class PromptOrchestratorStateDB {
       value.knowledgeContractGroup === "novel"
         ? { knowledgeContractGroup: value.knowledgeContractGroup }
         : {}),
+      ...(knowledgeIds(value.referenceItemIds) !== undefined
+        ? { referenceItemIds: knowledgeIds(value.referenceItemIds)?.slice(0, 3) }
+        : {}),
       updatedAt: new Date(row.updated_at).toISOString(),
     };
   }
@@ -166,6 +169,9 @@ export class PromptOrchestratorStateDB {
         : {}),
       ...(state.knowledgeContractGroup !== undefined
         ? { knowledgeContractGroup: state.knowledgeContractGroup }
+        : {}),
+      ...(state.referenceItemIds !== undefined
+        ? { referenceItemIds: state.referenceItemIds.slice(0, 3) }
         : {}),
     };
     const json = JSON.stringify(base);

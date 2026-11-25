@@ -50,6 +50,7 @@ import { registerCloudIPC } from "./cloud.ipc";
 import { registerGenerationIPC } from "./generation.ipc";
 import { registerPromptOrchestratorIPC } from "./prompt-orchestrator.ipc";
 import { registerPromptKnowledgeIPC } from "./prompt-knowledge.ipc";
+import { registerPromptReferenceIPC } from "./prompt-reference.ipc";
 import { registerPromptWritingPresetIPC } from "./prompt-writing-preset.ipc";
 import { registerLocalLlamaIPC } from "./local-llama.ipc";
 import { SkillInstaller } from "../services/skill-installer";
@@ -90,6 +91,8 @@ const REBINDABLE_DB_CHANNELS = [
   IPC_CHANNELS.PROMPT_KNOWLEDGE_LIST,
   IPC_CHANNELS.PROMPT_KNOWLEDGE_MODULES,
   IPC_CHANNELS.PROMPT_KNOWLEDGE_REMOVE,
+  IPC_CHANNELS.PROMPT_REFERENCE_LIST,
+  IPC_CHANNELS.PROMPT_REFERENCE_REMOVE,
   IPC_CHANNELS.PROMPT_MIGRATE_IDB_BATCH,
   IPC_CHANNELS.PROMPT_MOVE,
   IPC_CHANNELS.PROMPT_RELATION_CREATE,
@@ -607,6 +610,7 @@ function registerAllIpcGroups(
     registerPromptOrchestratorIPC(db),
   );
   registerIpcGroup("prompt-knowledge", () => registerPromptKnowledgeIPC(db));
+  registerIpcGroup("prompt-reference", () => registerPromptReferenceIPC(db));
   registerIpcGroup("prompt-writing-presets", () =>
     registerPromptWritingPresetIPC(db),
   );

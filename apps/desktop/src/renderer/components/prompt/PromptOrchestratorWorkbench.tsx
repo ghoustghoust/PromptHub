@@ -29,6 +29,7 @@ import { PromptVideoFields } from "./PromptVideoFields";
 import { PromptTermPicker } from "./PromptTermPicker";
 import { PromptMossLayoutCanvas } from "./PromptMossLayoutCanvas";
 import { PromptWritingLayerPanel } from "./PromptWritingLayerPanel";
+import { PromptReferencePicker } from "./PromptReferencePicker";
 import {
   PREFAB_CATEGORIES,
   taskModesForSkill,
@@ -591,6 +592,13 @@ export function PromptOrchestratorWorkbench() {
                 onContractGroupChange={state.setKnowledgeContractGroup}
                 onImportKnowledgePack={state.importKnowledgePack}
                 onDeleteKnowledgePack={state.deleteKnowledgePack}
+              />
+              <PromptReferencePicker
+                items={state.referenceItems}
+                selectedIds={state.referenceItemIds}
+                onToggle={state.toggleReferenceItem}
+                error={state.referenceError}
+                disabled={state.isRunning}
               />
             </div>
           )}

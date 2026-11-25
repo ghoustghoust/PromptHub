@@ -17,6 +17,7 @@ import type {
   PromptOrchestratorStreamEvent,
   PromptOrchestratorStreamStage,
   PromptPickerTermState,
+  PromptReferenceItem,
   PromptSkillDraft,
   PromptTermDomain,
   PromptVideoOrchestrationInput,
@@ -176,6 +177,9 @@ export function usePromptOrchestratorWorkbench() {
   const [knowledgeContractGroup, setKnowledgeContractGroup] = useState<
     PromptKnowledgeContractGroup | undefined
   >();
+  const [referenceItems, setReferenceItems] = useState<PromptReferenceItem[]>([]);
+  const [referenceItemIds, setReferenceItemIds] = useState<string[]>([]);
+  const [referenceError, setReferenceError] = useState("");
   const [knowledgeError, setKnowledgeError] = useState("");
   const knowledgeLoading = useRef(new Set<string>());
   const [layerContextTokens, setLayerContextTokens] = useState(8192);
@@ -261,6 +265,7 @@ export function usePromptOrchestratorWorkbench() {
           setKnowledgePackIds(reply.data.knowledgePackIds ?? []);
           setKnowledgeModuleIds(reply.data.knowledgeModuleIds ?? []);
           setKnowledgeContractGroup(reply.data.knowledgeContractGroup);
+          setReferenceItemIds(reply.data.referenceItemIds ?? []);
         }
       })
       .catch((cause: unknown) => {
@@ -291,7 +296,37 @@ export function usePromptOrchestratorWorkbench() {
     };
   }, []);
 
-  // Load modules lazily for the selected packs; a failed pack keeps its error.
+  useEffect(() => {
+    let active = true;
+    void window.api.promptReference
+      .list()
+      .then((reply) => {
+        if (!active) return;
+        if (reply.ok === true) setReferenceItems(reply.data);
+        else setReferenceError(reply.error.message);
+      })
+      .catch((cause: unknown) => {
+        if (active) setReferenceError(cause instanceof Error ? cause.message : String(cause));
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const selectedReferenceItems = useMemo(() => {
+    const byId = new Map(referenceItems.map((item) => [item.id, item]));
+    return referenceItemIds
+      .map((id) => byId.get(id))
+      .filter((item): item is PromptReferenceItem => Boolean(item));
+  }, [referenceItemIds, referenceItems]);
+
+  function toggleReferenceItem(id: string): void {
+    setReferenceItemIds((current) => {
+      if (current.includes(id)) return current.filter((entry) => entry !== id);
+      if (current.length >= 3) return current;
+      return [...current, id];
+    });
+  }
   useEffect(() => {
     const missing = knowledgePackIds.filter(
       (id) => !knowledgeModulesByPack[id] && !knowledgeLoading.current.has(id),
@@ -515,6 +550,7 @@ export function usePromptOrchestratorWorkbench() {
           knowledgePackIds,
           knowledgeModuleIds,
           ...(knowledgeContractGroup ? { knowledgeContractGroup } : {}),
+          referenceItemIds,
         })
         .then((reply) => {
           if (reply.ok !== true) {
@@ -542,6 +578,7 @@ export function usePromptOrchestratorWorkbench() {
     knowledgePackIds,
     knowledgeModuleIds,
     knowledgeContractGroup,
+    referenceItemIds,
     workspaceHydrated,
   ]);
 
@@ -1373,6 +1410,7 @@ export function usePromptOrchestratorWorkbench() {
     knowledgePackIds, knowledgeModuleIds, knowledgeTokens, contractModules, contractTokens,
     knowledgeContractGroup, setKnowledgeContractGroup, hasGroupedContracts,
     knowledgeModules: activeKnowledgeModules, knowledgeError,
+    referenceItems, selectedReferenceItems, referenceItemIds, toggleReferenceItem, referenceError,
     toggleKnowledgePack, toggleKnowledgeModule,
     importKnowledgePack, deleteKnowledgePack,
     layerContextTokens, setLayerContextTokens,

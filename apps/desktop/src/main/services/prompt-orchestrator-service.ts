@@ -369,6 +369,10 @@ function parseWorkspaceState(
   const knowledgePackIds = workspaceIdList(value.knowledgePackIds, "knowledgePackIds");
   const knowledgeModuleIds = workspaceIdList(value.knowledgeModuleIds, "knowledgeModuleIds");
   const knowledgeContractGroup = workspaceContractGroup(value.knowledgeContractGroup);
+  const referenceItemIds = workspaceIdList(value.referenceItemIds, "referenceItemIds");
+  if (referenceItemIds.length > 3) {
+    throw new Error("referenceItemIds must contain at most 3 ids");
+  }
   return {
     prefabTerms,
     modelId: typeof value.modelId === "string"
@@ -382,6 +386,7 @@ function parseWorkspaceState(
     ...(knowledgePackIds.length > 0 ? { knowledgePackIds } : {}),
     ...(knowledgeModuleIds.length > 0 ? { knowledgeModuleIds } : {}),
     ...(knowledgeContractGroup ? { knowledgeContractGroup } : {}),
+    ...(referenceItemIds.length > 0 ? { referenceItemIds } : {}),
   };
 }
 

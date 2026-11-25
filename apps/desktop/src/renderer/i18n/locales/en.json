@@ -4992,6 +4992,15 @@
     "eventLoopDelay": "Measured during the last start: main-process event loop p50 {{p50}} ms, p95 {{p95}} ms."
   },
   "orchestrator": {
+    "reference": {
+      "title": "Director color cards",
+      "hint": "Pick up to 3 visual style references. They guide palette and light, never replace the skill contract.",
+      "search": "Search director or style",
+      "category": "Category",
+      "allCategories": "All categories",
+      "selected": "{{count}} / {{max}} selected",
+      "empty": "No color cards imported yet."
+    },
     "categories": {
       "style": "Style",
       "artist": "Artist",

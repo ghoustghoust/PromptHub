@@ -93,6 +93,10 @@ function createWindowApiDefaults() {
       listModules: vi.fn().mockResolvedValue({ ok: true, data: [] }),
       removePack: vi.fn().mockResolvedValue({ ok: true, data: { removed: false } }),
     },
+    promptReference: {
+      list: vi.fn().mockResolvedValue({ ok: true, data: [] }),
+      remove: vi.fn().mockResolvedValue({ ok: true, data: { removed: false } }),
+    },
     localLlama: {
       getConfig: vi.fn(),
       saveConfig: vi.fn(),

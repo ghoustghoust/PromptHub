@@ -48,6 +48,8 @@ export const IPC_CHANNELS = {
   PROMPT_KNOWLEDGE_LIST: "prompt:knowledge:list",
   PROMPT_KNOWLEDGE_MODULES: "prompt:knowledge:modules",
   PROMPT_KNOWLEDGE_REMOVE: "prompt:knowledge:remove",
+  PROMPT_REFERENCE_LIST: "prompt:reference:list",
+  PROMPT_REFERENCE_REMOVE: "prompt:reference:remove",
   PROMPT_WRITING_PRESET_LIST: "prompt:writingPresets:list",
   PROMPT_WRITING_PRESET_GET: "prompt:writingPresets:get",
   PROMPT_WRITING_PRESET_SAVE: "prompt:writingPresets:save",

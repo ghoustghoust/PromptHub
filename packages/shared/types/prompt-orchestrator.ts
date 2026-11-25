@@ -586,6 +586,8 @@ export interface PromptOrchestratorWorkspaceState {
   knowledgeModuleIds?: string[];
   /** Project type used to pick one contract group (script/storyboard/novel). */
   knowledgeContractGroup?: PromptKnowledgeContractGroup;
+  /** Selected director color cards; at most three per run. */
+  referenceItemIds?: string[];
   updatedAt?: string;
 }
 

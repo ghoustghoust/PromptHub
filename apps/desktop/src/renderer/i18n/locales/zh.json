@@ -4990,6 +4990,15 @@
     "eventLoopDelay": "上次启动实测：主进程事件循环 p50 {{p50}} ms，p95 {{p95}} ms。"
   },
   "orchestrator": {
+    "reference": {
+      "title": "导演色卡",
+      "hint": "最多选 3 张作为视觉风格参考，只影响色调与光线，不替代 Skill 契约。",
+      "search": "搜索导演或风格",
+      "category": "分类",
+      "allCategories": "全部分类",
+      "selected": "已选 {{count}} / {{max}}",
+      "empty": "还没有导入色卡。"
+    },
     "categories": {
       "style": "风格",
       "artist": "画师",

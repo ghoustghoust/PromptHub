@@ -33,6 +33,7 @@ function module(
     title: moduleKey,
     category: "knowledge",
     priority: "P0",
+    role: "knowledge",
     layer: "P",
     triggers: ["分镜"],
     dependsOn: [],
@@ -114,5 +115,93 @@ describe("PromptKnowledgeDB", () => {
     expect(packs[0]).toMatchObject({ id: "pack-2", sourceHash: "pack-hash-2" });
     expect(knowledge.listModules("pack-2").map((entry) => entry.moduleKey)).toEqual(["intro"]);
     expect(knowledge.listModules("pack-1")).toEqual([]);
+  });
+
+  it("round-trips module roles and pack links", () => {
+    knowledge.createPack(
+      pack({
+        links: [
+          { relation: "recommends", targetType: "pack", targetKey: "Skill-Film" },
+          { relation: "depends_on", targetType: "module", targetKey: "camera" },
+        ],
+      }),
+      [
+        module("rules", 0, { role: "contract" }),
+        module("examples", 1, { role: "knowledge", contentHash: "hash-examples" }),
+        module("color-card", 2, {
+          role: "reference",
+          contentHash: "hash-color",
+        }),
+      ],
+    );
+
+    expect(knowledge.listPacks()[0].links).toEqual([
+      { relation: "recommends", targetType: "pack", targetKey: "Skill-Film" },
+      { relation: "depends_on", targetType: "module", targetKey: "camera" },
+    ]);
+    expect(knowledge.listModules("pack-1").map((entry) => entry.role)).toEqual([
+      "contract",
+      "knowledge",
+      "reference",
+    ]);
+  });
+
+  it("migrates legacy tables that lack role and links_json", () => {
+    const legacy = new DatabaseAdapter(":memory:");
+    legacy.exec(`
+      CREATE TABLE prompt_knowledge_packs (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        source_path TEXT,
+        source_hash TEXT NOT NULL,
+        version TEXT,
+        variant TEXT,
+        status TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE prompt_knowledge_modules (
+        id TEXT PRIMARY KEY,
+        pack_id TEXT NOT NULL,
+        module_key TEXT NOT NULL,
+        title TEXT NOT NULL,
+        category TEXT,
+        scope TEXT,
+        priority TEXT,
+        layer TEXT,
+        triggers_json TEXT NOT NULL DEFAULT '[]',
+        depends_on_json TEXT NOT NULL DEFAULT '[]',
+        content TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        tokens INTEGER NOT NULL,
+        ord INTEGER NOT NULL
+      );
+    `);
+    migratePromptKnowledge(legacy);
+
+    const packColumns = (legacy.pragma("table_info(prompt_knowledge_packs)") as Array<{ name: string }>)
+      .map((entry) => entry.name);
+    const moduleColumns = (legacy.pragma("table_info(prompt_knowledge_modules)") as Array<{ name: string }>)
+      .map((entry) => entry.name);
+    expect(packColumns).toContain("links_json");
+    expect(moduleColumns).toContain("role");
+
+    legacy
+      .prepare(
+        `INSERT INTO prompt_knowledge_packs
+           (id, name, kind, source_hash, status, created_at, updated_at)
+         VALUES ('legacy', 'Legacy', 'skill', 'hash', 'ready', 1, 1)`,
+      )
+      .run();
+    legacy
+      .prepare(
+        `INSERT INTO prompt_knowledge_modules
+           (id, pack_id, module_key, title, content, content_hash, tokens, ord)
+         VALUES ('legacy-module', 'legacy', 'rules', 'Rules', 'body', 'hash-m', 1, 0)`,
+      )
+      .run();
+    expect(new PromptKnowledgeDB(legacy).listModules("legacy")[0].role).toBe("knowledge");
+    legacy.close();
   });
 });

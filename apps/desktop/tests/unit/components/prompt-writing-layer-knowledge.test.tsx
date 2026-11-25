@@ -27,6 +27,7 @@ const MODULE: PromptKnowledgeModule = {
   packId: "pack-1",
   moduleKey: "action",
   title: "Action choreography",
+  role: "knowledge",
   layer: "P",
   triggers: [],
   dependsOn: [],
@@ -45,6 +46,7 @@ const PREVIEW: PromptKnowledgeImportPreview = {
     modules: [{
       moduleKey: "action",
       title: "Action choreography",
+      role: "knowledge",
       layer: "P",
       triggers: [],
       dependsOn: [],

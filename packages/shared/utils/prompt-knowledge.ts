@@ -1,6 +1,7 @@
 import type {
   PromptKnowledgeConflictReason,
   PromptKnowledgeModuleLayer,
+  PromptKnowledgeModuleRole,
 } from "../types/prompt-knowledge";
 import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
 
@@ -69,6 +70,51 @@ export function resolveKnowledgeLayer(heading: string): PromptKnowledgeModuleLay
   ];
   if (principle.some((keyword) => text.includes(keyword))) return "P";
   return "H";
+}
+
+const KNOWLEDGE_ROLES: ReadonlySet<string> = new Set(["contract", "knowledge", "reference"]);
+
+/**
+ * Explicit frontmatter `role:` wins; otherwise contract-shaped section titles
+ * (version, reading order, rules, checklists, output format) stay always-on and
+ * never become selectable knowledge. Reference material is recognised by its
+ * style/director wording.
+ */
+export function resolveKnowledgeModuleRole(
+  title: string,
+  explicit?: string,
+): PromptKnowledgeModuleRole {
+  if (explicit && KNOWLEDGE_ROLES.has(explicit)) {
+    return explicit as PromptKnowledgeModuleRole;
+  }
+  const text = title.trim().toLowerCase();
+  const reference = ["色卡", "导演风格", "风格参考", "参考图", "reference", "director style"];
+  if (reference.some((keyword) => text.includes(keyword))) return "reference";
+  // "目标" alone is the role/goal contract; inside a longer knowledge title it
+  // is ordinary prose, so it only matches exactly.
+  if (text === "目标" || text === "goal") return "contract";
+  const contract = [
+    "版本",
+    "适用范围",
+    "读取顺序",
+    "执行入口",
+    "指令优先级",
+    "输入内容边界",
+    "铁律",
+    "红线",
+    "回复方式",
+    "公共坐标",
+    "核心命题",
+    "执行流程",
+    "校验清单",
+    "输出格式",
+    "接口约定",
+    "三篇的串联",
+    "分工",
+    "管什么",
+  ];
+  if (contract.some((keyword) => text.includes(keyword))) return "contract";
+  return "knowledge";
 }
 
 /** Returns the reason a module exceeds the per-module limits, or null. */

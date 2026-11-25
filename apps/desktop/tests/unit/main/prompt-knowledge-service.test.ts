@@ -156,6 +156,36 @@ describe("knowledge pack scan and preview", () => {
     expect(() => previewKnowledgePack(root)).toThrow(/200/);
   });
 
+  it("marks contract-shaped sections as always-on and keeps tools as knowledge", () => {
+    write(
+      "SKILL.md",
+      [
+        "---",
+        "name: Storyboard s9",
+        "---",
+        "## 版本与适用范围",
+        "v9",
+        "## 读取顺序与执行入口",
+        "read in order",
+        "## 目标",
+        "goal",
+        "## 铁律与红线",
+        "never break",
+        "## 核心工具",
+        "tool table",
+      ].join("\n"),
+    );
+
+    const preview = previewKnowledgePack(root);
+    expect(preview.packs[0].modules.map((entry) => entry.role)).toEqual([
+      "contract",
+      "contract",
+      "contract",
+      "contract",
+      "knowledge",
+    ]);
+  });
+
   it("splits standalone knowledge documents by heading into knowledge modules", () => {
     write(
       "剧本.md",

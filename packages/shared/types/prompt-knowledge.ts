@@ -12,6 +12,27 @@ export type PromptKnowledgeModuleLayer = "P" | "S" | "H";
 
 export type PromptKnowledgeModulePriority = "P0" | "P1" | "P2";
 
+/**
+ * How a module participates in a run:
+ * - contract: always-on execution contract that ships with the skill;
+ * - knowledge: selectable methodology constrained by the layer budget;
+ * - reference: retrieved style material (for example director cards).
+ */
+export type PromptKnowledgeModuleRole = "contract" | "knowledge" | "reference";
+
+export type PromptKnowledgeLinkRelation =
+  | "uses"
+  | "recommends"
+  | "depends_on"
+  | "derivedFrom";
+
+export interface PromptKnowledgeLink {
+  relation: PromptKnowledgeLinkRelation;
+  targetType: "pack" | "module";
+  /** Pack name/id or module_key; resolved softly, never auto-imported. */
+  targetKey: string;
+}
+
 export interface PromptKnowledgePack {
   id: string;
   name: string;
@@ -22,6 +43,8 @@ export interface PromptKnowledgePack {
   version?: string;
   variant?: string;
   status: PromptKnowledgePackStatus;
+  /** Declared soft references to other packs/modules; never auto-imported. */
+  links?: PromptKnowledgeLink[];
   createdAt: number;
   updatedAt: number;
 }
@@ -35,6 +58,7 @@ export interface PromptKnowledgeModule {
   category?: string;
   scope?: string;
   priority?: PromptKnowledgeModulePriority;
+  role: PromptKnowledgeModuleRole;
   layer?: PromptKnowledgeModuleLayer;
   triggers: string[];
   dependsOn: string[];
@@ -66,6 +90,7 @@ export interface PromptKnowledgeModulePreview {
   category?: string;
   scope?: string;
   priority?: PromptKnowledgeModulePriority;
+  role: PromptKnowledgeModuleRole;
   layer: PromptKnowledgeModuleLayer;
   triggers: string[];
   dependsOn: string[];
@@ -82,6 +107,7 @@ export interface PromptKnowledgePackPreview {
   sourcePath: string;
   version?: string;
   variant?: string;
+  links?: PromptKnowledgeLink[];
   modules: PromptKnowledgeModulePreview[];
   skipped: PromptKnowledgeImportSkipped[];
 }

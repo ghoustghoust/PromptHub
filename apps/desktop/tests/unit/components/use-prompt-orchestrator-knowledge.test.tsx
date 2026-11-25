@@ -38,6 +38,7 @@ const MODULE: PromptKnowledgeModule = {
   title: "Action choreography",
   category: "narrative",
   priority: "P1",
+  role: "knowledge",
   layer: "P",
   triggers: ["动作"],
   dependsOn: [],
@@ -56,6 +57,7 @@ const PREVIEW: PromptKnowledgeImportPreview = {
     modules: [{
       moduleKey: "action-choreography",
       title: "Action choreography",
+      role: "knowledge",
       layer: "P",
       triggers: [],
       dependsOn: [],

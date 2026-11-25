@@ -1,9 +1,11 @@
 import type Database from "./adapter";
 import { MAX_KNOWLEDGE_PACK_MODULES } from "@prompthub/shared/utils/prompt-knowledge";
 import type {
+  PromptKnowledgeLink,
   PromptKnowledgeModule,
   PromptKnowledgeModuleLayer,
   PromptKnowledgeModulePriority,
+  PromptKnowledgeModuleRole,
   PromptKnowledgePack,
   PromptKnowledgePackKind,
   PromptKnowledgePackStatus,
@@ -24,6 +26,7 @@ CREATE TABLE IF NOT EXISTS prompt_knowledge_packs (
   version TEXT,
   variant TEXT,
   status TEXT NOT NULL CHECK(status IN ('ready', 'needs-review', 'disabled')),
+  links_json TEXT NOT NULL DEFAULT '[]',
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
@@ -38,6 +41,8 @@ CREATE TABLE IF NOT EXISTS prompt_knowledge_modules (
   category TEXT,
   scope TEXT,
   priority TEXT CHECK(priority IS NULL OR priority IN ('P0', 'P1', 'P2')),
+  role TEXT NOT NULL DEFAULT 'knowledge'
+    CHECK(role IN ('contract', 'knowledge', 'reference')),
   layer TEXT CHECK(layer IS NULL OR layer IN ('P', 'S', 'H')),
   triggers_json TEXT NOT NULL DEFAULT '[]',
   depends_on_json TEXT NOT NULL DEFAULT '[]',
@@ -56,6 +61,26 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_modules_hash
 
 export function migratePromptKnowledge(db: Database.Database): void {
   db.exec(PROMPT_KNOWLEDGE_SCHEMA);
+  ensureColumn(db, "prompt_knowledge_packs", "links_json", "TEXT NOT NULL DEFAULT '[]'");
+  ensureColumn(
+    db,
+    "prompt_knowledge_modules",
+    "role",
+    "TEXT NOT NULL DEFAULT 'knowledge' CHECK(role IN ('contract', 'knowledge', 'reference'))",
+  );
+}
+
+/** CREATE TABLE IF NOT EXISTS does not add columns to an existing table. */
+function ensureColumn(
+  db: Database.Database,
+  table: string,
+  column: string,
+  definition: string,
+): void {
+  const columns = db.pragma(`table_info(${table})`) as Array<{ name?: string }>;
+  if (!columns.some((entry) => entry.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
 }
 
 interface PackRow {
@@ -67,6 +92,7 @@ interface PackRow {
   version: string | null;
   variant: string | null;
   status: PromptKnowledgePackStatus;
+  links_json: string;
   created_at: number;
   updated_at: number;
 }
@@ -79,6 +105,7 @@ interface ModuleRow {
   category: string | null;
   scope: string | null;
   priority: PromptKnowledgeModulePriority | null;
+  role: PromptKnowledgeModuleRole;
   layer: PromptKnowledgeModuleLayer | null;
   triggers_json: string;
   depends_on_json: string;
@@ -97,6 +124,23 @@ function stringArray(value: string): string[] {
   }
 }
 
+function linkArray(value: string): PromptKnowledgeLink[] {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((entry): entry is PromptKnowledgeLink =>
+      Boolean(entry) &&
+      typeof entry === "object" &&
+      typeof (entry as PromptKnowledgeLink).relation === "string" &&
+      ((entry as PromptKnowledgeLink).targetType === "pack" ||
+        (entry as PromptKnowledgeLink).targetType === "module") &&
+      typeof (entry as PromptKnowledgeLink).targetKey === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
 function toPack(row: PackRow): PromptKnowledgePack {
   return {
     id: row.id,
@@ -107,6 +151,7 @@ function toPack(row: PackRow): PromptKnowledgePack {
     ...(row.version ? { version: row.version } : {}),
     ...(row.variant ? { variant: row.variant } : {}),
     status: row.status,
+    ...(row.links_json && row.links_json !== "[]" ? { links: linkArray(row.links_json) } : {}),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -121,6 +166,7 @@ function toModule(row: ModuleRow): PromptKnowledgeModule {
     ...(row.category ? { category: row.category } : {}),
     ...(row.scope ? { scope: row.scope } : {}),
     ...(row.priority ? { priority: row.priority } : {}),
+    role: row.role ?? "knowledge",
     ...(row.layer ? { layer: row.layer } : {}),
     triggers: stringArray(row.triggers_json),
     dependsOn: stringArray(row.depends_on_json),
@@ -185,8 +231,8 @@ export class PromptKnowledgeDB {
       .prepare(
         `INSERT INTO prompt_knowledge_packs (
            id, name, kind, source_path, source_hash, version, variant,
-           status, created_at, updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           status, links_json, created_at, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         pack.id,
@@ -197,15 +243,16 @@ export class PromptKnowledgeDB {
         pack.version ?? null,
         pack.variant ?? null,
         pack.status,
+        JSON.stringify(pack.links ?? []),
         pack.createdAt,
         pack.updatedAt,
       );
 
     const insert = this.db.prepare(
       `INSERT INTO prompt_knowledge_modules (
-         id, pack_id, module_key, title, category, scope, priority, layer,
-         triggers_json, depends_on_json, content, content_hash, tokens, ord
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         id, pack_id, module_key, title, category, scope, priority, role,
+         layer, triggers_json, depends_on_json, content, content_hash, tokens, ord
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     for (const entry of modules) {
       insert.run(
@@ -216,6 +263,7 @@ export class PromptKnowledgeDB {
         entry.category ?? null,
         entry.scope ?? null,
         entry.priority ?? null,
+        entry.role,
         entry.layer ?? null,
         JSON.stringify(entry.triggers),
         JSON.stringify(entry.dependsOn),

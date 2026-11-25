@@ -9,6 +9,7 @@ import type {
   PromptKnowledgeModule,
   PromptKnowledgeModuleLayer,
   PromptKnowledgeModulePreview,
+  PromptKnowledgeModuleRole,
   PromptKnowledgePack,
   PromptKnowledgePackKind,
   PromptKnowledgePackPreview,
@@ -20,6 +21,7 @@ import {
   knowledgeModuleSizeError,
   MAX_KNOWLEDGE_PACK_MODULES,
   resolveKnowledgeLayer,
+  resolveKnowledgeModuleRole,
 } from "@prompthub/shared/utils/prompt-knowledge";
 import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
 
@@ -41,6 +43,7 @@ interface Candidate {
   category?: string;
   scope?: string;
   priority?: "P0" | "P1" | "P2";
+  role?: PromptKnowledgeModuleRole;
   triggers?: string[];
   dependsOn?: string[];
   /** Explicit `module:` frontmatter key, preferred over a derived key. */
@@ -181,6 +184,7 @@ function sectionsToCandidates(
     relativePath,
     title: section.title,
     content: section.content,
+    role: resolveKnowledgeModuleRole(section.title),
     ...(category ? { category } : {}),
   }));
 }
@@ -207,6 +211,7 @@ function documentCandidates(
         title: base,
         content: body,
         category: base,
+        role: resolveKnowledgeModuleRole(base),
       });
       continue;
     }
@@ -217,6 +222,7 @@ function documentCandidates(
         content: section.content,
         category: base,
         layerHint: section.title,
+        role: resolveKnowledgeModuleRole(section.title),
       });
     }
   }
@@ -265,6 +271,7 @@ function knowledgeCandidates(
       ...(parsed.meta.category ?? folder ? { category: parsed.meta.category ?? folder } : {}),
       ...(parsed.meta.scope ? { scope: parsed.meta.scope } : {}),
       ...(priority ? { priority } : {}),
+      role: resolveKnowledgeModuleRole(title, parsed.meta.role),
       triggers: splitList(parsed.meta.triggers),
       dependsOn: splitList(parsed.meta.depends_on),
       ...(parsed.meta.module ? { moduleKey: parsed.meta.module } : {}),
@@ -296,6 +303,7 @@ function modulePreview(
     ...(candidate.category ? { category: candidate.category } : {}),
     ...(candidate.scope ? { scope: candidate.scope } : {}),
     ...(priority ? { priority } : {}),
+    role: candidate.role ?? resolveKnowledgeModuleRole(candidate.title),
     layer,
     triggers: candidate.triggers ?? [],
     dependsOn: candidate.dependsOn ?? [],
@@ -355,7 +363,12 @@ function scanKnowledgePack(rootPath: string): ScannedPack {
   } else if (skillSections.length > 0) {
     candidates = sectionsToCandidates(skillSections, "SKILL.md");
   } else if (skill?.body.trim()) {
-    candidates = [{ relativePath: "SKILL.md", title: "overview", content: skill.body.trim() }];
+    candidates = [{
+      relativePath: "SKILL.md",
+      title: "overview",
+      content: skill.body.trim(),
+      role: "contract",
+    }];
   } else {
     const documents = documentCandidates(files);
     if (documents.length === 0) {
@@ -505,6 +518,7 @@ export function commitKnowledgeImport(
         ...(entry.category ? { category: entry.category } : {}),
         ...(entry.scope ? { scope: entry.scope } : {}),
         ...(entry.priority ? { priority: entry.priority } : {}),
+        role: entry.role,
         layer: entry.layer,
         triggers: entry.triggers,
         dependsOn: entry.dependsOn,

@@ -5,6 +5,7 @@ import {
   isSkippedKnowledgePath,
   knowledgeModuleSizeError,
   resolveKnowledgeLayer,
+  resolveKnowledgeModuleRole,
 } from "@prompthub/shared/utils/prompt-knowledge";
 
 function module(moduleKey: string, contentHash: string) {
@@ -40,6 +41,35 @@ describe("knowledge pack parsing rules", () => {
     assert.match(isSkippedKnowledgePath("知识/01-叙事/源/动作设计.md") ?? "", /source copy/);
     assert.equal(isSkippedKnowledgePath("知识/镜头语言.md"), null);
     assert.equal(isSkippedKnowledgePath("index.md"), null);
+  });
+
+  it("separates always-on contracts from selectable knowledge and references", () => {
+    for (const title of [
+      "版本与适用范围",
+      "读取顺序与执行入口",
+      "目标",
+      "指令优先级",
+      "输入内容边界",
+      "铁律与红线",
+      "回复方式",
+      "公共坐标",
+      "剧本篇 · 六、执行流程（每集跑一遍，七步）",
+      "小说篇 · 十一、校验清单",
+    ]) {
+      assert.equal(resolveKnowledgeModuleRole(title), "contract", title);
+    }
+    for (const title of [
+      "核心工具（分镜版）",
+      "档位（剧本侧参数）",
+      "人物小传模板",
+      "去 AI 味六条",
+      "剧本篇 · 十、示例",
+    ]) {
+      assert.equal(resolveKnowledgeModuleRole(title), "knowledge", title);
+    }
+    assert.equal(resolveKnowledgeModuleRole("导演色卡 · 王家卫"), "reference");
+    assert.equal(resolveKnowledgeModuleRole("核心工具", "reference"), "reference");
+    assert.equal(resolveKnowledgeModuleRole("执行流程", "knowledge"), "knowledge");
   });
 
   it("keeps one copy per content hash and reports key conflicts", () => {

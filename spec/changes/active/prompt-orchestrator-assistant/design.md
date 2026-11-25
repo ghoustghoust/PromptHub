@@ -1506,6 +1506,22 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
   `outputs/a6-phase2-20261125/live-knowledge-run.json`，截图 `03-live-knowledge-trace.png`、
   `04-live-knowledge-prompt.png`。生成质量与模块影响是否可接受由用户判定。
 
+### 真实素材导入与双包引擎验证
+
+- 解析补一条兜底：没有 `SKILL.md`/`index.md`/`知识/` 的纯文档包（斯坦尼）按根目录
+  Markdown 的 `##` 段拆模块，标题为“文件名 · 段名”，category = 文件名，kind 默认 knowledge；
+  无二级标题的整篇作为一个模块。
+- 隔离 profile（用户窗口未重启，直接写库前已备份）：`VACUUM INTO` 备份
+  `profile/data/backups/knowledge-import-2026-11-25T09-18-01-927Z.db`，导入后
+  `prompt_knowledge_packs` = 2、modules = 49：老唐 s9（7 模块 / 4322 tokens / v s9）、
+  斯坦尼 Kimi 最终稿（42 模块 / 48005 tokens / knowledge）。两份报告见
+  `outputs/a6-phase2-20261125/knowledge-import-report.json|md`。
+- 真实引擎：临时 profile 导入同源两包，分别只选一个模块各跑一次——s9 “铁律与红线”
+  （1248 tokens）与斯坦尼“剧本篇 · 一、公共坐标”（1261 tokens）；两次都产出完整提示词，
+  Term trace 均显示 module / Injected；2.1 分钟。数据 `live-two-packs.json`，截图
+  `05-s9-trace.png`、`06-stanislavski-prompt.png`。
+- 未在用户正在运行的窗口上验证导入后的列表（该窗口仍持旧构建/旧数据缓存），需重启后查看。
+
 ### 未做
 
 - 结果面板只显示模块标题/kind，尚未提供跳转到知识包或模块正文的入口。

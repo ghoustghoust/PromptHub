@@ -1490,10 +1490,26 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
   panel 3/3（列包、选模块、token 计量）；真实窗口 e2e 1/1（临时 profile 导入 Skill-Film
   160 模块 → 选包选模块 → 重启仍勾选，13.9s，截图 `outputs/a6-phase2-20261125/01-knowledge-selected.png`）。
 
+### 知识包导入/删除 UI 与真实引擎验证
+
+- “导入知识包”走隐藏的 `webkitdirectory` input：Electron `getPathForFile` 还原文件绝对路径后
+  取父目录，调用 `previewPack`；弹窗展示包名、模块/token/字节、冲突与跳过项，确认后
+  `commitImport` 并自动勾选新包。同一 sourcePath 重导入会先移除旧包 id 与它的模块选择。
+- 每个包一行删除按钮，确认后 `removePack`，同步清掉该包的选择与模块缓存；空列表提示先导入。
+- 单测：panel 5/5（列包、选模块、token 计量、目录预览+确认、删除回调）、hook 4/4
+  （恢复并注入 run、切换持久化、导入刷新并选中、删除清选择）。
+- 真实窗口 e2e：临时 profile 用目录选择导入 Skill-Film（160 模块）→ 选模块（1144 token）→
+  重启仍勾选 → 删除后回到空态，16.9s；截图 `02-import-preview.png`、`01-knowledge-selected.png`。
+- 真实引擎：临时 profile 复用隔离 profile 的 llama 配置（mmproj 置空），加载同一模块后连续跑
+  5 个提示词（街景 / 屋顶对决 / 渔夫 / 夜市 / 宇航员），全部产出完整提示词，Term trace 每次
+  都显示 `module` / `Injected as parameters`；2.8 分钟；原始数据
+  `outputs/a6-phase2-20261125/live-knowledge-run.json`，截图 `03-live-knowledge-trace.png`、
+  `04-live-knowledge-prompt.png`。生成质量与模块影响是否可接受由用户判定。
+
 ### 未做
 
-- 知识包导入的 UI 入口（选择目录、预览确认、删除包）尚未做；目前只通过 IPC 导入。
-- 结果面板的知识来源展示与“另存为写作预设”尚未开始。
+- 结果面板只显示模块标题/kind，尚未提供跳转到知识包或模块正文的入口。
+- 知识包“另存为写作预设”与包内模块的多选批量操作尚未开始。
 
 ## 评估方式
 

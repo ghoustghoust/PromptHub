@@ -7,6 +7,7 @@ import type {
   PromptMossLayoutDraft,
   PromptMossLayoutResult,
 } from "./prompt-moss-layout";
+import type { PromptKnowledgeModuleLayer } from "./prompt-knowledge";
 
 export type PromptOrchestrationMode =
   | "expand"
@@ -223,11 +224,32 @@ export interface PromptOrchestrationInput {
   systemPromptLayerContextSize?: number;
   /** Output tokens reserved so the layer cannot eat the answer budget. */
   systemPromptLayerOutputReserve?: number;
+  /**
+   * Imported knowledge modules appended to the writing layer. They share the
+   * same token budget as `systemPromptLayer` and are never executed.
+   */
+  knowledgeModules?: PromptKnowledgeModuleSelection[];
   /** Adds a structured payload without turning JSON into a separate authoring task. */
   includePayload?: boolean;
   /** Estimated automatic-vocabulary budget; explicit user selections are retained. */
   vocabularyTokenBudget?: number;
   video?: PromptVideoOrchestrationInput;
+}
+
+/**
+ * One imported knowledge module selected for this run. Only the text is used;
+ * module ids are recorded in provenance so the result panel can show sources.
+ */
+export interface PromptKnowledgeModuleSelection {
+  id: string;
+  packId?: string;
+  packName?: string;
+  moduleKey: string;
+  title: string;
+  layer?: PromptKnowledgeModuleLayer;
+  /** Estimated tokens from the import preview; the orchestrator re-checks. */
+  tokens?: number;
+  content: string;
 }
 
 export type PromptTermSelectionReason = "explicit" | "relevance" | "random" | "reference";
@@ -513,7 +535,7 @@ export type PromptProvenanceOutcome =
 export interface PromptProvenanceEntry {
   /** Stable key: term id, `entity:<mention>`, `artist:<termId>` or `field:<name>`. */
   id: string;
-  kind: "term" | "entity" | "artist" | "constraint";
+  kind: "term" | "entity" | "artist" | "constraint" | "module";
   label: string;
   state: PromptProvenanceState;
   outcome: PromptProvenanceOutcome;

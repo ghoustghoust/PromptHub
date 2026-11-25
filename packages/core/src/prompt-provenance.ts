@@ -91,6 +91,19 @@ function constraintEntries(input: PromptOrchestrationInput): PromptProvenanceEnt
   return entries;
 }
 
+function knowledgeModuleEntries(input: PromptOrchestrationInput): PromptProvenanceEntry[] {
+  return (input.knowledgeModules ?? []).map((module) => ({
+    id: `module:${module.id}`,
+    kind: "module",
+    label: module.title,
+    state: "locked",
+    outcome: "injected",
+    excerpt: module.content.trim().slice(0, 200),
+    origin: "user",
+    reason: `Knowledge module${module.packName ? ` from ${module.packName}` : ""} injected into the writing layer (${module.layer ?? "H"}).`,
+  }));
+}
+
 /**
  * Builds the cross-mode decision trail. Terms are linked to the fields they
  * produced, identities to their fixed identity field, and artist routes to
@@ -168,6 +181,7 @@ export function buildProvenance(options: ProvenanceOptions): PromptProvenanceEnt
   }
 
   entries.push(...constraintEntries(options.input));
+  entries.push(...knowledgeModuleEntries(options.input));
 
   // An excluded term is still worth showing; it explains why a selected-looking
   // id never reached the prompt.

@@ -307,17 +307,42 @@ export function finalizeMossLayoutComposition(
   };
 }
 
-function systemPromptLayerSection(input: PromptOrchestrationInput): string {
+/**
+ * The writing layer is the user's layer plus every selected knowledge module,
+ * in selection order. Budget checks and the model prompt share this text so
+ * the preview and the actual run can never disagree.
+ */
+export function buildWritingLayerText(input: PromptOrchestrationInput): string {
+  const parts: string[] = [];
   const layer = input.systemPromptLayer?.trim();
+  if (layer) parts.push(layer);
+  for (const module of input.knowledgeModules ?? []) {
+    const content = module.content?.trim();
+    if (!content) continue;
+    const origin = [module.packName?.trim(), module.packId?.trim()].find(Boolean);
+    const meta = [origin ? `pack: ${origin}` : "", `layer: ${module.layer ?? "H"}`]
+      .filter(Boolean)
+      .join("; ");
+    parts.push(`[Knowledge module: ${module.title.trim()} (${meta})]\n${content}`);
+  }
+  return parts.join("\n\n");
+}
+
+function systemPromptLayerSection(input: PromptOrchestrationInput): string {
+  const layer = buildWritingLayerText(input);
   if (!layer) return "";
   const origin = input.systemPromptLayerSource?.trim();
+  const hasModules = (input.knowledgeModules?.length ?? 0) > 0;
   return [
     origin
       ? `Additional system layer selected from the user's prompt library ("${origin}").`
       : "Additional system layer written by the user.",
     "Treat it as a standing requirement about style, camera language, or action beats. Apply it to the generated prompt, but never copy it verbatim as its own sentence and never let it override the rule card, the fixed facts, or the scene the user already described.",
+    hasModules
+      ? "The bracketed knowledge modules below are imported methodology. Follow their methods where they fit, but never cite module titles, pack names or ids, and never paste their headings into the generated prompt."
+      : "",
     layer,
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 export function buildCompositionMessages(

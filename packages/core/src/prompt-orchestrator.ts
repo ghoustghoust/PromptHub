@@ -23,6 +23,7 @@ import {
   buildCompositionMessages,
   buildFallbackComposition,
   buildFixedFields,
+  buildWritingLayerText,
   finalizeMossLayoutComposition,
   mergeFixedFields,
   parsePromptComposition,
@@ -52,6 +53,7 @@ import {
 } from "./prompt-token-budget";
 import type { PromptComposition } from "./prompt-orchestrator-composition";
 import { mossLayoutValidationError } from "./prompt-moss-layout";
+import { MAX_KNOWLEDGE_PACK_MODULES } from "@prompthub/shared/utils/prompt-knowledge";
 import {
   MAX_LAYER_CHARS,
   MAX_LAYER_CONTEXT_TOKENS,
@@ -388,13 +390,71 @@ function validateOptions(input: PromptOrchestrationInput): void {
         `systemPromptLayer must be ${MAX_LAYER_CHARS.toLocaleString("en-US")} characters or fewer`,
       );
     }
-    const budget = resolveSystemPromptLayerBudget(input, layer);
+  }
+  if (input.knowledgeModules !== undefined) {
+    if (
+      !Array.isArray(input.knowledgeModules) ||
+      input.knowledgeModules.length > MAX_KNOWLEDGE_PACK_MODULES
+    ) {
+      throw new PromptOrchestratorError(
+        "INVALID_INPUT",
+        `knowledgeModules must be an array of at most ${MAX_KNOWLEDGE_PACK_MODULES} modules`,
+      );
+    }
+    const seenModuleIds = new Set<string>();
+    input.knowledgeModules.forEach((module, index) => {
+      if (!module || typeof module !== "object") {
+        throw new PromptOrchestratorError(
+          "INVALID_INPUT",
+          `knowledgeModules[${index}] must be an object`,
+        );
+      }
+      const id = requireText(module.id, `knowledgeModules[${index}].id`);
+      if (id.length > 500 || seenModuleIds.has(id)) {
+        throw new PromptOrchestratorError(
+          "INVALID_INPUT",
+          `knowledgeModules[${index}].id must be unique and 500 characters or fewer`,
+        );
+      }
+      seenModuleIds.add(id);
+      requireText(module.moduleKey, `knowledgeModules[${index}].moduleKey`);
+      requireText(module.title, `knowledgeModules[${index}].title`);
+      const content = requireText(module.content, `knowledgeModules[${index}].content`);
+      if (content.length > MAX_LAYER_CHARS) {
+        throw new PromptOrchestratorError(
+          "INVALID_INPUT",
+          `knowledgeModules[${index}].content must be ${MAX_LAYER_CHARS.toLocaleString("en-US")} characters or fewer`,
+        );
+      }
+      if (
+        module.layer !== undefined &&
+        module.layer !== "P" &&
+        module.layer !== "S" &&
+        module.layer !== "H"
+      ) {
+        throw new PromptOrchestratorError(
+          "INVALID_INPUT",
+          `knowledgeModules[${index}].layer must be P, S or H`,
+        );
+      }
+    });
+  }
+  const writingLayerText = buildWritingLayerText(input);
+  if (writingLayerText) {
+    if (writingLayerText.length > MAX_LAYER_CHARS) {
+      throw new PromptOrchestratorError(
+        "INVALID_INPUT",
+        `writing layer (systemPromptLayer + knowledgeModules) must be ${MAX_LAYER_CHARS.toLocaleString("en-US")} characters or fewer`,
+      );
+    }
+    const budget = resolveSystemPromptLayerBudget(input, writingLayerText);
     if (!budget.fits) {
       throw new PromptOrchestratorError(
         "SYSTEM_PROMPT_LAYER_OVER_BUDGET",
-        `systemPromptLayer needs ${budget.usedTokens} tokens, but only ${budget.budgetTokens} are available ` +
-          `in a ${budget.contextTokens}-token context (${budget.overBy} over). ` +
-          "Remove sections, use the compressed version, or switch to a larger context preset.",
+        `Writing layer (systemPromptLayer + knowledgeModules) needs ${budget.usedTokens} tokens, ` +
+          `but only ${budget.budgetTokens} are available in a ${budget.contextTokens}-token context ` +
+          `(${budget.overBy} over). Remove modules or sections, use the compressed version, ` +
+          "or switch to a larger context preset.",
       );
     }
   }
@@ -764,8 +824,9 @@ export class PromptOrchestrator {
     ];
     const fixedFields = buildFixedFields(input, compositionTerms, directives);
     const identityFields = resolvedIdentityFields(entities);
-    const layerBudget = input.systemPromptLayer?.trim()
-      ? resolveSystemPromptLayerBudget(input, input.systemPromptLayer.trim())
+    const writingLayerText = buildWritingLayerText(input);
+    const layerBudget = writingLayerText
+      ? resolveSystemPromptLayerBudget(input, writingLayerText)
       : null;
     const layerMetrics = layerBudget
       ? {

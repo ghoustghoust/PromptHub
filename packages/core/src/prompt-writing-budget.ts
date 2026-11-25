@@ -71,6 +71,7 @@ export function resolveSystemPromptLayerBudget(
     systemPromptLayer: undefined,
     systemPromptLayerSource: undefined,
     systemPromptLayerPresetId: undefined,
+    knowledgeModules: undefined,
   };
   const messages = buildCompositionMessages(stripped, [], [], []);
   const contractTokens = estimatePromptTokens(messages.system);

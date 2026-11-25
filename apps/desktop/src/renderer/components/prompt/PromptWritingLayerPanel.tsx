@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
+  PromptKnowledgeModule,
+  PromptKnowledgePack,
   PromptWritingLayerBudgetPreview,
   PromptWritingPreset,
   PromptWritingPresetSummary,
@@ -33,9 +35,18 @@ interface Props {
   contextLocked: boolean;
   budget: PromptWritingLayerBudgetPreview | null;
   budgetError: string;
+  knowledgePacks: PromptKnowledgePack[];
+  knowledgeModulesByPack: Record<string, PromptKnowledgeModule[]>;
+  knowledgePackIds: string[];
+  knowledgeModuleIds: string[];
+  /** Tokens of the selected modules; they share the same layer budget. */
+  knowledgeTokens: number;
+  knowledgeError?: string;
   onSelectionChange: (next: WritingLayerSelection) => void;
   onTextChange: (text: string, source: string | null) => void;
   onContextTokensChange: (value: number) => void;
+  onToggleKnowledgePack: (id: string) => void;
+  onToggleKnowledgeModule: (id: string) => void;
 }
 
 /**
@@ -52,9 +63,17 @@ export function PromptWritingLayerPanel({
   contextLocked,
   budget,
   budgetError,
+  knowledgePacks,
+  knowledgeModulesByPack,
+  knowledgePackIds,
+  knowledgeModuleIds,
+  knowledgeTokens,
+  knowledgeError = "",
   onSelectionChange,
   onTextChange,
   onContextTokensChange,
+  onToggleKnowledgePack,
+  onToggleKnowledgeModule,
 }: Props) {
   const { t } = useTranslation();
   const [summaries, setSummaries] = useState<PromptWritingPresetSummary[]>([]);
@@ -201,7 +220,7 @@ export function PromptWritingLayerPanel({
     applySelection({ ...selection, sectionIds: ids });
   };
 
-  const usedTokens = estimatePromptTokens(text);
+  const usedTokens = estimatePromptTokens(text) + knowledgeTokens;
   const budgetTokens = budget?.budgetTokens ?? null;
   const overBudget = budgetTokens !== null && usedTokens > budgetTokens;
   const percent = budgetTokens && budgetTokens > 0
@@ -298,6 +317,78 @@ export function PromptWritingLayerPanel({
         </p>
       )}
       {budgetError && <p className="text-xs text-destructive">{budgetError}</p>}
+
+      <div className="space-y-2 rounded-md border border-border/60 p-2" data-testid="writing-layer-knowledge">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-xs font-medium">{t("orchestrator.writingLayer.knowledgeTitle")}</span>
+          <span className="text-[11px] text-muted-foreground" data-testid="writing-layer-knowledge-tokens">
+            {t("orchestrator.writingLayer.knowledgeTokens", { tokens: knowledgeTokens })}
+          </span>
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          {t("orchestrator.writingLayer.knowledgeHint")}
+        </p>
+        {knowledgePacks.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground" data-testid="writing-layer-knowledge-empty">
+            {t("orchestrator.writingLayer.knowledgeEmpty")}
+          </p>
+        ) : (
+          <div className="max-h-44 space-y-1 overflow-y-auto">
+            {knowledgePacks.map((pack) => {
+              const selected = knowledgePackIds.includes(pack.id);
+              const modules = knowledgeModulesByPack[pack.id] ?? [];
+              return (
+                <div key={pack.id}>
+                  <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-[11px] hover:bg-muted/30">
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => onToggleKnowledgePack(pack.id)}
+                      disabled={disabled}
+                      data-testid={`writing-layer-knowledge-pack-${pack.id}`}
+                    />
+                    <span className="min-w-0 flex-1 truncate font-medium" title={pack.name}>
+                      {pack.name}
+                    </span>
+                    <span className="shrink-0 text-muted-foreground">
+                      {pack.version ? `v${pack.version}` : pack.kind}
+                    </span>
+                  </label>
+                  {selected && (
+                    <div className="ml-5 space-y-0.5 border-l border-border/60 pl-2">
+                      {modules.length === 0 ? (
+                        <p className="py-1 text-[10px] text-muted-foreground">
+                          {t("orchestrator.writingLayer.knowledgeLoadingModules")}
+                        </p>
+                      ) : modules.map((module) => (
+                        <label
+                          key={module.id}
+                          className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-[11px] hover:bg-muted/30"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={knowledgeModuleIds.includes(module.id)}
+                            onChange={() => onToggleKnowledgeModule(module.id)}
+                            disabled={disabled}
+                            data-testid={`writing-layer-knowledge-module-${module.id}`}
+                          />
+                          <span className="min-w-0 flex-1 truncate" title={module.title}>
+                            {module.title}
+                          </span>
+                          <span className="shrink-0 text-[10px] text-muted-foreground">
+                            {module.layer ?? "H"} · {module.tokens}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {knowledgeError && <p className="text-xs text-destructive">{knowledgeError}</p>}
+      </div>
 
       {selection.mode === "preset" ? (
         <div className="space-y-2">

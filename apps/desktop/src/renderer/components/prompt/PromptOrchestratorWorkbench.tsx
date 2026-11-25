@@ -573,9 +573,17 @@ export function PromptOrchestratorWorkbench() {
                 contextLocked={state.modelSource === "local"}
                 budget={state.layerBudget}
                 budgetError={state.layerBudgetError}
+                knowledgePacks={state.knowledgePacks}
+                knowledgeModulesByPack={state.knowledgeModulesByPack}
+                knowledgePackIds={state.knowledgePackIds}
+                knowledgeModuleIds={state.knowledgeModuleIds}
+                knowledgeTokens={state.knowledgeTokens}
+                knowledgeError={state.knowledgeError}
                 onSelectionChange={state.setWritingLayer}
                 onTextChange={state.updateSystemLayerWithSource}
                 onContextTokensChange={state.setLayerContextTokens}
+                onToggleKnowledgePack={state.toggleKnowledgePack}
+                onToggleKnowledgeModule={state.toggleKnowledgeModule}
               />
             </div>
           )}

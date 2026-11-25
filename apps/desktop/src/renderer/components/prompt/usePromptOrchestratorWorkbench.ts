@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import type {
   PromptArtistPipeline,
   PromptGuidanceMode,
+  PromptKnowledgeModule,
+  PromptKnowledgePack,
   PromptMossLayoutBox,
   PromptOrchestrationInput,
   PromptOrchestrationMode,
@@ -162,6 +164,14 @@ export function usePromptOrchestratorWorkbench() {
   const [systemLayer, setSystemLayer] = useState("");
   const [systemLayerSource, setSystemLayerSource] = useState<string | undefined>();
   const [writingLayer, setWritingLayer] = useState<WritingLayerSelection>(EMPTY_WRITING_LAYER);
+  const [knowledgePacks, setKnowledgePacks] = useState<PromptKnowledgePack[]>([]);
+  const [knowledgeModulesByPack, setKnowledgeModulesByPack] = useState<
+    Record<string, PromptKnowledgeModule[]>
+  >({});
+  const [knowledgePackIds, setKnowledgePackIds] = useState<string[]>([]);
+  const [knowledgeModuleIds, setKnowledgeModuleIds] = useState<string[]>([]);
+  const [knowledgeError, setKnowledgeError] = useState("");
+  const knowledgeLoading = useRef(new Set<string>());
   const [layerContextTokens, setLayerContextTokens] = useState(8192);
   const [layerBudget, setLayerBudget] = useState<PromptWritingLayerBudgetPreview | null>(null);
   const [layerBudgetError, setLayerBudgetError] = useState("");
@@ -242,6 +252,8 @@ export function usePromptOrchestratorWorkbench() {
             sectionIds: reply.data.writingPresetSectionIds ?? [],
           });
           if (reply.data.mossLayout) mossLayout.restore(reply.data.mossLayout);
+          setKnowledgePackIds(reply.data.knowledgePackIds ?? []);
+          setKnowledgeModuleIds(reply.data.knowledgeModuleIds ?? []);
         }
       })
       .catch((cause: unknown) => {
@@ -254,6 +266,90 @@ export function usePromptOrchestratorWorkbench() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void window.api.promptKnowledge
+      .listPacks()
+      .then((reply) => {
+        if (!active) return;
+        if (reply.ok === true) setKnowledgePacks(reply.data);
+        else setKnowledgeError(reply.error.message);
+      })
+      .catch((cause: unknown) => {
+        if (active) setKnowledgeError(cause instanceof Error ? cause.message : String(cause));
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Load modules lazily for the selected packs; a failed pack keeps its error.
+  useEffect(() => {
+    const missing = knowledgePackIds.filter(
+      (id) => !knowledgeModulesByPack[id] && !knowledgeLoading.current.has(id),
+    );
+    if (missing.length === 0) return;
+    let active = true;
+    for (const id of missing) {
+      knowledgeLoading.current.add(id);
+      void window.api.promptKnowledge
+        .listModules(id)
+        .then((reply) => {
+          if (!active) return;
+          if (reply.ok === true) {
+            setKnowledgeModulesByPack((current) => ({ ...current, [id]: reply.data }));
+          } else {
+            setKnowledgeError(reply.error.message);
+          }
+        })
+        .catch((cause: unknown) => {
+          if (active) setKnowledgeError(cause instanceof Error ? cause.message : String(cause));
+        })
+        .finally(() => knowledgeLoading.current.delete(id));
+    }
+    return () => {
+      active = false;
+    };
+  }, [knowledgePackIds, knowledgeModulesByPack]);
+
+  const selectedKnowledgeModules = useMemo(() => {
+    const selected = new Map<string, PromptKnowledgeModule & { packName?: string }>();
+    for (const packId of knowledgePackIds) {
+      const pack = knowledgePacks.find((entry) => entry.id === packId);
+      for (const module of knowledgeModulesByPack[packId] ?? []) {
+        if (!knowledgeModuleIds.includes(module.id)) continue;
+        selected.set(module.id, {
+          ...module,
+          ...(pack ? { packName: pack.name } : {}),
+        });
+      }
+    }
+    return [...selected.values()];
+  }, [knowledgePackIds, knowledgePacks, knowledgeModulesByPack, knowledgeModuleIds]);
+  const knowledgeTokens = useMemo(
+    () => selectedKnowledgeModules.reduce((sum, module) => sum + module.tokens, 0),
+    [selectedKnowledgeModules],
+  );
+
+  function toggleKnowledgePack(id: string): void {
+    const selected = knowledgePackIds.includes(id);
+    setKnowledgePackIds(selected
+      ? knowledgePackIds.filter((entry) => entry !== id)
+      : [...knowledgePackIds, id]);
+    if (selected) {
+      const removed = new Set((knowledgeModulesByPack[id] ?? []).map((module) => module.id));
+      if (removed.size > 0) {
+        setKnowledgeModuleIds((current) => current.filter((moduleId) => !removed.has(moduleId)));
+      }
+    }
+  }
+
+  function toggleKnowledgeModule(id: string): void {
+    setKnowledgeModuleIds((current) => current.includes(id)
+      ? current.filter((entry) => entry !== id)
+      : [...current, id]);
+  }
 
   useEffect(() => {
     if (!workspaceHydrated) return;
@@ -298,6 +394,8 @@ export function usePromptOrchestratorWorkbench() {
                 },
               }
             : {}),
+          knowledgePackIds,
+          knowledgeModuleIds,
         })
         .then((reply) => {
           if (reply.ok !== true) {
@@ -322,6 +420,8 @@ export function usePromptOrchestratorWorkbench() {
     mossLayout.width,
     mossLayout.height,
     mossLayout.boxes,
+    knowledgePackIds,
+    knowledgeModuleIds,
     workspaceHydrated,
   ]);
 
@@ -625,14 +725,15 @@ export function usePromptOrchestratorWorkbench() {
     if (!llmModelId) {
       blockers.push(t("orchestrator.blocker.model"));
     }
+    const writingLayerTokens = estimatePromptTokens(systemLayer) + knowledgeTokens;
     if (
-      systemLayer.trim() &&
+      writingLayerTokens > 0 &&
       layerBudget &&
-      estimatePromptTokens(systemLayer) > layerBudget.budgetTokens
+      writingLayerTokens > layerBudget.budgetTokens
     ) {
       blockers.push(
         t("orchestrator.blocker.layerBudget", {
-          over: estimatePromptTokens(systemLayer) - layerBudget.budgetTokens,
+          over: writingLayerTokens - layerBudget.budgetTokens,
         }),
       );
     }
@@ -708,15 +809,33 @@ export function usePromptOrchestratorWorkbench() {
       skill,
       ...(targetPipeline ? { targetPipeline } : {}),
       guidanceMode,
-      ...(systemLayer.trim()
+      ...(systemLayer.trim() || selectedKnowledgeModules.length > 0
         ? {
-            systemPromptLayer: systemLayer.trim(),
-            ...(systemLayerSource ? { systemPromptLayerSource: systemLayerSource } : {}),
-            ...(writingLayer.mode === "preset" && writingLayer.presetId
-              ? { systemPromptLayerPresetId: writingLayer.presetId }
+            ...(systemLayer.trim()
+              ? {
+                  systemPromptLayer: systemLayer.trim(),
+                  ...(systemLayerSource ? { systemPromptLayerSource: systemLayerSource } : {}),
+                  ...(writingLayer.mode === "preset" && writingLayer.presetId
+                    ? { systemPromptLayerPresetId: writingLayer.presetId }
+                    : {}),
+                }
               : {}),
             systemPromptLayerContextSize: layerContextTokens,
             systemPromptLayerOutputReserve: 4096,
+          }
+        : {}),
+      ...(selectedKnowledgeModules.length > 0
+        ? {
+            knowledgeModules: selectedKnowledgeModules.map((module) => ({
+              id: module.id,
+              packId: module.packId,
+              ...(module.packName ? { packName: module.packName } : {}),
+              moduleKey: module.moduleKey,
+              title: module.title,
+              ...(module.layer ? { layer: module.layer } : {}),
+              tokens: module.tokens,
+              content: module.content,
+            })),
           }
         : {}),
       series: series || undefined,
@@ -1126,6 +1245,9 @@ export function usePromptOrchestratorWorkbench() {
     systemLayer, updateSystemLayer, applyLibraryLayer, systemLayerSource,
     updateSystemLayerWithSource,
     writingLayer, setWritingLayer,
+    knowledgePacks, knowledgeModulesByPack,
+    knowledgePackIds, knowledgeModuleIds, knowledgeTokens, knowledgeError,
+    toggleKnowledgePack, toggleKnowledgeModule,
     layerContextTokens, setLayerContextTokens,
     layerBudget, layerBudgetError,
     libraryPrompts, applyLibraryPrompt,

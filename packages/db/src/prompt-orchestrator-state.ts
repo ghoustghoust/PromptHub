@@ -49,6 +49,11 @@ function sectionIds(value: unknown): string[] | undefined {
     .slice(0, MAX_SECTION_IDS);
 }
 
+/** Knowledge selections use the same bounded string-list shape as sections. */
+function knowledgeIds(value: unknown): string[] | undefined {
+  return sectionIds(value);
+}
+
 /**
  * Write path: an oversized writing layer is an error, never a silent slice.
  * The cap matches the core transport guard, so anything longer could not run.
@@ -118,6 +123,12 @@ export class PromptOrchestratorStateDB {
         ? { writingPresetSectionIds: sectionIds(value.writingPresetSectionIds) }
         : {}),
       ...(layout !== undefined ? { mossLayout: layout } : {}),
+      ...(knowledgeIds(value.knowledgePackIds) !== undefined
+        ? { knowledgePackIds: knowledgeIds(value.knowledgePackIds) }
+        : {}),
+      ...(knowledgeIds(value.knowledgeModuleIds) !== undefined
+        ? { knowledgeModuleIds: knowledgeIds(value.knowledgeModuleIds) }
+        : {}),
       updatedAt: new Date(row.updated_at).toISOString(),
     };
   }
@@ -142,6 +153,12 @@ export class PromptOrchestratorStateDB {
         ? { writingPresetSectionIds: state.writingPresetSectionIds.slice(0, MAX_SECTION_IDS) }
         : {}),
       ...(state.mossLayout !== undefined ? { mossLayout: state.mossLayout } : {}),
+      ...(state.knowledgePackIds !== undefined
+        ? { knowledgePackIds: state.knowledgePackIds.slice(0, MAX_SECTION_IDS) }
+        : {}),
+      ...(state.knowledgeModuleIds !== undefined
+        ? { knowledgeModuleIds: state.knowledgeModuleIds.slice(0, MAX_SECTION_IDS) }
+        : {}),
     };
     const json = JSON.stringify(base);
     if (json.length > MAX_STATE_CHARS) {

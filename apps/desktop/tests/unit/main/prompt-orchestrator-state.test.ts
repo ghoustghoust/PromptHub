@@ -150,6 +150,40 @@ describe("orchestrator workspace state", () => {
     ).toThrow("length limit");
   });
 
+  it("round-trips knowledge pack and module selections", () => {
+    const service = new DesktopPromptOrchestratorService(rawDb);
+    const saved = service.saveWorkspaceState({
+      ...state(),
+      knowledgePackIds: ["pack-film", "pack-moss"],
+      knowledgeModuleIds: ["module-action", "module-rhythm"],
+    });
+    expect(saved.knowledgePackIds).toEqual(["pack-film", "pack-moss"]);
+    expect(saved.knowledgeModuleIds).toEqual(["module-action", "module-rhythm"]);
+    expect(service.getWorkspaceState()).toMatchObject({
+      knowledgePackIds: ["pack-film", "pack-moss"],
+      knowledgeModuleIds: ["module-action", "module-rhythm"],
+    });
+
+    expect(() =>
+      service.saveWorkspaceState({
+        ...state(),
+        knowledgePackIds: Array.from({ length: 201 }, (_, index) => `pack-${index}`),
+      }),
+    ).toThrow("knowledgePackIds");
+    expect(() =>
+      service.saveWorkspaceState({
+        ...state(),
+        knowledgeModuleIds: [1 as never],
+      }),
+    ).toThrow("knowledgeModuleIds");
+    expect(() =>
+      service.saveWorkspaceState({
+        ...state(),
+        knowledgeModuleIds: ["x".repeat(201)],
+      }),
+    ).toThrow("knowledgeModuleIds");
+  });
+
   it("keeps a long writing layer intact after closing and reopening the database", () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), "prompthub-orchestrator-state-"));
     const file = path.join(directory, "prompthub.db");

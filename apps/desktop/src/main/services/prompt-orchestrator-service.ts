@@ -366,6 +366,8 @@ function parseWorkspaceState(
     });
   });
   const layout = parseWorkspaceLayout(value.mossLayout, tolerateLayout);
+  const knowledgePackIds = workspaceIdList(value.knowledgePackIds, "knowledgePackIds");
+  const knowledgeModuleIds = workspaceIdList(value.knowledgeModuleIds, "knowledgeModuleIds");
   return {
     prefabTerms,
     modelId: typeof value.modelId === "string"
@@ -376,7 +378,28 @@ function parseWorkspaceState(
       : "",
     ...workspaceLayerState(value),
     ...(layout !== undefined ? { mossLayout: layout } : {}),
+    ...(knowledgePackIds.length > 0 ? { knowledgePackIds } : {}),
+    ...(knowledgeModuleIds.length > 0 ? { knowledgeModuleIds } : {}),
   };
+}
+
+const MAX_KNOWLEDGE_SELECTION_IDS = 200;
+
+/** Knowledge selection ids are bounded, non-empty strings; duplicates collapse. */
+function workspaceIdList(value: unknown, label: string): string[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || value.length > MAX_KNOWLEDGE_SELECTION_IDS) {
+    throw new Error(`${label} must be an array of at most ${MAX_KNOWLEDGE_SELECTION_IDS} ids`);
+  }
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  value.forEach((entry, index) => {
+    const id = workspaceText(entry, `${label}[${index}]`, 200);
+    if (seen.has(id)) return;
+    seen.add(id);
+    ids.push(id);
+  });
+  return ids;
 }
 
 function workspaceNullableId(value: unknown, label: string): string | null | undefined {

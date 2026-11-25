@@ -5159,6 +5159,11 @@
     },
     "writingLayer": {
       "title": "写作层",
+      "knowledgeTitle": "知识包",
+      "knowledgeHint": "导入的模块会并入写作层并共用同一 token 预算；包内脚本不会执行。",
+      "knowledgeEmpty": "还没有导入知识包。先导入 Skill-Film 等素材包，再选择要注入的模块。",
+      "knowledgeLoadingModules": "正在加载模块…",
+      "knowledgeTokens": "模块 {{tokens}} token",
       "source": "来自 {{title}}",
       "meter": "{{used}} / {{budget}} token",
       "breakdown": "上下文 {{context}} · 输出预留 {{output}} · 契约 {{contract}} · 词库 {{vocabulary}}",

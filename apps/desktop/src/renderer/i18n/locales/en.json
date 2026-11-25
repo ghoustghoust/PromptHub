@@ -5161,6 +5161,11 @@
     },
     "writingLayer": {
       "title": "Writing layer",
+      "knowledgeTitle": "Knowledge packs",
+      "knowledgeHint": "Imported modules join the writing layer and share its token budget; scripts are never executed.",
+      "knowledgeEmpty": "No knowledge packs imported yet. Import a pack such as Skill-Film before selecting modules.",
+      "knowledgeLoadingModules": "Loading modules…",
+      "knowledgeTokens": "{{tokens}} module tokens",
       "source": "From {{title}}",
       "meter": "{{used}} / {{budget}} tokens",
       "breakdown": "context {{context}} · output reserve {{output}} · contracts {{contract}} · vocabulary {{vocabulary}}",

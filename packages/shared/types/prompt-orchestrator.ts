@@ -580,6 +580,10 @@ export interface PromptOrchestratorWorkspaceState {
   writingPresetSectionIds?: string[];
   /** Canvas draft (size and boxes) so a reload keeps the current layout. */
   mossLayout?: PromptMossLayoutDraft;
+  /** Imported knowledge packs shown in the writing-layer picker. */
+  knowledgePackIds?: string[];
+  /** Selected knowledge modules appended to the writing layer. */
+  knowledgeModuleIds?: string[];
   updatedAt?: string;
 }
 

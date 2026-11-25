@@ -23,4 +23,5 @@ export * from "./prompt-vocab";
 export * from "./prompt-orchestrator";
 export * from "./prompt-writing-preset";
 export * from "./prompt-moss-layout";
+export * from "./prompt-knowledge";
 export * from "./local-model";

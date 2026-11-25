@@ -1603,8 +1603,11 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
 - 已更新隔离库的 groups_json（先备份 `contract-groups-*.db`）；报告
   `outputs/a6-phase2-20261125/stani-contract-groups.json|md`。
 - 单测：shared 分组路由、DB 往返/迁移、service 按篇前缀分组；service 16/16。
-- UI 尚未按组过滤：当前选斯坦尼仍会注入全部 18 条 contract，下一步在包里增加
-  “剧本/分镜/小说”组选择后再按组注入。
+- 选择 UI：选中含分组的包后出现“项目类型”按钮（只写剧本/只做分镜/只写小说）；未选时
+  显示提示并阻断运行（`orchestrator.blocker.contractGroup`），contract 只列所选组 +
+  无组归属的常开条目；选择存 workspace `knowledgeContractGroup`，重启恢复。
+- 真实窗口 e2e 14.0s：斯坦尼选“分镜”= 5 条 / 3,059 tokens，切“剧本”= 8 条 / 5,104 tokens，
+  重启后仍为剧本组；截图 `10-contract-group-script.png`。
 
 ### 未做
 

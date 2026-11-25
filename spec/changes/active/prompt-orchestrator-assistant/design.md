@@ -1451,11 +1451,22 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
 - 单测 7/7；用真实 `prompt/new` 只读试跑：Skill-Film 160 个模块、0 冲突（与包内索引一致），
   moss-prompt 8 个、老唐 s9 7 个。
 
+### 导入提交与 IPC
+
+- `commitKnowledgeImport(db, preview, {packName?, moduleKeys?})`：提交前重新扫描 sourcePath，
+  逐个比对 preview 的 moduleKey 与 contentHash；源文件变了或 key 不存在则报错并拒绝写入，
+  renderer 无法替换模块正文。
+- 写库使用 `replacePack`：同一 sourcePath 的旧包与模块在同一事务内删除后重建，
+  重复导入不会堆包；可只导入选中的 moduleKeys，`ord` 按选择顺序重排。
+- IPC 五条：`prompt:knowledge:preview / commit / list / modules / remove`，均返回
+  `{ok,data|error}`；preload 暴露 `window.api.promptKnowledge`。
+- 单测：DB replace 1、service commit 5（写入、子集、替换、源变更拒绝、未知 key）、
+  IPC 3（预览、缺参拒绝、提交→列表→模块→删除）；真实 Skill-Film 在内存库提交
+  160 个模块、99ms、正文完整。
+
 ### 未做
 
-- 导入提交（DB 写入 + 预览到记录的组装）、IPC/preload、Core 的 `knowledgeModules`
-  预算注入与 UI 尚未开始；选择状态（knowledgePackIds / knowledgeModuleIds）
-  也尚未进入 workspace state。
+- Core 的 `knowledgeModules` 预算注入、workspace 选择状态与 UI 尚未开始。
 
 ## 评估方式
 

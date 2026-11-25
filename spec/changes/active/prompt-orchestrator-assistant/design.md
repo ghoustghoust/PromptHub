@@ -1654,6 +1654,22 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
 - 未做：选择尚未传入 Core / 未参与编排（下一步加 `referenceStyles` 注入与 provenance），
   色卡也不进入写作层 P/S/H 预算。
 
+### Core 色卡注入
+
+- `PromptOrchestrationInput.referenceStyles`（≤3）：id/nameZh/nameEn/category/summary/palette/
+  style(lighting/framing)；紧凑文本由 shared `buildReferenceStyleText` 生成，Core、预算预览与 UI
+  共用同一份，避免 token 估算漂移。
+- 注入位置：system 中的独立 “Visual style references” 块，明确“用作色调/光线/构图方向，
+  不整段引用、不用导演名堆 prompt”；不进入 `buildWritingLayerText`，不占 P/S/H 写作层文本。
+- 预算：参考 token 作为独立固定成本 `referenceTokens` 从上下文扣除，写作层预算相应减少；
+  `PromptWritingLayerBudgetPreview` 增加 `referenceTokens`，UI 选择器显示“≈N reference tokens”。
+- provenance：每个色卡一条 `reference:<id>`，label 导演名、state locked、outcome injected，
+  excerpt 为 summary + palette；`systemPromptLayerMetrics.referenceTokens` 记录占用。
+- 校验：最多 3 条；id/name/category/summary 必填、summary ≤1000 字符、palette 必须是数组。
+- 单测：Core 注入/预算/ provenance/上限 4/4，既有预算用例通过；hook 选择即进入 run 输入；
+  desktop typecheck、typecheck:tests、lint、构建通过。
+- 未做：没有用真实引擎跑“选色卡”的对比样本。
+
 ### 未做
 
 - 选择尚未进入 Core；下一步加 `referenceStyles` 输入、紧凑注入与 provenance，并在预算里

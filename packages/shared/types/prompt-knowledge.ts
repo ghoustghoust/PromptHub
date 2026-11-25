@@ -67,9 +67,13 @@ export interface PromptKnowledgeModulePreview {
   scope?: string;
   priority?: PromptKnowledgeModulePriority;
   layer: PromptKnowledgeModuleLayer;
+  triggers: string[];
+  dependsOn: string[];
   tokens: number;
   bytes: number;
   contentHash: string;
+  /** Display order after dedupe. */
+  ord: number;
 }
 
 export interface PromptKnowledgePackPreview {

@@ -10,6 +10,8 @@ export const MAX_KNOWLEDGE_MODULE_BYTES = 50 * 1024;
 export const MAX_KNOWLEDGE_MODULE_TOKENS = 6000;
 
 const SKIP_DIRECTORIES = ["agents/", "tools/"];
+/** Original source copies sit next to the inject-ready module; skip them. */
+const SOURCE_DIRECTORIES = ["源/", "source/"];
 const BACKUP_MARKERS = ["_备份", ".bak"];
 
 /**
@@ -20,6 +22,11 @@ export function isSkippedKnowledgePath(sourcePath: string): string | null {
   const normalized = sourcePath.replace(/\\/g, "/").toLowerCase();
   if (BACKUP_MARKERS.some((marker) => normalized.includes(marker.toLowerCase()))) {
     return "backup or variant copy is skipped by default";
+  }
+  for (const directory of SOURCE_DIRECTORIES) {
+    if (normalized.includes(`/${directory}`) || normalized.startsWith(directory)) {
+      return "source copy is skipped; the inject version is imported";
+    }
   }
   for (const directory of SKIP_DIRECTORIES) {
     if (normalized.includes(`/${directory}`) || normalized.startsWith(directory)) {

@@ -37,6 +37,7 @@ describe("knowledge pack parsing rules", () => {
     assert.match(isSkippedKnowledgePath("知识/老版本.md.bak") ?? "", /backup/i);
     assert.match(isSkippedKnowledgePath("agents/helper.md") ?? "", /agents/);
     assert.match(isSkippedKnowledgePath("tools/run.py") ?? "", /tools/);
+    assert.match(isSkippedKnowledgePath("知识/01-叙事/源/动作设计.md") ?? "", /source copy/);
     assert.equal(isSkippedKnowledgePath("知识/镜头语言.md"), null);
     assert.equal(isSkippedKnowledgePath("index.md"), null);
   });

@@ -1417,6 +1417,31 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
 临时 profile 的真实窗口 e2e 通过（清空→重启仍 0）。共享 profile 的 28 个框需重启新构建后
 点一次“清空画布”，本轮未关闭用户正在运行的窗口，因此未直接改该库。
 
+## 第二十二轮：A6 Phase 2 的 shared 类型与知识包三表（2026-11-25）
+
+### shared 契约
+
+- 新增 `prompt-knowledge.ts` 类型：pack（kind/status/sourceHash/variant…）、module
+  （moduleKey/title/priority/layer/triggers/dependsOn/contentHash/tokens/ord）、
+  导入预览、跳过项与冲突（duplicate-content / module-key）、提交结果。
+- 纯规则集中在 `packages/shared/utils/prompt-knowledge.ts`：
+  七段标题映射 P/S/H（结构词优先，避免“轴线规则”误判为 P）、单模块 50KB 与 6k token 上限、
+  `_备份`/`.bak`/`agents/`/`tools/` 跳过、内容哈希去重与 module_key 冲突。
+- 单测 4/4 覆盖映射、上限、跳过与冲突。
+
+### 数据库三表
+
+- `prompt_knowledge_packs`、`prompt_knowledge_modules`，索引按 pack+ord、pack+module_key
+  （唯一）与 content_hash；外键级联删除；kind/status/priority/layer 均有 CHECK。
+- `PromptKnowledgeDB.createPack` 事务写入 pack 与全部模块，拒绝重复 module_key 与
+  超过 200 个模块；`listPacks` 按更新时间倒序、`listModules` 按 ord。
+- 已接入 `SCHEMA_TABLES` 与初始化迁移；DB 单测 3/3（往返、重复键、级联删除）。
+
+### 未做
+
+- 扫描/解析/导入预览服务、IPC/preload、Core 的 `knowledgeModules` 预算注入与 UI 尚未开始；
+  选择状态（knowledgePackIds / knowledgeModuleIds）也尚未进入 workspace state。
+
 ## 评估方式
 
 A/B/C 三版对比：A 原始输入、B 普通大模型扩写、C 编排结果。固定底模、LoRA、

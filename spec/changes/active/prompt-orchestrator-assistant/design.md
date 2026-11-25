@@ -1567,9 +1567,26 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
   去 AI 味、范文库为 knowledge）。
 - 报告：`outputs/a6-phase2-20261125/knowledge-role-report.json|md`。
 
+### 写作层按角色展示与导入角色可改
+
+- 写作层只把 `role=knowledge` 的模块做成 checkbox；选中的包里 `role=contract` 的模块以
+  “随包常开”只读行展示（无 checkbox），token 单独显示并计入总预算与运行阻断；运行时把
+  contract + 选中的 knowledge 一起作为 `knowledgeModules` 传给 Core，按 id 去重。
+- 取消包会同时移除该包已选 knowledge；contract 不写入 workspace 选择，随包自动生效。
+- 导入预览新增“模块与角色”列表：每条显示标题、P/S/H、token 与 contract/knowledge/reference
+  下拉；确认时提交修改后的 role，`commitKnowledgeImport` 以 preview 的 role 为准并校验三值，
+  不再用重扫结果覆盖。
+- 单测：panel 6/6（含 contract 只读、token 计入、预览改 role 后提交）、hook 4/4（run 输入
+  含 contract+knowledge、contractTokens）、service 14/14（角色覆盖）；真实窗口 e2e 5.4s：
+  s9 导入时把首条改为 knowledge，确认后 6 条常开 + 1 条可勾选，截图
+  `07-contract-roles.png`。
+- 预算提醒：s9 的 7 条 contract 共 4,322 token、斯坦尼 contract 共 12,379 token；8K 档
+  （预算约 2,061）选包即超预算，真实引擎复测需要 32K 上下文，旧的双包 8K e2e 已移除。
+
 ### 未做
 
-- 写作层尚未按 role 过滤（第 3 步），导入预览尚未显示/允许改角色；色卡 reference 库未开始。
+- reference（色卡）尚未进入选择器；写作层尚未展示“某包 contract 因预算超限”的专门提示。
+- 结果面板只显示模块标题/kind，尚未提供跳转到知识包或模块正文的入口。
 
 ## 评估方式
 

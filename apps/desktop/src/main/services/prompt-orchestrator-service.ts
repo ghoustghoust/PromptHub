@@ -368,6 +368,7 @@ function parseWorkspaceState(
   const layout = parseWorkspaceLayout(value.mossLayout, tolerateLayout);
   const knowledgePackIds = workspaceIdList(value.knowledgePackIds, "knowledgePackIds");
   const knowledgeModuleIds = workspaceIdList(value.knowledgeModuleIds, "knowledgeModuleIds");
+  const knowledgeContractGroup = workspaceContractGroup(value.knowledgeContractGroup);
   return {
     prefabTerms,
     modelId: typeof value.modelId === "string"
@@ -380,7 +381,16 @@ function parseWorkspaceState(
     ...(layout !== undefined ? { mossLayout: layout } : {}),
     ...(knowledgePackIds.length > 0 ? { knowledgePackIds } : {}),
     ...(knowledgeModuleIds.length > 0 ? { knowledgeModuleIds } : {}),
+    ...(knowledgeContractGroup ? { knowledgeContractGroup } : {}),
   };
+}
+
+function workspaceContractGroup(
+  value: unknown,
+): "script" | "storyboard" | "novel" | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (value === "script" || value === "storyboard" || value === "novel") return value;
+  throw new Error("knowledgeContractGroup must be script, storyboard or novel");
 }
 
 const MAX_KNOWLEDGE_SELECTION_IDS = 200;

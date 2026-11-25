@@ -129,6 +129,11 @@ export class PromptOrchestratorStateDB {
       ...(knowledgeIds(value.knowledgeModuleIds) !== undefined
         ? { knowledgeModuleIds: knowledgeIds(value.knowledgeModuleIds) }
         : {}),
+      ...(value.knowledgeContractGroup === "script" ||
+      value.knowledgeContractGroup === "storyboard" ||
+      value.knowledgeContractGroup === "novel"
+        ? { knowledgeContractGroup: value.knowledgeContractGroup }
+        : {}),
       updatedAt: new Date(row.updated_at).toISOString(),
     };
   }
@@ -158,6 +163,9 @@ export class PromptOrchestratorStateDB {
         : {}),
       ...(state.knowledgeModuleIds !== undefined
         ? { knowledgeModuleIds: state.knowledgeModuleIds.slice(0, MAX_SECTION_IDS) }
+        : {}),
+      ...(state.knowledgeContractGroup !== undefined
+        ? { knowledgeContractGroup: state.knowledgeContractGroup }
         : {}),
     };
     const json = JSON.stringify(base);

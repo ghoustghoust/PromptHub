@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type {
   PromptArtistPipeline,
   PromptGuidanceMode,
+  PromptKnowledgeContractGroup,
   PromptKnowledgeImportCommitResult,
   PromptKnowledgeImportPreview,
   PromptKnowledgeModule,
@@ -172,6 +173,9 @@ export function usePromptOrchestratorWorkbench() {
   >({});
   const [knowledgePackIds, setKnowledgePackIds] = useState<string[]>([]);
   const [knowledgeModuleIds, setKnowledgeModuleIds] = useState<string[]>([]);
+  const [knowledgeContractGroup, setKnowledgeContractGroup] = useState<
+    PromptKnowledgeContractGroup | undefined
+  >();
   const [knowledgeError, setKnowledgeError] = useState("");
   const knowledgeLoading = useRef(new Set<string>());
   const [layerContextTokens, setLayerContextTokens] = useState(8192);
@@ -256,6 +260,7 @@ export function usePromptOrchestratorWorkbench() {
           if (reply.data.mossLayout) mossLayout.restore(reply.data.mossLayout);
           setKnowledgePackIds(reply.data.knowledgePackIds ?? []);
           setKnowledgeModuleIds(reply.data.knowledgeModuleIds ?? []);
+          setKnowledgeContractGroup(reply.data.knowledgeContractGroup);
         }
       })
       .catch((cause: unknown) => {
@@ -340,6 +345,13 @@ export function usePromptOrchestratorWorkbench() {
       const pack = knowledgePacks.find((entry) => entry.id === packId);
       for (const module of knowledgeModulesByPack[packId] ?? []) {
         if (module.role !== "contract") continue;
+        const groups = module.contractGroups ?? [];
+        if (
+          groups.length > 0 &&
+          (!knowledgeContractGroup || !groups.includes(knowledgeContractGroup))
+        ) {
+          continue;
+        }
         contracts.push({
           ...module,
           ...(pack ? { packName: pack.name } : {}),
@@ -347,7 +359,14 @@ export function usePromptOrchestratorWorkbench() {
       }
     }
     return contracts;
-  }, [knowledgePackIds, knowledgePacks, knowledgeModulesByPack]);
+  }, [knowledgePackIds, knowledgePacks, knowledgeModulesByPack, knowledgeContractGroup]);
+  const hasGroupedContracts = useMemo(
+    () => knowledgePackIds.some((packId) =>
+      (knowledgeModulesByPack[packId] ?? []).some(
+        (module) => module.role === "contract" && (module.contractGroups ?? []).length > 0,
+      )),
+    [knowledgePackIds, knowledgeModulesByPack],
+  );
   const contractTokens = useMemo(
     () => contractModules.reduce((sum, module) => sum + module.tokens, 0),
     [contractModules],
@@ -495,6 +514,7 @@ export function usePromptOrchestratorWorkbench() {
             : {}),
           knowledgePackIds,
           knowledgeModuleIds,
+          ...(knowledgeContractGroup ? { knowledgeContractGroup } : {}),
         })
         .then((reply) => {
           if (reply.ok !== true) {
@@ -521,6 +541,7 @@ export function usePromptOrchestratorWorkbench() {
     mossLayout.boxes,
     knowledgePackIds,
     knowledgeModuleIds,
+    knowledgeContractGroup,
     workspaceHydrated,
   ]);
 
@@ -823,6 +844,9 @@ export function usePromptOrchestratorWorkbench() {
     const blockers: string[] = [];
     if (!llmModelId) {
       blockers.push(t("orchestrator.blocker.model"));
+    }
+    if (hasGroupedContracts && !knowledgeContractGroup) {
+      blockers.push(t("orchestrator.blocker.contractGroup"));
     }
     const writingLayerTokens =
       estimatePromptTokens(systemLayer) + knowledgeTokens + contractTokens;
@@ -1346,7 +1370,9 @@ export function usePromptOrchestratorWorkbench() {
     updateSystemLayerWithSource,
     writingLayer, setWritingLayer,
     knowledgePacks, knowledgeModulesByPack,
-    knowledgePackIds, knowledgeModuleIds, knowledgeTokens, contractModules, contractTokens, knowledgeError,
+    knowledgePackIds, knowledgeModuleIds, knowledgeTokens, contractModules, contractTokens,
+    knowledgeContractGroup, setKnowledgeContractGroup, hasGroupedContracts,
+    knowledgeModules: activeKnowledgeModules, knowledgeError,
     toggleKnowledgePack, toggleKnowledgeModule,
     importKnowledgePack, deleteKnowledgePack,
     layerContextTokens, setLayerContextTokens,

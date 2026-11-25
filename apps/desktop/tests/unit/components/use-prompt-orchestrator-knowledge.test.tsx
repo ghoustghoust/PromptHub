@@ -65,6 +65,38 @@ const CONTRACT: PromptKnowledgeModule = {
   ord: 1,
 };
 
+const SCRIPT_CONTRACT: PromptKnowledgeModule = {
+  id: "contract-script",
+  packId: "pack-1",
+  moduleKey: "script-rules",
+  title: "Script rules",
+  role: "contract",
+  contractGroups: ["script"],
+  layer: "H",
+  triggers: [],
+  dependsOn: [],
+  content: "Script contract.",
+  contentHash: "hash-script",
+  tokens: 7,
+  ord: 2,
+};
+
+const STORYBOARD_CONTRACT: PromptKnowledgeModule = {
+  id: "contract-storyboard",
+  packId: "pack-1",
+  moduleKey: "storyboard-rules",
+  title: "Storyboard rules",
+  role: "contract",
+  contractGroups: ["storyboard"],
+  layer: "H",
+  triggers: [],
+  dependsOn: [],
+  content: "Storyboard contract.",
+  contentHash: "hash-storyboard",
+  tokens: 9,
+  ord: 3,
+};
+
 const PREVIEW: PromptKnowledgeImportPreview = {
   packs: [{
     name: "Skill-Film",
@@ -107,7 +139,7 @@ function install(options: {
     ?? vi.fn().mockResolvedValue({ ok: true, data: options.packs ?? [PACK] });
   const listModules = vi.fn().mockResolvedValue({
     ok: true,
-    data: options.modules ?? [MODULE, CONTRACT],
+    data: options.modules ?? [MODULE, CONTRACT, SCRIPT_CONTRACT, STORYBOARD_CONTRACT],
   });
   const commitImport = options.commitImport
     ?? vi.fn().mockResolvedValue({
@@ -153,8 +185,12 @@ describe("knowledge pack selection in the workbench", () => {
       ok: false,
       error: { code: "CANCELLED", message: "stopped" },
     });
-    install({
-      stored: { knowledgePackIds: ["pack-1"], knowledgeModuleIds: ["module-1"] },
+install({
+      stored: {
+        knowledgePackIds: ["pack-1"],
+        knowledgeModuleIds: ["module-1"],
+        knowledgeContractGroup: "script",
+      },
       run,
     });
 
@@ -180,6 +216,13 @@ describe("knowledge pack selection in the workbench", () => {
         tokens: 5,
         content: "Read the pack before writing.",
       }),
+expect.objectContaining({
+        id: "contract-script",
+        moduleKey: "script-rules",
+        title: "Script rules",
+        tokens: 7,
+        content: "Script contract.",
+      }),
       expect.objectContaining({
         id: "module-1",
         packId: "pack-1",
@@ -191,8 +234,47 @@ describe("knowledge pack selection in the workbench", () => {
         content: "Break every fight into spatial beats.",
       }),
     ]);
-    expect(hook.result.current.contractTokens).toBe(5);
+expect(hook.result.current.contractTokens).toBe(12);
     expect(hook.result.current.knowledgeTokens).toBe(12);
+    expect(hook.result.current.knowledgeModules.map((module) => module.id)).not.toContain(
+      "contract-storyboard",
+    );
+  });
+
+  it("filters contracts by the selected group and persists the group", async () => {
+    const saveWorkspaceState = vi.fn().mockResolvedValue({ ok: true, data: {} });
+    install({
+      stored: {
+        knowledgePackIds: ["pack-1"],
+        knowledgeModuleIds: [],
+        knowledgeContractGroup: "script",
+      },
+      saveWorkspaceState,
+    });
+
+    const hook = renderHook(() => usePromptOrchestratorWorkbench());
+    await waitFor(() => expect(hook.result.current.contractTokens).toBe(12));
+    expect(hook.result.current.contractModules.map((module) => module.id)).toEqual([
+      "contract-1",
+      "contract-script",
+    ]);
+
+    act(() => hook.result.current.setKnowledgeContractGroup("storyboard"));
+    await waitFor(() => expect(hook.result.current.contractTokens).toBe(14));
+    expect(hook.result.current.contractModules.map((module) => module.id)).toEqual([
+      "contract-1",
+      "contract-storyboard",
+    ]);
+    await waitFor(() => {
+      const payloads = saveWorkspaceState.mock.calls.map((call) => call[0]);
+      const last = payloads[payloads.length - 1];
+      expect(last?.knowledgeContractGroup).toBe("storyboard");
+    }, { timeout: 3000 });
+
+    act(() => hook.result.current.setKnowledgeContractGroup(undefined));
+    expect(hook.result.current.canRun).toBe(false);
+    expect(hook.result.current.runBlockers.length).toBeGreaterThan(0);
+    expect(hook.result.current.contractTokens).toBe(5);
   });
 
   it("persists toggles and drops a module when its pack is deselected", async () => {

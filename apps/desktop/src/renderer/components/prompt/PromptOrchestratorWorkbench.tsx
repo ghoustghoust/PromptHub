@@ -580,12 +580,15 @@ export function PromptOrchestratorWorkbench() {
                 knowledgeTokens={state.knowledgeTokens}
                 contractModules={state.contractModules}
                 contractTokens={state.contractTokens}
+                contractGroup={state.knowledgeContractGroup}
+                hasGroupedContracts={state.hasGroupedContracts}
                 knowledgeError={state.knowledgeError}
                 onSelectionChange={state.setWritingLayer}
                 onTextChange={state.updateSystemLayerWithSource}
                 onContextTokensChange={state.setLayerContextTokens}
                 onToggleKnowledgePack={state.toggleKnowledgePack}
                 onToggleKnowledgeModule={state.toggleKnowledgeModule}
+                onContractGroupChange={state.setKnowledgeContractGroup}
                 onImportKnowledgePack={state.importKnowledgePack}
                 onDeleteKnowledgePack={state.deleteKnowledgePack}
               />

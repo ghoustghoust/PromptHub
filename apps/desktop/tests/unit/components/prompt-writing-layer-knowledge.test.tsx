@@ -93,8 +93,11 @@ function renderPanel(overrides: {
   moduleIds?: string[];
   onTogglePack?: () => void;
   onToggleModule?: () => void;
-  onImport?: (preview: PromptKnowledgeImportPreview) => Promise<PromptKnowledgeImportCommitResult | null>;
+onImport?: (preview: PromptKnowledgeImportPreview) => Promise<PromptKnowledgeImportCommitResult | null>;
   onDelete?: (id: string) => Promise<void>;
+  contractGroup?: "script" | "storyboard" | "novel";
+  hasGroupedContracts?: boolean;
+  onGroupChange?: (group: "script" | "storyboard" | "novel" | undefined) => void;
 } = {}) {
   return renderWithI18n(
     <PromptWritingLayerPanel
@@ -107,16 +110,19 @@ function renderPanel(overrides: {
       budgetError=""
       knowledgePacks={[PACK]}
       knowledgeModulesByPack={{ "pack-1": [MODULE, CONTRACT] }}
-      contractModules={(overrides.packIds ?? []).includes("pack-1") ? [CONTRACT] : []}
+contractModules={(overrides.packIds ?? []).includes("pack-1") ? [CONTRACT] : []}
       contractTokens={(overrides.packIds ?? []).includes("pack-1") ? 5 : 0}
+      contractGroup={overrides.contractGroup}
+      hasGroupedContracts={overrides.hasGroupedContracts ?? false}
       knowledgePackIds={overrides.packIds ?? []}
       knowledgeModuleIds={overrides.moduleIds ?? []}
       knowledgeTokens={0}
       onSelectionChange={() => undefined}
       onTextChange={() => undefined}
       onContextTokensChange={() => undefined}
-      onToggleKnowledgePack={overrides.onTogglePack ?? (() => undefined)}
+onToggleKnowledgePack={overrides.onTogglePack ?? (() => undefined)}
       onToggleKnowledgeModule={overrides.onToggleModule ?? (() => undefined)}
+      onContractGroupChange={overrides.onGroupChange ?? (() => undefined)}
       onImportKnowledgePack={overrides.onImport ?? (async () => null)}
       onDeleteKnowledgePack={overrides.onDelete ?? (async () => undefined)}
     />,
@@ -168,16 +174,18 @@ describe("PromptWritingLayerPanel knowledge packs", () => {
         budgetError=""
         knowledgePacks={[PACK]}
         knowledgeModulesByPack={{ "pack-1": [MODULE, CONTRACT] }}
-        contractModules={[CONTRACT]}
+contractModules={[CONTRACT]}
         contractTokens={5}
+        hasGroupedContracts={false}
         knowledgePackIds={["pack-1"]}
         knowledgeModuleIds={["module-1"]}
         knowledgeTokens={42}
         onSelectionChange={() => undefined}
         onTextChange={() => undefined}
         onContextTokensChange={() => undefined}
-        onToggleKnowledgePack={() => undefined}
+onToggleKnowledgePack={() => undefined}
         onToggleKnowledgeModule={() => undefined}
+        onContractGroupChange={() => undefined}
         onImportKnowledgePack={async () => null}
         onDeleteKnowledgePack={async () => undefined}
       />,
@@ -237,6 +245,22 @@ describe("PromptWritingLayerPanel knowledge packs", () => {
         })],
       }));
     });
+  });
+
+  it("chooses a contract group for a grouped pack", async () => {
+    const onGroupChange = vi.fn();
+    await renderPanel({
+      packIds: ["pack-1"],
+      hasGroupedContracts: true,
+      onGroupChange,
+    });
+
+    expect(screen.getByTestId("writing-layer-contract-group-hint")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("writing-layer-contract-group-script"));
+    expect(onGroupChange).toHaveBeenCalledWith("script");
+
+    fireEvent.click(screen.getByTestId("writing-layer-contract-group-storyboard"));
+    expect(onGroupChange).toHaveBeenCalledWith("storyboard");
   });
 
   it("asks the workbench to delete a pack", async () => {

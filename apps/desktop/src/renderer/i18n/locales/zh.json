@@ -5166,6 +5166,13 @@
       "knowledgeTokens": "模块 {{tokens}} token",
       "contractTokens": "常开 {{tokens}} token",
       "contractBadge": "随包常开",
+      "contractGroupLabel": "项目类型",
+      "contractGroupHint": "选择项目类型后才会启用对应的 contract 组。",
+      "groups": {
+        "script": "只写剧本",
+        "storyboard": "只做分镜",
+        "novel": "只写小说"
+      },
       "roles": {
         "contract": "执行契约",
         "knowledge": "知识",
@@ -5412,6 +5419,7 @@
       "title": "还差这些才能开始编排",
       "model": "尚未选择可用的文本模型",
       "layerBudget": "写作层超出上下文预算 {{over}} token",
+      "contractGroup": "请为所选知识包选择项目类型（只写剧本 / 只做分镜 / 只写小说）",
       "canvasSize": "画布宽高必须是 16 的正整数倍",
       "prompt": "整体画面描述为空",
       "boxEmpty": "画布上还没有任何框",

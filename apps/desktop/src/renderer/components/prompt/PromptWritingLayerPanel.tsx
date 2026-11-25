@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
+  PromptKnowledgeContractGroup,
   PromptKnowledgeImportCommitResult,
   PromptKnowledgeImportPreview,
   PromptKnowledgeModule,
@@ -48,12 +49,16 @@ interface Props {
   /** Contract modules of the selected packs; always-on, never selectable. */
   contractModules: PromptKnowledgeModule[];
   contractTokens: number;
+  /** Project type used to select one contract group; empty means none chosen. */
+  contractGroup?: PromptKnowledgeContractGroup;
+  hasGroupedContracts: boolean;
   knowledgeError?: string;
   onSelectionChange: (next: WritingLayerSelection) => void;
   onTextChange: (text: string, source: string | null) => void;
   onContextTokensChange: (value: number) => void;
   onToggleKnowledgePack: (id: string) => void;
   onToggleKnowledgeModule: (id: string) => void;
+  onContractGroupChange: (group: PromptKnowledgeContractGroup | undefined) => void;
   onImportKnowledgePack: (preview: PromptKnowledgeImportPreview) => Promise<PromptKnowledgeImportCommitResult | null>;
   onDeleteKnowledgePack: (id: string) => Promise<void>;
 }
@@ -79,12 +84,15 @@ export function PromptWritingLayerPanel({
   knowledgeTokens,
   contractModules,
   contractTokens,
+  contractGroup,
+  hasGroupedContracts,
   knowledgeError = "",
   onSelectionChange,
   onTextChange,
   onContextTokensChange,
   onToggleKnowledgePack,
   onToggleKnowledgeModule,
+  onContractGroupChange,
   onImportKnowledgePack,
   onDeleteKnowledgePack,
 }: Props) {
@@ -452,6 +460,37 @@ export function PromptWritingLayerPanel({
         <p className="text-[11px] text-muted-foreground">
           {t("orchestrator.writingLayer.knowledgeHint")}
         </p>
+        {hasGroupedContracts && (
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-1" data-testid="writing-layer-contract-groups">
+              <span className="text-[11px] text-muted-foreground">
+                {t("orchestrator.writingLayer.contractGroupLabel")}
+              </span>
+              {(["script", "storyboard", "novel"] as const).map((group) => (
+                <button
+                  key={group}
+                  type="button"
+                  aria-pressed={contractGroup === group}
+                  onClick={() => onContractGroupChange(contractGroup === group ? undefined : group)}
+                  disabled={disabled}
+                  className={`rounded border px-1.5 py-0.5 text-[11px] transition-colors ${
+                    contractGroup === group
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid={`writing-layer-contract-group-${group}`}
+                >
+                  {t(`orchestrator.writingLayer.groups.${group}`)}
+                </button>
+              ))}
+            </div>
+            {!contractGroup && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400" data-testid="writing-layer-contract-group-hint">
+                {t("orchestrator.writingLayer.contractGroupHint")}
+              </p>
+            )}
+          </div>
+        )}
         {knowledgePacks.length === 0 ? (
           <p className="text-[11px] text-muted-foreground" data-testid="writing-layer-knowledge-empty">
             {t("orchestrator.writingLayer.knowledgeEmpty")}

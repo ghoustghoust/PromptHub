@@ -5168,6 +5168,13 @@
       "knowledgeTokens": "{{tokens}} module tokens",
       "contractTokens": "{{tokens}} always-on tokens",
       "contractBadge": "Always on",
+      "contractGroupLabel": "Project type",
+      "contractGroupHint": "Choose a project type to activate its contract group.",
+      "groups": {
+        "script": "Script only",
+        "storyboard": "Storyboard only",
+        "novel": "Novel only"
+      },
       "roles": {
         "contract": "Contract",
         "knowledge": "Knowledge",
@@ -5414,6 +5421,7 @@
       "title": "Still missing before you can orchestrate",
       "model": "No usable text model is selected",
       "layerBudget": "The writing layer exceeds the context budget by {{over}} tokens",
+      "contractGroup": "Choose a contract group (script, storyboard or novel) for the selected knowledge pack",
       "canvasSize": "Canvas width and height must be positive multiples of 16",
       "prompt": "The overall scene description is empty",
       "boxEmpty": "The canvas has no boxes yet",

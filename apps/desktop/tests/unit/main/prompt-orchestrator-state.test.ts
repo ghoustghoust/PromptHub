@@ -184,6 +184,24 @@ describe("orchestrator workspace state", () => {
     ).toThrow("knowledgeModuleIds");
   });
 
+  it("round-trips the selected contract group and rejects an unknown one", () => {
+    const service = new DesktopPromptOrchestratorService(rawDb);
+    const saved = service.saveWorkspaceState({
+      ...state(),
+      knowledgePackIds: ["pack-film"],
+      knowledgeContractGroup: "storyboard",
+    });
+    expect(saved.knowledgeContractGroup).toBe("storyboard");
+    expect(service.getWorkspaceState()?.knowledgeContractGroup).toBe("storyboard");
+
+    expect(() =>
+      service.saveWorkspaceState({
+        ...state(),
+        knowledgeContractGroup: "trailer" as never,
+      }),
+    ).toThrow("knowledgeContractGroup");
+  });
+
   it("keeps a long writing layer intact after closing and reopening the database", () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), "prompthub-orchestrator-state-"));
     const file = path.join(directory, "prompthub.db");

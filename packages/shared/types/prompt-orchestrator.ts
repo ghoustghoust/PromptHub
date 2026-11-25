@@ -7,7 +7,7 @@ import type {
   PromptMossLayoutDraft,
   PromptMossLayoutResult,
 } from "./prompt-moss-layout";
-import type { PromptKnowledgeModuleLayer } from "./prompt-knowledge";
+import type { PromptKnowledgeContractGroup, PromptKnowledgeModuleLayer } from "./prompt-knowledge";
 
 export type PromptOrchestrationMode =
   | "expand"
@@ -584,6 +584,8 @@ export interface PromptOrchestratorWorkspaceState {
   knowledgePackIds?: string[];
   /** Selected knowledge modules appended to the writing layer. */
   knowledgeModuleIds?: string[];
+  /** Project type used to pick one contract group (script/storyboard/novel). */
+  knowledgeContractGroup?: PromptKnowledgeContractGroup;
   updatedAt?: string;
 }
 

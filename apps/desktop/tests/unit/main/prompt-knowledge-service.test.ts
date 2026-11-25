@@ -264,6 +264,17 @@ describe("knowledge pack scan and preview", () => {
       ]);
     });
 
+    it("honours role overrides from the preview when committing", () => {
+      seed();
+      const preview = previewKnowledgePack(root);
+      preview.packs[0].modules[0].role = "contract";
+
+      const result = commitKnowledgeImport(knowledge, preview);
+      const modules = knowledge.listModules(result.packIds[0]);
+      expect(modules.find((entry) => entry.moduleKey === "alpha")?.role).toBe("contract");
+      expect(modules.find((entry) => entry.moduleKey === "beta")?.role).toBe("knowledge");
+    });
+
     it("replaces a previous import from the same source path", () => {
       seed();
       const preview = previewKnowledgePack(root);

@@ -5166,6 +5166,14 @@
       "knowledgeEmpty": "No knowledge packs imported yet. Import a pack such as Skill-Film before selecting modules.",
       "knowledgeLoadingModules": "Loading modules…",
       "knowledgeTokens": "{{tokens}} module tokens",
+      "contractTokens": "{{tokens}} always-on tokens",
+      "contractBadge": "Always on",
+      "roles": {
+        "contract": "Contract",
+        "knowledge": "Knowledge",
+        "reference": "Reference"
+      },
+      "importModulesTitle": "Modules and roles",
       "importPack": "Import pack",
       "importPreviewing": "Scanning…",
       "importTitle": "Import knowledge pack",

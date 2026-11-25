@@ -45,6 +45,9 @@ interface Props {
   knowledgeModuleIds: string[];
   /** Tokens of the selected modules; they share the same layer budget. */
   knowledgeTokens: number;
+  /** Contract modules of the selected packs; always-on, never selectable. */
+  contractModules: PromptKnowledgeModule[];
+  contractTokens: number;
   knowledgeError?: string;
   onSelectionChange: (next: WritingLayerSelection) => void;
   onTextChange: (text: string, source: string | null) => void;
@@ -74,6 +77,8 @@ export function PromptWritingLayerPanel({
   knowledgePackIds,
   knowledgeModuleIds,
   knowledgeTokens,
+  contractModules,
+  contractTokens,
   knowledgeError = "",
   onSelectionChange,
   onTextChange,
@@ -290,7 +295,27 @@ export function PromptWritingLayerPanel({
     }
   }
 
-  const usedTokens = estimatePromptTokens(text) + knowledgeTokens;
+  function setPreviewModuleRole(
+    packIndex: number,
+    moduleIndex: number,
+    role: PromptKnowledgeModule["role"],
+  ): void {
+    setKnowledgePreview((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        packs: current.packs.map((pack, index) => index !== packIndex
+          ? pack
+          : {
+              ...pack,
+              modules: pack.modules.map((module, modulePosition) =>
+                modulePosition === moduleIndex ? { ...module, role } : module),
+            }),
+      };
+    });
+  }
+
+  const usedTokens = estimatePromptTokens(text) + knowledgeTokens + contractTokens;
   const budgetTokens = budget?.budgetTokens ?? null;
   const overBudget = budgetTokens !== null && usedTokens > budgetTokens;
   const percent = budgetTokens && budgetTokens > 0
@@ -395,6 +420,11 @@ export function PromptWritingLayerPanel({
             <span className="text-[11px] text-muted-foreground" data-testid="writing-layer-knowledge-tokens">
               {t("orchestrator.writingLayer.knowledgeTokens", { tokens: knowledgeTokens })}
             </span>
+            {contractTokens > 0 && (
+              <span className="text-[11px] text-muted-foreground" data-testid="writing-layer-contract-tokens">
+                {t("orchestrator.writingLayer.contractTokens", { tokens: contractTokens })}
+              </span>
+            )}
             <Button
               size="sm"
               variant="secondary"
@@ -467,26 +497,49 @@ export function PromptWritingLayerPanel({
                         <p className="py-1 text-[10px] text-muted-foreground">
                           {t("orchestrator.writingLayer.knowledgeLoadingModules")}
                         </p>
-                      ) : modules.map((module) => (
-                        <label
-                          key={module.id}
-                          className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-[11px] hover:bg-muted/30"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={knowledgeModuleIds.includes(module.id)}
-                            onChange={() => onToggleKnowledgeModule(module.id)}
-                            disabled={disabled}
-                            data-testid={`writing-layer-knowledge-module-${module.id}`}
-                          />
-                          <span className="min-w-0 flex-1 truncate" title={module.title}>
-                            {module.title}
-                          </span>
-                          <span className="shrink-0 text-[10px] text-muted-foreground">
-                            {module.layer ?? "H"} · {module.tokens}
-                          </span>
-                        </label>
-                      ))}
+                      ) : (
+                        <>
+                          {contractModules
+                            .filter((module) => module.packId === pack.id)
+                            .map((module) => (
+                              <div
+                                key={module.id}
+                                className="flex items-center gap-2 rounded px-1 py-0.5 text-[11px] text-muted-foreground"
+                                data-testid={`writing-layer-knowledge-contract-${module.id}`}
+                              >
+                                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px]">
+                                  {t("orchestrator.writingLayer.contractBadge")}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate" title={module.title}>
+                                  {module.title}
+                                </span>
+                                <span className="shrink-0 text-[10px]">{module.tokens}</span>
+                              </div>
+                            ))}
+                          {modules
+                            .filter((module) => module.role === "knowledge")
+                            .map((module) => (
+                              <label
+                                key={module.id}
+                                className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-[11px] hover:bg-muted/30"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={knowledgeModuleIds.includes(module.id)}
+                                  onChange={() => onToggleKnowledgeModule(module.id)}
+                                  disabled={disabled}
+                                  data-testid={`writing-layer-knowledge-module-${module.id}`}
+                                />
+                                <span className="min-w-0 flex-1 truncate" title={module.title}>
+                                  {module.title}
+                                </span>
+                                <span className="shrink-0 text-[10px] text-muted-foreground">
+                                  {module.layer ?? "H"} · {module.tokens}
+                                </span>
+                              </label>
+                            ))}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -777,6 +830,44 @@ export function PromptWritingLayerPanel({
                   bytes: knowledgePreview.totalBytes,
                 })}
               </p>
+            </div>
+            <div>
+              <p className="mb-1 font-medium">{t("orchestrator.writingLayer.importModulesTitle")}</p>
+              <ul className="max-h-52 space-y-1 overflow-y-auto" data-testid="knowledge-import-modules">
+                {knowledgePreview.packs.flatMap((pack, packIndex) =>
+                  pack.modules.map((module, moduleIndex) => (
+                    <li
+                      key={`${packIndex}-${module.moduleKey}-${moduleIndex}`}
+                      className="flex items-center gap-2 rounded px-1 py-0.5"
+                    >
+                      <span className="min-w-0 flex-1 truncate" title={module.title}>
+                        {module.title}
+                      </span>
+                      <span className="shrink-0 text-[10px] text-muted-foreground">
+                        {module.layer} · {module.tokens}
+                      </span>
+                      <select
+                        className="shrink-0 rounded border border-border bg-background px-1 py-0.5 text-[11px]"
+                        value={module.role}
+                        onChange={(event) =>
+                          setPreviewModuleRole(
+                            packIndex,
+                            moduleIndex,
+                            event.target.value as PromptKnowledgeModule["role"],
+                          )
+                        }
+                        data-testid={`knowledge-import-role-${packIndex}-${moduleIndex}`}
+                      >
+                        {(["contract", "knowledge", "reference"] as const).map((role) => (
+                          <option key={role} value={role}>
+                            {t(`orchestrator.writingLayer.roles.${role}`)}
+                          </option>
+                        ))}
+                      </select>
+                    </li>
+                  )),
+                )}
+              </ul>
             </div>
             <div>
               <p className="mb-1 font-medium">{t("orchestrator.writingLayer.importConflictTitle")}</p>

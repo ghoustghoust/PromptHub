@@ -48,6 +48,21 @@ const MODULE: PromptKnowledgeModule = {
   ord: 0,
 };
 
+const CONTRACT: PromptKnowledgeModule = {
+  id: "contract-1",
+  packId: "pack-1",
+  moduleKey: "read-order",
+  title: "Read order",
+  role: "contract",
+  layer: "H",
+  triggers: [],
+  dependsOn: [],
+  content: "Read the pack before writing.",
+  contentHash: "hash-contract",
+  tokens: 5,
+  ord: 1,
+};
+
 const PREVIEW: PromptKnowledgeImportPreview = {
   packs: [{
     name: "Skill-Film",
@@ -87,7 +102,10 @@ function install(options: {
 } = {}) {
   const listPacks = options.listPacks
     ?? vi.fn().mockResolvedValue({ ok: true, data: options.packs ?? [PACK] });
-  const listModules = vi.fn().mockResolvedValue({ ok: true, data: options.modules ?? [MODULE] });
+  const listModules = vi.fn().mockResolvedValue({
+    ok: true,
+    data: options.modules ?? [MODULE, CONTRACT],
+  });
   const commitImport = options.commitImport
     ?? vi.fn().mockResolvedValue({
       ok: true,
@@ -152,6 +170,14 @@ describe("knowledge pack selection in the workbench", () => {
     const input = run.mock.calls[0][0].input;
     expect(input.knowledgeModules).toEqual([
       expect.objectContaining({
+        id: "contract-1",
+        moduleKey: "read-order",
+        title: "Read order",
+        layer: "H",
+        tokens: 5,
+        content: "Read the pack before writing.",
+      }),
+      expect.objectContaining({
         id: "module-1",
         packId: "pack-1",
         packName: "Skill-Film",
@@ -162,6 +188,8 @@ describe("knowledge pack selection in the workbench", () => {
         content: "Break every fight into spatial beats.",
       }),
     ]);
+    expect(hook.result.current.contractTokens).toBe(5);
+    expect(hook.result.current.knowledgeTokens).toBe(12);
   });
 
   it("persists toggles and drops a module when its pack is deselected", async () => {

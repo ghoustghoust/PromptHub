@@ -37,6 +37,21 @@ const MODULE: PromptKnowledgeModule = {
   ord: 0,
 };
 
+const CONTRACT: PromptKnowledgeModule = {
+  id: "contract-1",
+  packId: "pack-1",
+  moduleKey: "read-order",
+  title: "Read order",
+  role: "contract",
+  layer: "H",
+  triggers: [],
+  dependsOn: [],
+  content: "contract content",
+  contentHash: "hash-contract",
+  tokens: 5,
+  ord: 1,
+};
+
 const PREVIEW: PromptKnowledgeImportPreview = {
   packs: [{
     name: "Skill-Film",
@@ -88,7 +103,9 @@ function renderPanel(overrides: {
       budget={null}
       budgetError=""
       knowledgePacks={[PACK]}
-      knowledgeModulesByPack={{ "pack-1": [MODULE] }}
+      knowledgeModulesByPack={{ "pack-1": [MODULE, CONTRACT] }}
+      contractModules={(overrides.packIds ?? []).includes("pack-1") ? [CONTRACT] : []}
+      contractTokens={(overrides.packIds ?? []).includes("pack-1") ? 5 : 0}
       knowledgePackIds={overrides.packIds ?? []}
       knowledgeModuleIds={overrides.moduleIds ?? []}
       knowledgeTokens={0}
@@ -147,7 +164,9 @@ describe("PromptWritingLayerPanel knowledge packs", () => {
         budget={null}
         budgetError=""
         knowledgePacks={[PACK]}
-        knowledgeModulesByPack={{ "pack-1": [MODULE] }}
+        knowledgeModulesByPack={{ "pack-1": [MODULE, CONTRACT] }}
+        contractModules={[CONTRACT]}
+        contractTokens={5}
         knowledgePackIds={["pack-1"]}
         knowledgeModuleIds={["module-1"]}
         knowledgeTokens={42}
@@ -162,7 +181,16 @@ describe("PromptWritingLayerPanel knowledge packs", () => {
       { language: "en" },
     );
 
-    expect(screen.getByTestId("writing-layer-tokens").textContent).toContain("44");
+    expect(screen.getByTestId("writing-layer-tokens").textContent).toContain("49");
+  });
+
+  it("shows contract modules as always-on without a checkbox", async () => {
+    await renderPanel({ packIds: ["pack-1"] });
+
+    expect(screen.getByTestId("writing-layer-knowledge-contract-contract-1")).toBeTruthy();
+    expect(screen.getByText("Read order")).toBeTruthy();
+    expect(screen.getByText("Always on")).toBeTruthy();
+    expect(screen.queryByTestId("writing-layer-knowledge-module-contract-1")).toBeNull();
   });
 
   it("previews a chosen directory and confirms the import", async () => {
@@ -193,9 +221,19 @@ describe("PromptWritingLayerPanel knowledge packs", () => {
     expect(within(screen.getByTestId("knowledge-import-dialog")).getByText("Skill-Film")).toBeTruthy();
     expect(screen.getByTestId("knowledge-import-conflicts").textContent).toContain("module-key");
     expect(screen.getByTestId("knowledge-import-skipped").textContent).toContain("source copy");
+    expect(screen.getByTestId("knowledge-import-role-0-0")).toBeTruthy();
 
+    fireEvent.change(screen.getByTestId("knowledge-import-role-0-0"), {
+      target: { value: "contract" },
+    });
     fireEvent.click(screen.getByTestId("knowledge-import-confirm"));
-    await waitFor(() => expect(onImport).toHaveBeenCalledWith(PREVIEW));
+    await waitFor(() => {
+      expect(onImport).toHaveBeenCalledWith(expect.objectContaining({
+        packs: [expect.objectContaining({
+          modules: [expect.objectContaining({ role: "contract" })],
+        })],
+      }));
+    });
   });
 
   it("asks the workbench to delete a pack", async () => {

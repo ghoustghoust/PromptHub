@@ -5164,6 +5164,14 @@
       "knowledgeEmpty": "还没有导入知识包。先导入 Skill-Film 等素材包，再选择要注入的模块。",
       "knowledgeLoadingModules": "正在加载模块…",
       "knowledgeTokens": "模块 {{tokens}} token",
+      "contractTokens": "常开 {{tokens}} token",
+      "contractBadge": "随包常开",
+      "roles": {
+        "contract": "执行契约",
+        "knowledge": "知识",
+        "reference": "参考"
+      },
+      "importModulesTitle": "模块与角色",
       "importPack": "导入知识包",
       "importPreviewing": "扫描中…",
       "importTitle": "导入知识包",

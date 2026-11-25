@@ -578,6 +578,8 @@ export function PromptOrchestratorWorkbench() {
                 knowledgePackIds={state.knowledgePackIds}
                 knowledgeModuleIds={state.knowledgeModuleIds}
                 knowledgeTokens={state.knowledgeTokens}
+                contractModules={state.contractModules}
+                contractTokens={state.contractTokens}
                 knowledgeError={state.knowledgeError}
                 onSelectionChange={state.setWritingLayer}
                 onTextChange={state.updateSystemLayerWithSource}

@@ -448,6 +448,11 @@ export interface KnowledgeCommitOptions {
   moduleKeys?: string[];
 }
 
+function moduleRole(value: unknown): PromptKnowledgeModuleRole {
+  if (value === "contract" || value === "knowledge" || value === "reference") return value;
+  throw new Error(`Unsupported knowledge module role: ${String(value)}`);
+}
+
 function sameKeys(left: string[], right: string[]): boolean {
   if (left.length !== right.length) return false;
   const sorted = [...right].sort();
@@ -510,6 +515,7 @@ export function commitKnowledgeImport(
     const modules: PromptKnowledgeModule[] = selectedKeys.map((key, ord) => {
       const scannedModule = byKey.get(key)!;
       const entry = scannedModule.preview;
+      const requested = packPreview.modules.find((module) => module.moduleKey === key)!;
       return {
         id: crypto.randomUUID(),
         packId,
@@ -518,7 +524,7 @@ export function commitKnowledgeImport(
         ...(entry.category ? { category: entry.category } : {}),
         ...(entry.scope ? { scope: entry.scope } : {}),
         ...(entry.priority ? { priority: entry.priority } : {}),
-        role: entry.role,
+        role: moduleRole(requested.role),
         layer: entry.layer,
         triggers: entry.triggers,
         dependsOn: entry.dependsOn,

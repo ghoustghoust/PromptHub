@@ -333,6 +333,32 @@ export function usePromptOrchestratorWorkbench() {
     () => selectedKnowledgeModules.reduce((sum, module) => sum + module.tokens, 0),
     [selectedKnowledgeModules],
   );
+  /** Contract modules ship with the selected pack; they cannot be unchecked. */
+  const contractModules = useMemo(() => {
+    const contracts: Array<PromptKnowledgeModule & { packName?: string }> = [];
+    for (const packId of knowledgePackIds) {
+      const pack = knowledgePacks.find((entry) => entry.id === packId);
+      for (const module of knowledgeModulesByPack[packId] ?? []) {
+        if (module.role !== "contract") continue;
+        contracts.push({
+          ...module,
+          ...(pack ? { packName: pack.name } : {}),
+        });
+      }
+    }
+    return contracts;
+  }, [knowledgePackIds, knowledgePacks, knowledgeModulesByPack]);
+  const contractTokens = useMemo(
+    () => contractModules.reduce((sum, module) => sum + module.tokens, 0),
+    [contractModules],
+  );
+  const activeKnowledgeModules = useMemo(() => {
+    const byId = new Map<string, PromptKnowledgeModule & { packName?: string }>();
+    for (const module of [...contractModules, ...selectedKnowledgeModules]) {
+      if (!byId.has(module.id)) byId.set(module.id, module);
+    }
+    return [...byId.values()];
+  }, [contractModules, selectedKnowledgeModules]);
 
   function toggleKnowledgePack(id: string): void {
     const selected = knowledgePackIds.includes(id);
@@ -798,7 +824,8 @@ export function usePromptOrchestratorWorkbench() {
     if (!llmModelId) {
       blockers.push(t("orchestrator.blocker.model"));
     }
-    const writingLayerTokens = estimatePromptTokens(systemLayer) + knowledgeTokens;
+    const writingLayerTokens =
+      estimatePromptTokens(systemLayer) + knowledgeTokens + contractTokens;
     if (
       writingLayerTokens > 0 &&
       layerBudget &&
@@ -882,7 +909,7 @@ export function usePromptOrchestratorWorkbench() {
       skill,
       ...(targetPipeline ? { targetPipeline } : {}),
       guidanceMode,
-      ...(systemLayer.trim() || selectedKnowledgeModules.length > 0
+      ...(systemLayer.trim() || activeKnowledgeModules.length > 0
         ? {
             ...(systemLayer.trim()
               ? {
@@ -897,9 +924,9 @@ export function usePromptOrchestratorWorkbench() {
             systemPromptLayerOutputReserve: 4096,
           }
         : {}),
-      ...(selectedKnowledgeModules.length > 0
+      ...(activeKnowledgeModules.length > 0
         ? {
-            knowledgeModules: selectedKnowledgeModules.map((module) => ({
+            knowledgeModules: activeKnowledgeModules.map((module) => ({
               id: module.id,
               packId: module.packId,
               ...(module.packName ? { packName: module.packName } : {}),
@@ -1319,7 +1346,7 @@ export function usePromptOrchestratorWorkbench() {
     updateSystemLayerWithSource,
     writingLayer, setWritingLayer,
     knowledgePacks, knowledgeModulesByPack,
-    knowledgePackIds, knowledgeModuleIds, knowledgeTokens, knowledgeError,
+    knowledgePackIds, knowledgeModuleIds, knowledgeTokens, contractModules, contractTokens, knowledgeError,
     toggleKnowledgePack, toggleKnowledgeModule,
     importKnowledgePack, deleteKnowledgePack,
     layerContextTokens, setLayerContextTokens,

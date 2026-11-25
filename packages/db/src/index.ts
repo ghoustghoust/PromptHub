@@ -108,6 +108,11 @@ export {
   migratePromptKnowledge,
 } from "./prompt-knowledge";
 export {
+  PromptReferenceDB,
+  PROMPT_REFERENCE_SCHEMA,
+  migratePromptReference,
+} from "./prompt-reference";
+export {
   PromptWritingPresetDB,
   PROMPT_WRITING_PRESET_SCHEMA,
   PROMPT_WRITING_METHODOLOGIES,

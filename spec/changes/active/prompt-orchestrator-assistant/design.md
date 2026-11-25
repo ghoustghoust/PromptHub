@@ -1476,10 +1476,24 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
   reason 记录 pack 与 P/S/H；`systemPromptLayerMetrics.tokens` 按合并后的文本计算。
 - 单测 6/6；预算、编排 v2、布局共 27 个既有用例通过。
 
+### 写作层知识包选择与持久化
+
+- workspace state 新增 `knowledgePackIds` / `knowledgeModuleIds`：DB 原样往返，服务端限制
+  每项 ≤200 个、单 id ≤200 字符、去重；空数组不落字段。
+- 写作层面板新增“知识包”区：列出已导入包（名称/版本或 kind），勾选包后按需拉取模块
+  （`promptKnowledge.listModules`），模块显示 P/S/H 与 token；模块 token 计入写作层
+  总 token 与进度条，超预算即阻断运行（`orchestrator.blocker.layerBudget`）。
+- 选择变化 400ms 防抖持久化；取消包时同步移除该包已选模块；重启后按 ids 恢复并重新加载。
+- 运行时只把选中的模块作为 `knowledgeModules` 传给 Core，`systemPromptLayer` 仍只放用户
+  写作层文本，两者由 Core 合并计费。
+- 单测：state 10/10（新增选择往返/上限/非法 id）、hook 2/2（恢复并进入 run、切换持久化）、
+  panel 3/3（列包、选模块、token 计量）；真实窗口 e2e 1/1（临时 profile 导入 Skill-Film
+  160 模块 → 选包选模块 → 重启仍勾选，13.9s，截图 `outputs/a6-phase2-20261125/01-knowledge-selected.png`）。
+
 ### 未做
 
-- 写作层 UI 的知识包选择、workspace 选择状态（knowledgePackIds / knowledgeModuleIds）
-  与结果面板来源展示尚未开始。
+- 知识包导入的 UI 入口（选择目录、预览确认、删除包）尚未做；目前只通过 IPC 导入。
+- 结果面板的知识来源展示与“另存为写作预设”尚未开始。
 
 ## 评估方式
 

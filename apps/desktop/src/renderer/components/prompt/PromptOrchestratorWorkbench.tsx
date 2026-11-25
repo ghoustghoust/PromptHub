@@ -596,6 +596,7 @@ export function PromptOrchestratorWorkbench() {
               <PromptReferencePicker
                 items={state.referenceItems}
                 selectedIds={state.referenceItemIds}
+                referenceTokens={state.referenceTokens}
                 onToggle={state.toggleReferenceItem}
                 error={state.referenceError}
                 disabled={state.isRunning}

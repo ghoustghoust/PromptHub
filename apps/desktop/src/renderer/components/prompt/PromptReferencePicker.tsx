@@ -12,6 +12,7 @@ interface Props {
   selectedIds: string[];
   disabled?: boolean;
   error?: string;
+  referenceTokens?: number;
   onToggle: (id: string) => void;
 }
 
@@ -21,6 +22,7 @@ export function PromptReferencePicker({
   selectedIds,
   disabled = false,
   error = "",
+  referenceTokens = 0,
   onToggle,
 }: Props) {
   const { t } = useTranslation();
@@ -50,6 +52,9 @@ export function PromptReferencePicker({
             count: selectedIds.length,
             max: MAX_REFERENCES,
           })}
+        </span>
+        <span className="text-[11px] text-muted-foreground" data-testid="reference-tokens">
+          {t("orchestrator.reference.tokens", { tokens: referenceTokens })}
         </span>
       </div>
       <p className="text-[11px] text-muted-foreground">{t("orchestrator.reference.hint")}</p>

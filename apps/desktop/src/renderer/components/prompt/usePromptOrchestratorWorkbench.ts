@@ -26,6 +26,7 @@ import type {
 } from "@prompthub/shared/types";
 import { supportsReferenceImages } from "@prompthub/shared/types";
 import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
+import { buildReferenceStyleText } from "@prompthub/shared/utils/prompt-reference";
 import { useSettingsStore } from "../../stores/settings.store";
 import { LOCAL_LLAMA_MODEL_ID } from "../../stores/settings/settings-ai-actions";
 import { usePromptStore } from "../../stores/prompt.store";
@@ -320,6 +321,23 @@ export function usePromptOrchestratorWorkbench() {
       .filter((item): item is PromptReferenceItem => Boolean(item));
   }, [referenceItemIds, referenceItems]);
 
+  const referenceStyles = useMemo(
+    () => selectedReferenceItems.map((item) => ({
+      id: item.id,
+      nameZh: item.nameZh,
+      ...(item.nameEn ? { nameEn: item.nameEn } : {}),
+      category: item.category,
+      summary: item.summary,
+      palette: item.palette,
+      ...(item.style && Object.keys(item.style).length > 0 ? { style: item.style } : {}),
+    })),
+    [selectedReferenceItems],
+  );
+  const referenceTokens = useMemo(
+    () => estimatePromptTokens(buildReferenceStyleText(referenceStyles)),
+    [referenceStyles],
+  );
+
   function toggleReferenceItem(id: string): void {
     setReferenceItemIds((current) => {
       if (current.includes(id)) return current.filter((entry) => entry !== id);
@@ -596,6 +614,7 @@ export function usePromptOrchestratorWorkbench() {
           imageCount: referenceImages.length,
           contextTokens: layerContextTokens,
           outputReserveTokens: 4096,
+          referenceTokens,
         })
         .then((reply) => {
           if (!active) return;
@@ -622,6 +641,7 @@ export function usePromptOrchestratorWorkbench() {
     vocabularyTokenBudget,
     referenceImages.length,
     layerContextTokens,
+    referenceTokens,
   ]);
 
   useEffect(() => {
@@ -999,6 +1019,7 @@ export function usePromptOrchestratorWorkbench() {
             })),
           }
         : {}),
+      ...(referenceStyles.length > 0 ? { referenceStyles } : {}),
       series: series || undefined,
       ...(domain === "all" ? {} : { domain }),
       outputFormat,
@@ -1410,7 +1431,7 @@ export function usePromptOrchestratorWorkbench() {
     knowledgePackIds, knowledgeModuleIds, knowledgeTokens, contractModules, contractTokens,
     knowledgeContractGroup, setKnowledgeContractGroup, hasGroupedContracts,
     knowledgeModules: activeKnowledgeModules, knowledgeError,
-    referenceItems, selectedReferenceItems, referenceItemIds, toggleReferenceItem, referenceError,
+    referenceItems, selectedReferenceItems, referenceItemIds, toggleReferenceItem, referenceTokens, referenceError,
     toggleKnowledgePack, toggleKnowledgeModule,
     importKnowledgePack, deleteKnowledgePack,
     layerContextTokens, setLayerContextTokens,

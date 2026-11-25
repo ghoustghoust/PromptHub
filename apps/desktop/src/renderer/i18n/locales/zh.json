@@ -4997,6 +4997,7 @@
       "category": "分类",
       "allCategories": "全部分类",
       "selected": "已选 {{count}} / {{max}}",
+      "tokens": "参考约 {{tokens}} token",
       "empty": "还没有导入色卡。"
     },
     "categories": {

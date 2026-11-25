@@ -4999,6 +4999,7 @@
       "category": "Category",
       "allCategories": "All categories",
       "selected": "{{count}} / {{max}} selected",
+      "tokens": "≈{{tokens}} reference tokens",
       "empty": "No color cards imported yet."
     },
     "categories": {

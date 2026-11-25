@@ -552,6 +552,7 @@ export class DesktopPromptOrchestratorService {
     const outputReserveTokens = optionalInteger(value.outputReserveTokens, 256, 65_536, "outputReserveTokens");
     const vocabularyTokenBudget = optionalInteger(value.vocabularyTokenBudget, 0, 4000, "vocabularyTokenBudget");
     const imageCount = optionalInteger(value.imageCount, 0, 4, "imageCount") ?? 0;
+    const referenceTokens = optionalInteger(value.referenceTokens, 0, 20_000, "referenceTokens");
     const skill = value.skill;
     if (
       skill !== undefined &&
@@ -587,6 +588,7 @@ export class DesktopPromptOrchestratorService {
         ...(contextTokens !== undefined ? { contextTokens } : {}),
         ...(outputReserveTokens !== undefined ? { outputReserveTokens } : {}),
         ...(vocabularyTokenBudget !== undefined ? { vocabularyTokenBudget } : {}),
+        ...(referenceTokens !== undefined ? { referenceTokens } : {}),
       },
     );
     return {
@@ -597,6 +599,7 @@ export class DesktopPromptOrchestratorService {
       vocabularyTokens: budget.vocabularyTokens,
       imageTokens: budget.imageTokens,
       safetyTokens: budget.safetyTokens,
+      referenceTokens: budget.referenceTokens,
       budgetTokens: budget.budgetTokens,
     };
   }

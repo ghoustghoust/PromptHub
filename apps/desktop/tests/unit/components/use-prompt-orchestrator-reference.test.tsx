@@ -45,6 +45,10 @@ describe("reference color card selection", () => {
 
   it("loads the library, caps selection at three and persists ids", async () => {
     const saveWorkspaceState = vi.fn().mockResolvedValue({ ok: true, data: {} });
+    const run = vi.fn().mockResolvedValue({
+      ok: false,
+      error: { code: "CANCELLED", message: "stopped" },
+    });
     installWindowMocks({
       api: {
         promptReference: {
@@ -56,6 +60,7 @@ describe("reference color card selection", () => {
             data: { prefabTerms: [], modelId: "", loraIds: "", referenceItemIds: ["ref-1"] },
           }),
           saveWorkspaceState,
+          run,
         },
       },
     });
@@ -69,6 +74,20 @@ describe("reference color card selection", () => {
     act(() => hook.result.current.toggleReferenceItem("ref-4"));
     expect(hook.result.current.referenceItemIds).toEqual(["ref-1", "ref-2", "ref-3"]);
     expect(hook.result.current.selectedReferenceItems).toHaveLength(3);
+    expect(hook.result.current.referenceTokens).toBeGreaterThan(0);
+
+    act(() => hook.result.current.setPrompt("a duel"));
+    await act(async () => {
+      await hook.result.current.run();
+    });
+    expect(run).toHaveBeenCalledOnce();
+    const input = run.mock.calls[0][0].input;
+    expect(input.referenceStyles).toHaveLength(3);
+    expect(input.referenceStyles[0]).toMatchObject({
+      id: "ref-1",
+      nameZh: "导演1",
+      palette: ["#112233"],
+    });
 
     await waitFor(() => {
       const payloads = saveWorkspaceState.mock.calls.map((call) => call[0]);

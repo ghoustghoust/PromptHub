@@ -440,7 +440,7 @@ function validateOptions(input: PromptOrchestrationInput): void {
     });
   }
   const writingLayerText = buildWritingLayerText(input);
-  if (writingLayerText) {
+  if (writingLayerText || (input.referenceStyles?.length ?? 0) > 0) {
     if (writingLayerText.length > MAX_LAYER_CHARS) {
       throw new PromptOrchestratorError(
         "INVALID_INPUT",
@@ -824,8 +824,40 @@ export class PromptOrchestrator {
     ];
     const fixedFields = buildFixedFields(input, compositionTerms, directives);
     const identityFields = resolvedIdentityFields(entities);
-    const writingLayerText = buildWritingLayerText(input);
-    const layerBudget = writingLayerText
+const writingLayerText = buildWritingLayerText(input);
+  if (input.referenceStyles !== undefined) {
+    if (!Array.isArray(input.referenceStyles) || input.referenceStyles.length > 3) {
+      throw new PromptOrchestratorError(
+        "INVALID_INPUT",
+        "referenceStyles must be an array of at most 3 color cards",
+      );
+    }
+    input.referenceStyles.forEach((item, index) => {
+      if (!item || typeof item !== "object") {
+        throw new PromptOrchestratorError(
+          "INVALID_INPUT",
+          `referenceStyles[${index}] must be an object`,
+        );
+      }
+      requireText(item.id, `referenceStyles[${index}].id`);
+      requireText(item.nameZh, `referenceStyles[${index}].nameZh`);
+      requireText(item.category, `referenceStyles[${index}].category`);
+      const summary = requireText(item.summary, `referenceStyles[${index}].summary`);
+      if (summary.length > 1000) {
+        throw new PromptOrchestratorError(
+          "INVALID_INPUT",
+          `referenceStyles[${index}].summary must be 1000 characters or fewer`,
+        );
+      }
+      if (!Array.isArray(item.palette)) {
+        throw new PromptOrchestratorError(
+          "INVALID_INPUT",
+          `referenceStyles[${index}].palette must be an array`,
+        );
+      }
+    });
+  }
+    const layerBudget = writingLayerText || (input.referenceStyles?.length ?? 0) > 0
       ? resolveSystemPromptLayerBudget(input, writingLayerText)
       : null;
     const layerMetrics = layerBudget
@@ -836,6 +868,9 @@ export class PromptOrchestrator {
           outputReserveTokens: layerBudget.outputReserveTokens,
           contractTokens: layerBudget.contractTokens,
           safetyTokens: layerBudget.safetyTokens,
+          ...(layerBudget.referenceTokens > 0
+            ? { referenceTokens: layerBudget.referenceTokens }
+            : {}),
           ...(input.systemPromptLayerPresetId
             ? { presetId: input.systemPromptLayerPresetId }
             : {}),

@@ -9,6 +9,7 @@ import type {
   PromptSelectedTerm,
 } from "@prompthub/shared/types";
 import { isVideoOrchestrationMode } from "@prompthub/shared/types";
+import { buildReferenceStyleText } from "@prompthub/shared/utils/prompt-reference";
 import { getPromptRuleCard } from "./prompt-orchestrator-rule-cards";
 import { compileMossLayout, serializeMossLayout } from "./prompt-moss-layout";
 
@@ -307,6 +308,10 @@ export function finalizeMossLayoutComposition(
   };
 }
 
+function referenceStyleSection(input: PromptOrchestrationInput): string {
+  return buildReferenceStyleText(input.referenceStyles ?? []);
+}
+
 /**
  * The writing layer is the user's layer plus every selected knowledge module,
  * in selection order. Budget checks and the model prompt share this text so
@@ -361,6 +366,7 @@ export function buildCompositionMessages(
       : "Agent-led mode: guide the initial idea actively while respecting the selected rule card and the user's fixed facts. Useful creative additions must remain explicitly optional.",
     VOCABULARY_STATE_CONTRACT,
     ENTITY_CONTRACT,
+    referenceStyleSection(input),
     systemPromptLayerSection(input),
     OUTPUT_CONTRACT,
     taskOutputContract(input),

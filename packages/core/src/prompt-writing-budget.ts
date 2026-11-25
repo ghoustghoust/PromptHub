@@ -2,6 +2,7 @@ import type { PromptOrchestrationInput } from "@prompthub/shared/types";
 import { MAX_WRITING_LAYER_CHARS } from "@prompthub/shared/utils/prompt-orchestrator-limits";
 import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
 import { buildCompositionMessages } from "./prompt-orchestrator-composition";
+import { buildReferenceStyleText } from "@prompthub/shared/utils/prompt-reference";
 
 /** Defaults match the 8K preset; callers must declare a different context explicitly. */
 export const DEFAULT_LAYER_CONTEXT_TOKENS = 8192;
@@ -21,6 +22,7 @@ export interface SystemPromptLayerBudget {
   vocabularyTokens: number;
   imageTokens: number;
   safetyTokens: number;
+  referenceTokens: number;
   /** Tokens left for the writing layer; never negative. */
   budgetTokens: number;
   usedTokens: number;
@@ -32,6 +34,7 @@ export interface SystemPromptLayerBudgetOptions {
   contextTokens?: number;
   outputReserveTokens?: number;
   vocabularyTokenBudget?: number;
+  referenceTokens?: number;
 }
 
 function clampContext(value: number | undefined): number {
@@ -72,10 +75,15 @@ export function resolveSystemPromptLayerBudget(
     systemPromptLayerSource: undefined,
     systemPromptLayerPresetId: undefined,
     knowledgeModules: undefined,
+    referenceStyles: undefined,
   };
   const messages = buildCompositionMessages(stripped, [], [], []);
   const contractTokens = estimatePromptTokens(messages.system);
   const inputTokens = estimatePromptTokens(messages.user);
+  const referenceTokens = Math.max(
+    0,
+    options.referenceTokens ?? estimatePromptTokens(buildReferenceStyleText(input.referenceStyles ?? [])),
+  );
   const imageTokens = (input.imageUrls?.length ?? 0) * IMAGE_PROMPT_TOKENS;
   const safetyTokens = Math.max(256, Math.round(contextTokens * 0.04));
   const fixedCost =
@@ -84,6 +92,7 @@ export function resolveSystemPromptLayerBudget(
     inputTokens +
     vocabularyTokens +
     imageTokens +
+    referenceTokens +
     safetyTokens;
   const budgetTokens = Math.max(0, contextTokens - fixedCost);
   const usedTokens = estimatePromptTokens(layerText);
@@ -95,6 +104,7 @@ export function resolveSystemPromptLayerBudget(
     vocabularyTokens,
     imageTokens,
     safetyTokens,
+    referenceTokens,
     budgetTokens,
     usedTokens,
     overBy: Math.max(0, usedTokens - budgetTokens),

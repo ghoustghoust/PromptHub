@@ -104,6 +104,19 @@ function knowledgeModuleEntries(input: PromptOrchestrationInput): PromptProvenan
   }));
 }
 
+function referenceEntries(input: PromptOrchestrationInput): PromptProvenanceEntry[] {
+  return (input.referenceStyles ?? []).map((item) => ({
+    id: `reference:${item.id}`,
+    kind: "reference",
+    label: item.nameZh,
+    state: "locked",
+    outcome: "injected",
+    excerpt: [item.summary, item.palette.join(", ")].filter(Boolean).join(" · ").slice(0, 200),
+    origin: "user",
+    reason: `Color-card reference in ${item.category}; palette and light are applied, not quoted.`,
+  }));
+}
+
 /**
  * Builds the cross-mode decision trail. Terms are linked to the fields they
  * produced, identities to their fixed identity field, and artist routes to
@@ -182,6 +195,7 @@ export function buildProvenance(options: ProvenanceOptions): PromptProvenanceEnt
 
   entries.push(...constraintEntries(options.input));
   entries.push(...knowledgeModuleEntries(options.input));
+  entries.push(...referenceEntries(options.input));
 
   // An excluded term is still worth showing; it explains why a selected-looking
   // id never reached the prompt.

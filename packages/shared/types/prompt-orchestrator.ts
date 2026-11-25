@@ -229,6 +229,8 @@ export interface PromptOrchestrationInput {
    * same token budget as `systemPromptLayer` and are never executed.
    */
   knowledgeModules?: PromptKnowledgeModuleSelection[];
+  /** Director color cards (reference layer), at most three per run. */
+  referenceStyles?: PromptReferenceStyleInput[];
   /** Adds a structured payload without turning JSON into a separate authoring task. */
   includePayload?: boolean;
   /** Estimated automatic-vocabulary budget; explicit user selections are retained. */
@@ -250,6 +252,25 @@ export interface PromptKnowledgeModuleSelection {
   /** Estimated tokens from the import preview; the orchestrator re-checks. */
   tokens?: number;
   content: string;
+}
+
+/**
+ * One selected director color card. Reference styles are injected as a compact
+ * visual-direction block, never as P/S/H writing-layer modules.
+ */
+export interface PromptReferenceStyleInput {
+  id: string;
+  nameZh: string;
+  nameEn?: string;
+  category: string;
+  summary: string;
+  palette: string[];
+  style?: {
+    lighting?: string;
+    framing?: string;
+    grading?: string;
+    avoid?: string[];
+  };
 }
 
 export type PromptTermSelectionReason = "explicit" | "relevance" | "random" | "reference";
@@ -535,7 +556,7 @@ export type PromptProvenanceOutcome =
 export interface PromptProvenanceEntry {
   /** Stable key: term id, `entity:<mention>`, `artist:<termId>` or `field:<name>`. */
   id: string;
-  kind: "term" | "entity" | "artist" | "constraint" | "module";
+  kind: "term" | "entity" | "artist" | "constraint" | "module" | "reference";
   label: string;
   state: PromptProvenanceState;
   outcome: PromptProvenanceOutcome;
@@ -656,6 +677,8 @@ export interface PromptWritingLayerBudgetPreview {
   vocabularyTokens: number;
   imageTokens: number;
   safetyTokens: number;
+  /** Reference color-card tokens reserved separately from the writing layer. */
+  referenceTokens: number;
   /** Tokens left for the writing layer in this configuration. */
   budgetTokens: number;
 }
@@ -668,6 +691,8 @@ export interface DesktopPromptWritingBudgetRequest {
   imageCount?: number;
   contextTokens?: number;
   outputReserveTokens?: number;
+  /** Reference tokens the UI already selected; the preview reserves them. */
+  referenceTokens?: number;
 }
 
 export interface PromptSystemPromptLayerMetrics {
@@ -680,6 +705,7 @@ export interface PromptSystemPromptLayerMetrics {
   /** Static rule card and contract tokens counted against the same context. */
   contractTokens: number;
   safetyTokens: number;
+  referenceTokens?: number;
   presetId?: string;
 }
 

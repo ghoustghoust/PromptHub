@@ -584,6 +584,8 @@ export function PromptOrchestratorWorkbench() {
                 onContextTokensChange={state.setLayerContextTokens}
                 onToggleKnowledgePack={state.toggleKnowledgePack}
                 onToggleKnowledgeModule={state.toggleKnowledgeModule}
+                onImportKnowledgePack={state.importKnowledgePack}
+                onDeleteKnowledgePack={state.deleteKnowledgePack}
               />
             </div>
           )}

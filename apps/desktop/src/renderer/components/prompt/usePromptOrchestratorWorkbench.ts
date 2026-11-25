@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import type {
   PromptArtistPipeline,
   PromptGuidanceMode,
+  PromptKnowledgeImportCommitResult,
+  PromptKnowledgeImportPreview,
   PromptKnowledgeModule,
   PromptKnowledgePack,
   PromptMossLayoutBox,
@@ -349,6 +351,77 @@ export function usePromptOrchestratorWorkbench() {
     setKnowledgeModuleIds((current) => current.includes(id)
       ? current.filter((entry) => entry !== id)
       : [...current, id]);
+  }
+
+  /**
+   * Writes a previewed pack and refreshes the picker. A re-import replaces the
+   * pack at the same source path, so its old id and module selection are dropped.
+   */
+  async function importKnowledgePack(
+    preview: PromptKnowledgeImportPreview,
+  ): Promise<PromptKnowledgeImportCommitResult | null> {
+    setKnowledgeError("");
+    const reply = await window.api.promptKnowledge.commitImport({ preview });
+    if (reply.ok !== true) {
+      setKnowledgeError(reply.error.message);
+      return null;
+    }
+    const sourcePaths = new Set(preview.packs.map((pack) => pack.sourcePath));
+    const replacedIds = new Set(
+      knowledgePacks
+        .filter((pack) => pack.sourcePath && sourcePaths.has(pack.sourcePath))
+        .map((pack) => pack.id),
+    );
+    const packsReply = await window.api.promptKnowledge.listPacks();
+    if (packsReply.ok === true) setKnowledgePacks(packsReply.data);
+    else setKnowledgeError(packsReply.error.message);
+
+    setKnowledgePackIds((current) => [
+      ...current.filter((id) => !replacedIds.has(id) && !reply.data.packIds.includes(id)),
+      ...reply.data.packIds,
+    ]);
+    if (replacedIds.size > 0) {
+      const removedModules = new Set(
+        [...replacedIds].flatMap((id) =>
+          (knowledgeModulesByPack[id] ?? []).map((module) => module.id)),
+      );
+      if (removedModules.size > 0) {
+        setKnowledgeModuleIds((current) => current.filter((id) => !removedModules.has(id)));
+      }
+    }
+    return reply.data;
+  }
+
+  /** Deletes an imported pack after confirmation and clears its selection. */
+  async function deleteKnowledgePack(id: string): Promise<void> {
+    const pack = knowledgePacks.find((entry) => entry.id === id);
+    const confirmed = await requestConfirmation({
+      title: t("orchestrator.writingLayer.deletePackTitle"),
+      message: t("orchestrator.writingLayer.deletePackMessage", {
+        name: pack?.name ?? id,
+      }),
+      confirmText: t("orchestrator.writingLayer.deletePackConfirm"),
+      variant: "destructive",
+    });
+    if (!confirmed) return;
+    const reply = await window.api.promptKnowledge.removePack(id);
+    if (reply.ok !== true) {
+      setKnowledgeError(reply.error.message);
+      return;
+    }
+    setKnowledgePacks((current) => current.filter((entry) => entry.id !== id));
+    setKnowledgePackIds((current) => current.filter((entry) => entry !== id));
+    const removedModules = new Set(
+      (knowledgeModulesByPack[id] ?? []).map((module) => module.id),
+    );
+    if (removedModules.size > 0) {
+      setKnowledgeModuleIds((current) => current.filter((moduleId) => !removedModules.has(moduleId)));
+    }
+    setKnowledgeModulesByPack((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
   }
 
   useEffect(() => {
@@ -1248,6 +1321,7 @@ export function usePromptOrchestratorWorkbench() {
     knowledgePacks, knowledgeModulesByPack,
     knowledgePackIds, knowledgeModuleIds, knowledgeTokens, knowledgeError,
     toggleKnowledgePack, toggleKnowledgeModule,
+    importKnowledgePack, deleteKnowledgePack,
     layerContextTokens, setLayerContextTokens,
     layerBudget, layerBudgetError,
     libraryPrompts, applyLibraryPrompt,

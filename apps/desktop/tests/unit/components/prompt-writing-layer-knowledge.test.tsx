@@ -1,6 +1,11 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { PromptKnowledgeModule, PromptKnowledgePack } from "@prompthub/shared/types";
+import type {
+  PromptKnowledgeImportCommitResult,
+  PromptKnowledgeImportPreview,
+  PromptKnowledgeModule,
+  PromptKnowledgePack,
+} from "@prompthub/shared/types";
 import { PromptWritingLayerPanel } from "../../../src/renderer/components/prompt/PromptWritingLayerPanel";
 import { EMPTY_WRITING_LAYER } from "../../../src/renderer/components/prompt/prompt-writing-layer";
 import { renderWithI18n } from "../../helpers/i18n";
@@ -31,11 +36,45 @@ const MODULE: PromptKnowledgeModule = {
   ord: 0,
 };
 
+const PREVIEW: PromptKnowledgeImportPreview = {
+  packs: [{
+    name: "Skill-Film",
+    kind: "skill",
+    sourcePath: "C:\\packs\\Skill-Film",
+    version: "2.0.1",
+    modules: [{
+      moduleKey: "action",
+      title: "Action choreography",
+      layer: "P",
+      triggers: [],
+      dependsOn: [],
+      tokens: 42,
+      bytes: 100,
+      contentHash: "hash",
+      ord: 0,
+    }],
+    skipped: [{ path: "知识/源/old.md", reason: "source copy is skipped" }],
+  }],
+  moduleCount: 1,
+  totalBytes: 100,
+  totalTokens: 42,
+  skipped: [{ path: "知识/源/old.md", reason: "source copy is skipped" }],
+  conflicts: [{
+    packName: "Skill-Film",
+    moduleKey: "action",
+    existingHash: "a",
+    incomingHash: "b",
+    reason: "module-key",
+  }],
+};
+
 function renderPanel(overrides: {
   packIds?: string[];
   moduleIds?: string[];
   onTogglePack?: () => void;
   onToggleModule?: () => void;
+  onImport?: (preview: PromptKnowledgeImportPreview) => Promise<PromptKnowledgeImportCommitResult | null>;
+  onDelete?: (id: string) => Promise<void>;
 } = {}) {
   return renderWithI18n(
     <PromptWritingLayerPanel
@@ -56,6 +95,8 @@ function renderPanel(overrides: {
       onContextTokensChange={() => undefined}
       onToggleKnowledgePack={overrides.onTogglePack ?? (() => undefined)}
       onToggleKnowledgeModule={overrides.onToggleModule ?? (() => undefined)}
+      onImportKnowledgePack={overrides.onImport ?? (async () => null)}
+      onDeleteKnowledgePack={overrides.onDelete ?? (async () => undefined)}
     />,
     { language: "en" },
   );
@@ -113,10 +154,52 @@ describe("PromptWritingLayerPanel knowledge packs", () => {
         onContextTokensChange={() => undefined}
         onToggleKnowledgePack={() => undefined}
         onToggleKnowledgeModule={() => undefined}
+        onImportKnowledgePack={async () => null}
+        onDeleteKnowledgePack={async () => undefined}
       />,
       { language: "en" },
     );
 
     expect(screen.getByTestId("writing-layer-tokens").textContent).toContain("44");
+  });
+
+  it("previews a chosen directory and confirms the import", async () => {
+    const previewPack = vi.fn().mockResolvedValue({ ok: true, data: PREVIEW });
+    const onImport = vi.fn().mockResolvedValue({
+      packIds: ["pack-2"],
+      moduleCount: 1,
+      skipped: [],
+      conflicts: [],
+    });
+    installWindowMocks({
+      api: {
+        promptWritingPresets: { list: vi.fn().mockResolvedValue({ ok: true, data: [] }) },
+        promptKnowledge: { previewPack },
+      },
+      electron: { getPathForFile: () => "C:\\packs\\Skill-Film\\SKILL.md" },
+    });
+
+    await renderPanel({ onImport });
+    fireEvent.click(screen.getByTestId("writing-layer-knowledge-import"));
+    const input = screen.getByTestId("writing-layer-knowledge-directory") as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File(["---"], "SKILL.md", { type: "text/markdown" })] },
+    });
+
+    await waitFor(() => expect(previewPack).toHaveBeenCalledWith({ rootPath: "C:\\packs\\Skill-Film" }));
+    await waitFor(() => expect(screen.getByTestId("knowledge-import-dialog")).toBeTruthy());
+    expect(within(screen.getByTestId("knowledge-import-dialog")).getByText("Skill-Film")).toBeTruthy();
+    expect(screen.getByTestId("knowledge-import-conflicts").textContent).toContain("module-key");
+    expect(screen.getByTestId("knowledge-import-skipped").textContent).toContain("source copy");
+
+    fireEvent.click(screen.getByTestId("knowledge-import-confirm"));
+    await waitFor(() => expect(onImport).toHaveBeenCalledWith(PREVIEW));
+  });
+
+  it("asks the workbench to delete a pack", async () => {
+    const onDelete = vi.fn();
+    await renderPanel({ packIds: ["pack-1"], onDelete });
+    fireEvent.click(screen.getByTestId("writing-layer-knowledge-delete-pack-1"));
+    expect(onDelete).toHaveBeenCalledWith("pack-1");
   });
 });

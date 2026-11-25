@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
+  PromptKnowledgeImportCommitResult,
+  PromptKnowledgeImportPreview,
   PromptKnowledgeModule,
   PromptKnowledgePack,
   PromptWritingLayerBudgetPreview,
@@ -8,9 +10,11 @@ import type {
   PromptWritingPresetSummary,
 } from "@prompthub/shared/types";
 import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
+import { Trash2Icon } from "lucide-react";
 import { Select } from "../ui/Select";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
+import { Modal } from "../ui/Modal";
 import { Textarea } from "../ui/Textarea";
 import {
   EMPTY_WRITING_LAYER,
@@ -47,6 +51,8 @@ interface Props {
   onContextTokensChange: (value: number) => void;
   onToggleKnowledgePack: (id: string) => void;
   onToggleKnowledgeModule: (id: string) => void;
+  onImportKnowledgePack: (preview: PromptKnowledgeImportPreview) => Promise<PromptKnowledgeImportCommitResult | null>;
+  onDeleteKnowledgePack: (id: string) => Promise<void>;
 }
 
 /**
@@ -74,6 +80,8 @@ export function PromptWritingLayerPanel({
   onContextTokensChange,
   onToggleKnowledgePack,
   onToggleKnowledgeModule,
+  onImportKnowledgePack,
+  onDeleteKnowledgePack,
 }: Props) {
   const { t } = useTranslation();
   const [summaries, setSummaries] = useState<PromptWritingPresetSummary[]>([]);
@@ -85,6 +93,13 @@ export function PromptWritingLayerPanel({
   const [editText, setEditText] = useState("");
   const [saving, setSaving] = useState(false);
   const [editNotice, setEditNotice] = useState("");
+  const directoryInputRef = useRef<HTMLInputElement>(null);
+  const [knowledgePreview, setKnowledgePreview] = useState<PromptKnowledgeImportPreview | null>(null);
+  const [knowledgeImportOpen, setKnowledgeImportOpen] = useState(false);
+  const [previewingPack, setPreviewingPack] = useState(false);
+  const [importingPack, setImportingPack] = useState(false);
+  const [knowledgeImportError, setKnowledgeImportError] = useState("");
+  const [knowledgeNotice, setKnowledgeNotice] = useState("");
 
   const api = window.api.promptWritingPresets;
 
@@ -220,6 +235,61 @@ export function PromptWritingLayerPanel({
     applySelection({ ...selection, sectionIds: ids });
   };
 
+  useEffect(() => {
+    const input = directoryInputRef.current;
+    if (!input) return;
+    // React has no typed prop for the directory picker.
+    input.setAttribute("webkitdirectory", "");
+    input.setAttribute("directory", "");
+  }, []);
+
+  async function previewKnowledgeDirectory(file: File | undefined): Promise<void> {
+    if (!file) return;
+    const absolutePath = window.electron?.getPathForFile?.(file) ?? "";
+    const separator = Math.max(absolutePath.lastIndexOf("/"), absolutePath.lastIndexOf("\\"));
+    const rootPath = separator > 0 ? absolutePath.slice(0, separator) : "";
+    setKnowledgeNotice("");
+    setKnowledgeImportError("");
+    if (!rootPath) {
+      setKnowledgeImportError(t("orchestrator.writingLayer.directoryFailed"));
+      return;
+    }
+    setPreviewingPack(true);
+    try {
+      const reply = await window.api.promptKnowledge.previewPack({ rootPath });
+      if (reply.ok !== true) {
+        setKnowledgeImportError(reply.error.message);
+        return;
+      }
+      setKnowledgePreview(reply.data);
+      setKnowledgeImportOpen(true);
+    } catch (cause) {
+      setKnowledgeImportError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setPreviewingPack(false);
+    }
+  }
+
+  async function confirmKnowledgeImport(): Promise<void> {
+    if (!knowledgePreview) return;
+    setImportingPack(true);
+    setKnowledgeImportError("");
+    try {
+      const result = await onImportKnowledgePack(knowledgePreview);
+      if (!result) {
+        setKnowledgeImportError(t("orchestrator.writingLayer.importFailed"));
+        return;
+      }
+      setKnowledgeImportOpen(false);
+      setKnowledgePreview(null);
+      setKnowledgeNotice(
+        t("orchestrator.writingLayer.importDone", { count: result.moduleCount }),
+      );
+    } finally {
+      setImportingPack(false);
+    }
+  }
+
   const usedTokens = estimatePromptTokens(text) + knowledgeTokens;
   const budgetTokens = budget?.budgetTokens ?? null;
   const overBudget = budgetTokens !== null && usedTokens > budgetTokens;
@@ -321,10 +391,34 @@ export function PromptWritingLayerPanel({
       <div className="space-y-2 rounded-md border border-border/60 p-2" data-testid="writing-layer-knowledge">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs font-medium">{t("orchestrator.writingLayer.knowledgeTitle")}</span>
-          <span className="text-[11px] text-muted-foreground" data-testid="writing-layer-knowledge-tokens">
-            {t("orchestrator.writingLayer.knowledgeTokens", { tokens: knowledgeTokens })}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-muted-foreground" data-testid="writing-layer-knowledge-tokens">
+              {t("orchestrator.writingLayer.knowledgeTokens", { tokens: knowledgeTokens })}
+            </span>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => directoryInputRef.current?.click()}
+              disabled={disabled || previewingPack}
+              data-testid="writing-layer-knowledge-import"
+            >
+              {previewingPack
+                ? t("orchestrator.writingLayer.importPreviewing")
+                : t("orchestrator.writingLayer.importPack")}
+            </Button>
+          </div>
         </div>
+        <input
+          ref={directoryInputRef}
+          type="file"
+          className="hidden"
+          data-testid="writing-layer-knowledge-directory"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            void previewKnowledgeDirectory(file);
+          }}
+        />
         <p className="text-[11px] text-muted-foreground">
           {t("orchestrator.writingLayer.knowledgeHint")}
         </p>
@@ -339,21 +433,34 @@ export function PromptWritingLayerPanel({
               const modules = knowledgeModulesByPack[pack.id] ?? [];
               return (
                 <div key={pack.id}>
-                  <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-[11px] hover:bg-muted/30">
-                    <input
-                      type="checkbox"
-                      checked={selected}
-                      onChange={() => onToggleKnowledgePack(pack.id)}
+                  <div className="flex items-center gap-1">
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded px-1 py-1 text-[11px] hover:bg-muted/30">
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => onToggleKnowledgePack(pack.id)}
+                        disabled={disabled}
+                        data-testid={`writing-layer-knowledge-pack-${pack.id}`}
+                      />
+                      <span className="min-w-0 flex-1 truncate font-medium" title={pack.name}>
+                        {pack.name}
+                      </span>
+                      <span className="shrink-0 text-muted-foreground">
+                        {pack.version ? `v${pack.version}` : pack.kind}
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+                      aria-label={t("orchestrator.writingLayer.deletePack", { name: pack.name })}
+                      title={t("orchestrator.writingLayer.deletePack", { name: pack.name })}
+                      onClick={() => void onDeleteKnowledgePack(pack.id)}
                       disabled={disabled}
-                      data-testid={`writing-layer-knowledge-pack-${pack.id}`}
-                    />
-                    <span className="min-w-0 flex-1 truncate font-medium" title={pack.name}>
-                      {pack.name}
-                    </span>
-                    <span className="shrink-0 text-muted-foreground">
-                      {pack.version ? `v${pack.version}` : pack.kind}
-                    </span>
-                  </label>
+                      data-testid={`writing-layer-knowledge-delete-${pack.id}`}
+                    >
+                      <Trash2Icon className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                   {selected && (
                     <div className="ml-5 space-y-0.5 border-l border-border/60 pl-2">
                       {modules.length === 0 ? (
@@ -388,6 +495,9 @@ export function PromptWritingLayerPanel({
           </div>
         )}
         {knowledgeError && <p className="text-xs text-destructive">{knowledgeError}</p>}
+        {knowledgeNotice && (
+          <p className="text-[11px] text-emerald-600 dark:text-emerald-400">{knowledgeNotice}</p>
+        )}
       </div>
 
       {selection.mode === "preset" ? (
@@ -615,6 +725,99 @@ export function PromptWritingLayerPanel({
           <p className="text-[11px] text-muted-foreground">{t("orchestrator.writingLayer.customHint")}</p>
         </div>
       )}
+
+      <Modal
+        isOpen={knowledgeImportOpen}
+        onClose={() => {
+          if (importingPack) return;
+          setKnowledgeImportOpen(false);
+          setKnowledgePreview(null);
+          setKnowledgeImportError("");
+        }}
+        title={t("orchestrator.writingLayer.importTitle")}
+        size="lg"
+        footer={(
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setKnowledgeImportOpen(false);
+                setKnowledgePreview(null);
+                setKnowledgeImportError("");
+              }}
+              disabled={importingPack}
+            >
+              {t("orchestrator.writingLayer.importCancel")}
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => void confirmKnowledgeImport()}
+              disabled={importingPack || !knowledgePreview}
+              data-testid="knowledge-import-confirm"
+            >
+              {importingPack
+                ? t("orchestrator.writingLayer.importing")
+                : t("orchestrator.writingLayer.importConfirm")}
+            </Button>
+          </div>
+        )}
+      >
+        {knowledgePreview && (
+          <div className="space-y-3 text-xs" data-testid="knowledge-import-dialog">
+            <div className="rounded-md border border-border/70 p-2">
+              <p className="font-medium">
+                {knowledgePreview.packs.map((pack) => pack.name).join(", ")}
+              </p>
+              <p className="text-muted-foreground">
+                {t("orchestrator.writingLayer.importSummary", {
+                  modules: knowledgePreview.moduleCount,
+                  tokens: knowledgePreview.totalTokens,
+                  bytes: knowledgePreview.totalBytes,
+                })}
+              </p>
+            </div>
+            <div>
+              <p className="mb-1 font-medium">{t("orchestrator.writingLayer.importConflictTitle")}</p>
+              {knowledgePreview.conflicts.length === 0 ? (
+                <p className="text-muted-foreground" data-testid="knowledge-import-conflicts">
+                  {t("orchestrator.writingLayer.importNoConflicts")}
+                </p>
+              ) : (
+                <ul className="max-h-28 space-y-1 overflow-y-auto" data-testid="knowledge-import-conflicts">
+                  {knowledgePreview.conflicts.map((conflict, index) => (
+                    <li key={`${conflict.packName}-${conflict.moduleKey}-${index}`} className="text-muted-foreground">
+                      {conflict.packName} · {conflict.moduleKey} · {conflict.reason}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <p className="mb-1 font-medium">{t("orchestrator.writingLayer.importSkippedTitle")}</p>
+              {knowledgePreview.skipped.length === 0 ? (
+                <p className="text-muted-foreground" data-testid="knowledge-import-skipped">
+                  {t("orchestrator.writingLayer.importNothingSkipped")}
+                </p>
+              ) : (
+                <ul className="max-h-28 space-y-1 overflow-y-auto" data-testid="knowledge-import-skipped">
+                  {knowledgePreview.skipped.map((entry, index) => (
+                    <li key={`${entry.path}-${index}`} className="text-muted-foreground">
+                      {entry.path} · {entry.reason}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {knowledgeImportError && (
+              <p className="text-xs text-destructive" data-testid="knowledge-import-error">
+                {knowledgeImportError}
+              </p>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

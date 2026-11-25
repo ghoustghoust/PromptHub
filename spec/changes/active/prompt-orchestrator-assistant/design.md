@@ -1641,10 +1641,23 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
 - `outputs/a6-phase2-20261125/colorcard-catalog.json|md`：200 位导演，10 类，
   200 缩略图 / 200 色板 / 200 风格，0 跳过。
 
+### 隔离库导入、IPC 与选择器
+
+- 先备份 `profile/data/backups/reference-import-2026-11-25T11-30-59-477Z.db`，再把 200 条写入
+  `prompt_reference_items`；缩略图用 Electron `nativeImage` 压成 320px JPEG（72 质量）存到
+  `profile/data/images/ref-*.jpg`，DB 存文件名供 `local-image://` 使用（200/200 成功）。
+- IPC：`prompt:reference:list` / `remove`；preload 暴露 `window.api.promptReference`。
+- 写作层下方新增“导演色卡”选择器：搜索、分类过滤、缩略图网格、已选 chips，最多 3 个；
+  选择存 workspace `referenceItemIds`（服务端拒绝 >3），重启恢复。
+- 真实窗口 e2e 28.1s：临时 profile 植入 4 条参考 → 选 3 个后第 4 个禁用 → 重启仍 3/3；
+  截图 `11-reference-picker.png`。
+- 未做：选择尚未传入 Core / 未参与编排（下一步加 `referenceStyles` 注入与 provenance），
+  色卡也不进入写作层 P/S/H 预算。
+
 ### 未做
 
-- 尚未导入隔离库（需先备份）、未接 IPC、未做缩略图选择 UI 与 Core 注入；
-  缩略图仍是源目录绝对路径，UI 展示前需要复制到 images 目录或扩展本地协议白名单。
+- 选择尚未进入 Core；下一步加 `referenceStyles` 输入、紧凑注入与 provenance，并在预算里
+  单独扣除参考 token（不占写作层 P/S/H 配额）。
 
 ## 评估方式
 

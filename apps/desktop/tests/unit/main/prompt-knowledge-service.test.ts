@@ -156,6 +156,25 @@ describe("knowledge pack scan and preview", () => {
     expect(() => previewKnowledgePack(root)).toThrow(/200/);
   });
 
+  it("splits standalone knowledge documents by heading into knowledge modules", () => {
+    write(
+      "剧本.md",
+      "# 剧本方法\n## 定义\n剧本结构的定义。\n\n## 时间码\n按时间码拆场。",
+    );
+    write("小说.md", "小说改编要点，无二级标题。");
+
+    const preview = previewKnowledgePack(root);
+    expect(preview.packs[0].kind).toBe("knowledge");
+    expect(preview.packs[0].name).toBe(path.basename(root));
+    expect(preview.packs[0].modules.map((entry) => entry.title)).toEqual([
+      "剧本 · 定义",
+      "剧本 · 时间码",
+      "小说",
+    ]);
+    expect(preview.packs[0].modules.map((entry) => entry.layer)).toEqual(["P", "S", "H"]);
+    expect(preview.packs[0].modules[0].category).toBe("剧本");
+  });
+
   it("falls back to the directory name and a single overview module", () => {
     write("SKILL.md", "Plain body without headings.");
 

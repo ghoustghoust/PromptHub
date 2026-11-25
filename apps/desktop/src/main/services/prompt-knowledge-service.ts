@@ -185,6 +185,44 @@ function sectionsToCandidates(
   }));
 }
 
+/**
+ * A pack without SKILL.md/index.md/知识 is a plain document bundle (for example
+ * a performance-method knowledge base). Each level-2 section becomes a module
+ * so no single document has to exceed the per-module limit.
+ */
+function documentCandidates(
+  files: { relativePath: string; absolutePath: string }[],
+): Candidate[] {
+  const candidates: Candidate[] = [];
+  for (const file of files) {
+    if (file.relativePath.includes("/")) continue;
+    if (file.relativePath === "SKILL.md" || file.relativePath === "index.md") continue;
+    const body = parseFrontmatter(readText(file.absolutePath)).body.trim();
+    if (!body) continue;
+    const base = path.basename(file.relativePath, path.extname(file.relativePath));
+    const sections = splitLevelTwoSections(body);
+    if (sections.length === 0) {
+      candidates.push({
+        relativePath: file.relativePath,
+        title: base,
+        content: body,
+        category: base,
+      });
+      continue;
+    }
+    for (const section of sections) {
+      candidates.push({
+        relativePath: file.relativePath,
+        title: `${base} · ${section.title}`,
+        content: section.content,
+        category: base,
+        layerHint: section.title,
+      });
+    }
+  }
+  return candidates;
+}
+
 function splitList(value: string | undefined): string[] {
   if (!value) return [];
   return value
@@ -298,7 +336,9 @@ function scanKnowledgePack(rootPath: string): ScannedPack {
   const packName = (skill?.meta.name ?? path.basename(resolved)).trim();
   const kindValue = skill?.meta.kind;
   const kind: PromptKnowledgePackKind =
-    kindValue && PACK_KINDS.has(kindValue) ? (kindValue as PromptKnowledgePackKind) : "skill";
+    kindValue && PACK_KINDS.has(kindValue)
+      ? (kindValue as PromptKnowledgePackKind)
+      : skillFile ? "skill" : "knowledge";
 
   const fromKnowledge = knowledgeCandidates(files, skipped);
   const indexFile = byRelative.get("index.md");
@@ -317,7 +357,11 @@ function scanKnowledgePack(rootPath: string): ScannedPack {
   } else if (skill?.body.trim()) {
     candidates = [{ relativePath: "SKILL.md", title: "overview", content: skill.body.trim() }];
   } else {
-    throw new Error("No readable markdown modules found (知识/, index.md or SKILL.md)");
+    const documents = documentCandidates(files);
+    if (documents.length === 0) {
+      throw new Error("No readable markdown modules found (知识/, index.md, SKILL.md or root documents)");
+    }
+    candidates = documents;
   }
 
   const contentByKey = new Map<string, string>();

@@ -1614,6 +1614,38 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
 - reference（色卡）尚未进入选择器；写作层尚未展示“某包 contract 因预算超限”的专门提示。
 - 结果面板只显示模块标题/kind，尚未提供跳转到知识包或模块正文的入口。
 
+## 第二十六轮：色卡参考库数据层（2026-11-25）
+
+### 目录与解析
+
+- 源：`prompt/new/色卡-资料包/directorStyleLibrary/<分类>/<编号_导演>/`，10 类 × 20 = 200 位。
+- 元数据优先 `assets/color_palettes/palette.json`（中英文名、分类、国籍、年代、主色板 hex），
+  风格优先 `assets/references/reference_director_manifest.json`（definition/lighting/framing/
+  grading/avoid）；没 manifest 的 147 位从 `色卡主文档.md` 的“核心风格一句话 / 光影特征 /
+  构图与运镜 / 色彩与光影”回退解析。
+- 缩略图优先 `palette_main.png`，其次 color_palettes 首图，再次 film_stills 首图；实测
+  200/200 都有缩略图、主色板与风格字段，0 跳过。
+- 色卡是 reference 素材：只存源路径与元数据，图片留在只读源目录，不复制、不执行脚本。
+
+### 数据与代码
+
+- 新表 `prompt_reference_items`（name_zh/en、category、nationality、era、summary、
+  palette_json、style_json、thumbnail_path、source_path 唯一、source_hash），
+  索引 category+name；`PromptReferenceDB.saveItems` 按 source_path 替换、事务写入。
+- `previewReferenceLibrary(root)` / `commitReferenceImport(db, preview)`：扫描→预览→写库，
+  重复导入不堆行。
+- 单测：DB 往返/替换/删除 3、service 解析与回退 3（含缺 manifest 的文档回退）。
+
+### 目录报告
+
+- `outputs/a6-phase2-20261125/colorcard-catalog.json|md`：200 位导演，10 类，
+  200 缩略图 / 200 色板 / 200 风格，0 跳过。
+
+### 未做
+
+- 尚未导入隔离库（需先备份）、未接 IPC、未做缩略图选择 UI 与 Core 注入；
+  缩略图仍是源目录绝对路径，UI 展示前需要复制到 images 目录或扩展本地协议白名单。
+
 ## 评估方式
 
 A/B/C 三版对比：A 原始输入、B 普通大模型扩写、C 编排结果。固定底模、LoRA、

@@ -103,6 +103,11 @@ export {
   migratePromptOrchestratorState,
 } from "./prompt-orchestrator-state";
 export {
+  PromptKnowledgeDB,
+  PROMPT_KNOWLEDGE_SCHEMA,
+  migratePromptKnowledge,
+} from "./prompt-knowledge";
+export {
   PromptWritingPresetDB,
   PROMPT_WRITING_PRESET_SCHEMA,
   PROMPT_WRITING_METHODOLOGIES,

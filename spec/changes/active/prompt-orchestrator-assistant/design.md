@@ -1464,9 +1464,22 @@ A1 只内置自写压缩版、原文靠本地导入；B1 8K 限制写作层预�
   IPC 3（预览、缺参拒绝、提交→列表→模块→删除）；真实 Skill-Film 在内存库提交
   160 个模块、99ms、正文完整。
 
+### Core 知识模块注入
+
+- `PromptOrchestrationInput.knowledgeModules`：id/packId/packName/moduleKey/title/layer/tokens/content。
+- `buildWritingLayerText` 把用户写作层与模块按选择顺序拼成一份文本，模块带
+  `[Knowledge module: 标题 (pack; layer)]` 头；系统消息明确“按方法执行，不引用模块名/标题”。
+- 预算：模块不计入固定 contract 成本，但与写作层共用同一 token 预算与 60,000 字符上限；
+  超限抛 `SYSTEM_PROMPT_LAYER_OVER_BUDGET`（需要/可用/超出），不截断、不静默丢模块；
+  重复 id、空正文、非法 layer 抛 `INVALID_INPUT`。
+- provenance 每个模块一条 `module:<id>`，state `locked`、outcome `injected`、excerpt 前 200 字，
+  reason 记录 pack 与 P/S/H；`systemPromptLayerMetrics.tokens` 按合并后的文本计算。
+- 单测 6/6；预算、编排 v2、布局共 27 个既有用例通过。
+
 ### 未做
 
-- Core 的 `knowledgeModules` 预算注入、workspace 选择状态与 UI 尚未开始。
+- 写作层 UI 的知识包选择、workspace 选择状态（knowledgePackIds / knowledgeModuleIds）
+  与结果面板来源展示尚未开始。
 
 ## 评估方式
 

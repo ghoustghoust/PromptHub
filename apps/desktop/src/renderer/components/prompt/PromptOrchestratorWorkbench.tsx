@@ -548,61 +548,59 @@ export function PromptOrchestratorWorkbench() {
               </p>
             </div>
           )}
-          {!videoTask && (
-            <div className="space-y-2">
-              {state.writingLayer.mode === "custom" && (
-                <Select
-                  value=""
-                  options={[
-                    { value: "", label: t("orchestrator.systemLayerFromLibrary") },
-                    ...state.libraryPrompts.slice(0, 100).map((item) => ({
-                      value: item.id,
-                      label: item.title,
-                    })),
-                  ]}
-                  onChange={(value) => void state.applyLibraryPrompt(value)}
-                  presentation="form"
-                  ariaLabel={t("orchestrator.systemLayerFromLibrary")}
-                />
-              )}
-              <PromptWritingLayerPanel
-                selection={state.writingLayer}
-                text={state.systemLayer}
-                source={state.systemLayerSource ?? null}
-                disabled={state.isRunning}
-                contextTokens={state.layerContextTokens}
-                contextLocked={state.modelSource === "local"}
-                budget={state.layerBudget}
-                budgetError={state.layerBudgetError}
-                knowledgePacks={state.knowledgePacks}
-                knowledgeModulesByPack={state.knowledgeModulesByPack}
-                knowledgePackIds={state.knowledgePackIds}
-                knowledgeModuleIds={state.knowledgeModuleIds}
-                knowledgeTokens={state.knowledgeTokens}
-                contractModules={state.contractModules}
-                contractTokens={state.contractTokens}
-                contractGroup={state.knowledgeContractGroup}
-                hasGroupedContracts={state.hasGroupedContracts}
-                knowledgeError={state.knowledgeError}
-                onSelectionChange={state.setWritingLayer}
-                onTextChange={state.updateSystemLayerWithSource}
-                onContextTokensChange={state.setLayerContextTokens}
-                onToggleKnowledgePack={state.toggleKnowledgePack}
-                onToggleKnowledgeModule={state.toggleKnowledgeModule}
-                onContractGroupChange={state.setKnowledgeContractGroup}
-                onImportKnowledgePack={state.importKnowledgePack}
-                onDeleteKnowledgePack={state.deleteKnowledgePack}
+          <div className="space-y-2">
+            {state.writingLayer.mode === "custom" && (
+              <Select
+                value=""
+                options={[
+                  { value: "", label: t("orchestrator.systemLayerFromLibrary") },
+                  ...state.libraryPrompts.slice(0, 100).map((item) => ({
+                    value: item.id,
+                    label: item.title,
+                  })),
+                ]}
+                onChange={(value) => void state.applyLibraryPrompt(value)}
+                presentation="form"
+                ariaLabel={t("orchestrator.systemLayerFromLibrary")}
               />
-              <PromptReferencePicker
-                items={state.referenceItems}
-                selectedIds={state.referenceItemIds}
-                referenceTokens={state.referenceTokens}
-                onToggle={state.toggleReferenceItem}
-                error={state.referenceError}
-                disabled={state.isRunning}
-              />
-            </div>
-          )}
+            )}
+            <PromptWritingLayerPanel
+              selection={state.writingLayer}
+              text={state.systemLayer}
+              source={state.systemLayerSource ?? null}
+              disabled={state.isRunning}
+              contextTokens={state.layerContextTokens}
+              contextLocked={state.modelSource === "local"}
+              budget={state.layerBudget}
+              budgetError={state.layerBudgetError}
+              knowledgePacks={state.knowledgePacks}
+              knowledgeModulesByPack={state.knowledgeModulesByPack}
+              knowledgePackIds={state.knowledgePackIds}
+              knowledgeModuleIds={state.knowledgeModuleIds}
+              knowledgeTokens={state.knowledgeTokens}
+              contractModules={state.contractModules}
+              contractTokens={state.contractTokens}
+              contractGroup={state.knowledgeContractGroup}
+              hasGroupedContracts={state.hasGroupedContracts}
+              knowledgeError={state.knowledgeError}
+              onSelectionChange={state.setWritingLayer}
+              onTextChange={state.updateSystemLayerWithSource}
+              onContextTokensChange={state.setLayerContextTokens}
+              onToggleKnowledgePack={state.toggleKnowledgePack}
+              onToggleKnowledgeModule={state.toggleKnowledgeModule}
+              onContractGroupChange={state.setKnowledgeContractGroup}
+              onImportKnowledgePack={state.importKnowledgePack}
+              onDeleteKnowledgePack={state.deleteKnowledgePack}
+            />
+            <PromptReferencePicker
+              items={state.referenceItems}
+              selectedIds={state.referenceItemIds}
+              referenceTokens={state.referenceTokens}
+              onToggle={state.toggleReferenceItem}
+              error={state.referenceError}
+              disabled={state.isRunning}
+            />
+          </div>
           <div className="space-y-1.5">
             <span className="text-xs font-medium text-foreground">
               {t("orchestrator.modelSource.label")}

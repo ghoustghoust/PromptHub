@@ -988,7 +988,9 @@ export function usePromptOrchestratorWorkbench() {
       prompt: prompt.trim() || undefined,
       mode,
       skill,
-      ...(targetPipeline ? { targetPipeline } : {}),
+      // The artist pipeline control is image-only; a video task derives its
+      // pipeline from the H3 rule card, so a stale selection must not leak in.
+      ...(targetPipeline && !isVideoTask(mode) ? { targetPipeline } : {}),
       guidanceMode,
       ...(systemLayer.trim() || activeKnowledgeModules.length > 0
         ? {

@@ -151,7 +151,7 @@ describe("014 picture library import", () => {
       category: "春装",
       keywords: ["象牙白", "针织"],
       englishKeywords: "ivory knit",
-      thumbnail: "thumbs/SPR-0001.webp",
+      thumbnail: path.join(root, "costume", "thumbs", "SPR-0001.webp"),
     });
     expect(costume?.path).toBe(path.join(root, "costume", "img", "SPR-0001.jpg"));
 

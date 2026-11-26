@@ -96,6 +96,34 @@ function createWindowApiDefaults() {
     promptReference: {
       list: vi.fn().mockResolvedValue({ ok: true, data: [] }),
       remove: vi.fn().mockResolvedValue({ ok: true, data: { removed: false } }),
+      preview: vi.fn().mockResolvedValue({
+        ok: true,
+        data: { items: [], skipped: [], conflicts: [], categories: [] },
+      }),
+      importLibrary: vi.fn().mockResolvedValue({
+        ok: true,
+        data: { itemIds: [], skipped: [], conflicts: [] },
+      }),
+      thumbnails: vi.fn().mockResolvedValue({ ok: true, data: {} }),
+    },
+    promptAsset: {
+      preview: vi.fn().mockResolvedValue({
+        ok: true,
+        data: { items: [], skipped: [], conflicts: [], counts: {} },
+      }),
+      importLibrary: vi.fn().mockResolvedValue({
+        ok: true,
+        data: {
+          assetIds: [],
+          inserted: 0,
+          updated: 0,
+          skipped: [],
+          conflicts: [],
+        },
+      }),
+      list: vi.fn().mockResolvedValue({ ok: true, data: { items: [], total: 0 } }),
+      kindCounts: vi.fn().mockResolvedValue({ ok: true, data: [] }),
+      thumbnails: vi.fn().mockResolvedValue({ ok: true, data: {} }),
     },
     localLlama: {
       getConfig: vi.fn(),
@@ -703,6 +731,7 @@ function createWindowElectronDefaults() {
     sendCloseDialogResult: vi.fn(),
     sendCloseDialogCancel: vi.fn(),
     selectFolder: vi.fn(),
+    selectImportFolders: vi.fn().mockResolvedValue([]),
     selectMcpSourceFolder: vi.fn(),
     selectMcpConfigFile: vi.fn(),
     getPathForFile: vi.fn((file: File & { path?: string }) => file.path ?? ""),

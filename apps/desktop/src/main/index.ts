@@ -661,6 +661,15 @@ ipcMain.handle("dialog:selectFolder", async () => {
   return null;
 });
 
+ipcMain.handle("dialog:selectImportFolders", async () => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    properties: ["openDirectory", "multiSelections"],
+    title: "选择导入来源目录",
+  });
+  if (result.canceled) return [];
+  return result.filePaths;
+});
+
 ipcMain.handle("dialog:selectMcpConfigFile", async () => {
   const result = await dialog.showOpenDialog(mainWindow!, {
     properties: ["openFile"],

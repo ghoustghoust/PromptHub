@@ -50,6 +50,12 @@ function thumbnailOf(record: Record<string, unknown>): string | null {
   return text(record["缩略图"]) ?? text(record.thumb);
 }
 
+/** The thumbnail the renderer shows; the picture stays in the source tree. */
+function absoluteThumbnail(root: string, record: Record<string, unknown>): string | null {
+  const thumbnail = thumbnailOf(record);
+  return thumbnail ? absolutePicture(root, thumbnail) : null;
+}
+
 function absolutePicture(root: string, relative: string): string {
   return path.resolve(root, relative.split("/").join(path.sep));
 }
@@ -85,7 +91,7 @@ function costumeRecord(root: string, record: Record<string, unknown>): LibraryRe
       category: text(record["分类"]),
       keywords,
       englishKeywords: english,
-      thumbnail: thumbnailOf(record),
+      thumbnail: absoluteThumbnail(root, record),
       sourceIndex: "costume/data/costume-zh.json",
     },
   };
@@ -113,7 +119,7 @@ function hairRecord(root: string, record: Record<string, unknown>): LibraryRecor
       nameSource: text(record["name_source"]),
       width: typeof record.w === "number" ? record.w : null,
       height: typeof record.h === "number" ? record.h : null,
-      thumbnail: thumbnailOf(record),
+      thumbnail: absoluteThumbnail(root, record),
       sourceIndex: "hair/data/hairstyle-zh.json",
     },
     relation: text(record.source_id),
@@ -140,7 +146,7 @@ function portraitRecord(root: string, record: Record<string, unknown>): LibraryR
       styleZh: text(record["style_zh"]),
       width: typeof record.w === "number" ? record.w : null,
       height: typeof record.h === "number" ? record.h : null,
-      thumbnail: thumbnailOf(record),
+      thumbnail: absoluteThumbnail(root, record),
       sourceIndex: "portrait/data/portrait-zh.json",
     },
   };
@@ -166,7 +172,7 @@ function poseRecord(root: string, record: Record<string, unknown>): LibraryRecor
       angle,
       category: text(record["分类"]),
       poseName: text(record["姿势名称"]),
-      thumbnail: thumbnailOf(record),
+      thumbnail: absoluteThumbnail(root, record),
       sourceIndex: "pose/data/pose-zh.json",
     },
   };

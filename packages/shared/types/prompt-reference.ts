@@ -79,3 +79,16 @@ export interface PromptReferenceImportCommitResult {
   skipped: PromptReferenceImportSkipped[];
   conflicts: PromptReferenceImportConflict[];
 }
+
+export interface DesktopPromptReferencePreviewRequest {
+  /** Source roots; the cards are merged by their director identity. */
+  roots: string[];
+}
+
+export interface DesktopPromptReferenceImportRequest {
+  roots: string[];
+}
+
+export interface DesktopPromptReferenceThumbnailRequest {
+  ids: string[];
+}

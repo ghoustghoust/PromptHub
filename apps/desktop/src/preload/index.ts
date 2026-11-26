@@ -26,6 +26,7 @@ import { promptApi } from "./api/prompt";
 import { promptOrchestratorApi } from "./api/prompt-orchestrator";
 import { promptKnowledgeApi } from "./api/prompt-knowledge";
 import { promptReferenceApi } from "./api/prompt-reference";
+import { promptAssetApi } from "./api/prompt-asset";
 import { promptWritingPresetsApi } from "./api/prompt-writing-presets";
 import { promptWorkspaceRecoveryApi } from "./api/prompt-workspace-recovery";
 import { rulesApi } from "./api/rules";
@@ -115,6 +116,7 @@ const api = {
   promptOrchestrator: promptOrchestratorApi,
   promptKnowledge: promptKnowledgeApi,
   promptReference: promptReferenceApi,
+  promptAsset: promptAssetApi,
   promptWritingPresets: promptWritingPresetsApi,
   promptWorkspaceRecovery: promptWorkspaceRecoveryApi,
   agent: agentApi,
@@ -260,6 +262,7 @@ contextBridge.exposeInMainWorld("electron", {
     ipcRenderer.send("window:closeDialogCancel");
   },
   selectFolder: () => ipcRenderer.invoke("dialog:selectFolder"),
+  selectImportFolders: () => ipcRenderer.invoke("dialog:selectImportFolders"),
   selectMcpSourceFolder: () =>
     ipcRenderer.invoke("dialog:selectMcpSourceFolder"),
   selectMcpConfigFile: () => ipcRenderer.invoke("dialog:selectMcpConfigFile"),
@@ -603,6 +606,7 @@ declare global {
       ) => void;
       sendCloseDialogCancel?: () => void;
       selectFolder?: () => Promise<string | null>;
+      selectImportFolders?: () => Promise<string[]>;
       selectMcpSourceFolder?: () => Promise<string | null>;
       selectMcpConfigFile?: () => Promise<string | null>;
       getPathForFile?: (file: File) => string;

@@ -37,6 +37,7 @@ describe("director color card import", () => {
       "01_黑色悬疑与冷调惊悚/001_Test_测试导演/assets/color_palettes/palette.json",
       JSON.stringify({
         director: {
+          id: "001",
           name_en: "Test Director",
           name_zh: "测试导演",
           category: "01_黑色悬疑与冷调惊悚",
@@ -160,5 +161,98 @@ describe("director color card import", () => {
     expect(second.itemIds).toHaveLength(1);
     expect(references.list()).toHaveLength(1);
     expect(references.list()[0].id).toBe(second.itemIds[0]);
+  });
+});
+
+describe("director identity in the color card library", () => {
+  function writeCard(
+    directory: string,
+    director: Record<string, unknown>,
+    summary: string,
+  ): void {
+    write(
+      `${directory}/assets/color_palettes/palette.json`,
+      JSON.stringify({
+        director: {
+          name_zh: "测试导演",
+          category: "01_黑色悬疑与冷调惊悚",
+          ...director,
+        },
+        palette: { primary: [{ hex: "#112233" }] },
+      }),
+    );
+    write(
+      `${directory}/assets/references/reference_director_manifest.json`,
+      JSON.stringify({
+        director: { zh: "测试导演" },
+        style_profile: { definition: summary },
+      }),
+    );
+  }
+
+  it("reads the director id declared by the source card", () => {
+    writeCard("01_黑色悬疑与冷调惊悚/001_Test_测试导演", { id: "001" }, "冷调。");
+    const preview = previewReferenceLibrary(root);
+    expect(preview.items).toHaveLength(1);
+    expect(preview.items[0].directorId).toBe("001");
+    expect(preview.conflicts).toEqual([]);
+  });
+
+  it("reports a card without a director id instead of guessing one", () => {
+    writeCard("01_黑色悬疑与冷调惊悚/002_NoId_无编号", {}, "冷调。");
+    const preview = previewReferenceLibrary(root);
+    expect(preview.items).toHaveLength(1);
+    expect(preview.items[0].directorId).toBeUndefined();
+    expect(preview.conflicts).toEqual([
+      { path: expect.stringContaining("无编号"), reason: "missing-director-id" },
+    ]);
+  });
+
+  it("skips a second card that claims the same director id", () => {
+    writeCard("01_黑色悬疑与冷调惊悚/001_First_第一位", { id: "001" }, "冷调。");
+    writeCard("01_黑色悬疑与冷调惊悚/002_Second_第二位", { id: "001" }, "暖调。");
+    const preview = previewReferenceLibrary(root);
+    expect(preview.items).toHaveLength(1);
+    expect(preview.items[0].sourcePath).toContain("第一位");
+    const duplicate = preview.skipped.find((entry) => entry.path.includes("第二位"));
+    expect(duplicate?.reason).toContain("duplicate director id 001");
+  });
+
+  it("keeps the record id and creation time across a same-source re-import", () => {
+    writeCard("01_黑色悬疑与冷调惊悚/001_Test_测试导演", { id: "001" }, "冷调。");
+    const first = commitReferenceImport(references, previewReferenceLibrary(root));
+    const stored = references.list()[0];
+    expect(first.itemIds).toEqual([stored.id]);
+
+    writeCard("01_黑色悬疑与冷调惊悚/001_Test_测试导演", { id: "001" }, "暖调，改写后的简介。");
+    const second = commitReferenceImport(references, previewReferenceLibrary(root));
+    const updated = references.list()[0];
+    expect(second.itemIds).toEqual([stored.id]);
+    expect(updated.id).toBe(stored.id);
+    expect(updated.createdAt).toBe(stored.createdAt);
+    expect(updated.summary).toBe("暖调，改写后的简介。");
+    expect(updated.sourceHash).not.toBe(stored.sourceHash);
+    expect(updated.updatedAt).toBeGreaterThanOrEqual(stored.updatedAt);
+  });
+
+  it("leaves other directors untouched and keeps saved selections resolvable", () => {
+    writeCard("01_黑色悬疑与冷调惊悚/001_First_第一位", { id: "001" }, "冷调。");
+    writeCard("01_黑色悬疑与冷调惊悚/002_Second_第二位", { id: "002" }, "暖调。");
+    commitReferenceImport(references, previewReferenceLibrary(root));
+    const [first, second] = references.list();
+    const savedSelection = first.id;
+
+    writeCard("01_黑色悬疑与冷调惊悚/001_First_第一位", { id: "001" }, "冷调，改写。");
+    commitReferenceImport(references, previewReferenceLibrary(root));
+
+    const rows = references.list();
+    expect(rows).toHaveLength(2);
+    const updatedFirst = rows.find((row) => row.id === savedSelection);
+    expect(updatedFirst).toBeDefined();
+    expect(updatedFirst?.summary).toBe("冷调，改写。");
+    expect(rows.find((row) => row.id === second.id)?.createdAt).toBe(second.createdAt);
+    expect(rows.find((row) => row.id === second.id)?.summary).toBe(second.summary);
+    // A selection stored in the workspace still resolves to the same record.
+    expect(references.get(savedSelection)?.id).toBe(savedSelection);
   });
 });

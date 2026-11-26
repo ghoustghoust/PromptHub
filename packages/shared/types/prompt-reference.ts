@@ -32,6 +32,8 @@ export interface PromptReferenceItem {
 export interface PromptReferenceItemPreview {
   /** Stable preview key: source path, replaced by a uuid on commit. */
   key: string;
+  /** Director identity declared by the source card; absent when it has none. */
+  directorId?: string;
   nameZh: string;
   nameEn?: string;
   category: string;
@@ -50,13 +52,27 @@ export interface PromptReferenceImportSkipped {
   reason: string;
 }
 
+export type PromptReferenceConflictReason =
+  | "missing-director-id"
+  | "duplicate-director-id";
+
+/** A card that needs attention but does not block the import. */
+export interface PromptReferenceImportConflict {
+  path: string;
+  reason: PromptReferenceConflictReason;
+  /** Director identity involved in the conflict, when the card declares one. */
+  directorId?: string;
+}
+
 export interface PromptReferenceImportPreview {
   items: PromptReferenceItemPreview[];
   skipped: PromptReferenceImportSkipped[];
+  conflicts: PromptReferenceImportConflict[];
   categories: Array<{ name: string; count: number }>;
 }
 
 export interface PromptReferenceImportCommitResult {
   itemIds: string[];
   skipped: PromptReferenceImportSkipped[];
+  conflicts: PromptReferenceImportConflict[];
 }

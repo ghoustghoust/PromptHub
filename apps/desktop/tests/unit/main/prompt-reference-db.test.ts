@@ -59,6 +59,13 @@ describe("PromptReferenceDB", () => {
     expect(rows[0].summary).toBe("updated");
   });
 
+  it("finds the record imported from one source path", () => {
+    references.saveItems([item()]);
+    const found = references.findBySourcePath("G:\\packs\\fincher");
+    expect(found?.id).toBe("ref-1");
+    expect(references.findBySourcePath("G:\\packs\\other")).toBeNull();
+  });
+
   it("removes an item by id", () => {
     references.saveItems([item()]);
     expect(references.remove("ref-1")).toBe(true);

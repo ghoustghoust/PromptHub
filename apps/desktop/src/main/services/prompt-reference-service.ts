@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import type { PromptReferenceDB } from "@prompthub/db";
 import type {
   PromptReferenceImportCommitResult,
+  PromptReferenceImportConflict,
   PromptReferenceImportPreview,
   PromptReferenceImportSkipped,
   PromptReferenceItem,
@@ -19,6 +20,8 @@ const CATEGORY_PREFIX = /^\d+[_-]/;
 
 interface PaletteJson {
   director?: {
+    /** Director identity of the source library; the only stable merge key. */
+    id?: string;
     name_en?: string;
     name_zh?: string;
     category?: string;
@@ -170,8 +173,10 @@ function scanDirector(
       : [],
   };
   const thumbnailPath = thumbnailFor(directorDir);
+  const directorId = palette.director.id?.trim();
   return {
     key: directorDir,
+    ...(directorId ? { directorId } : {}),
     nameZh: palette.director.name_zh ?? manifest?.director?.zh ?? directorName,
     ...(palette.director.name_en ?? manifest?.director?.en
       ? { nameEn: palette.director.name_en ?? manifest?.director?.en }
@@ -199,7 +204,9 @@ export function previewReferenceLibrary(rootPath: string): PromptReferenceImport
     throw new Error(`Reference library root is not a directory: ${root}`);
   }
   const skipped: PromptReferenceImportSkipped[] = [];
+  const conflicts: PromptReferenceImportConflict[] = [];
   const items: PromptReferenceItemPreview[] = [];
+  const seenDirectorIds = new Map<string, string>();
   for (const categoryName of fs.readdirSync(root).sort()) {
     const categoryDir = path.join(root, categoryName);
     if (!fs.statSync(categoryDir).isDirectory()) continue;
@@ -207,7 +214,23 @@ export function previewReferenceLibrary(rootPath: string): PromptReferenceImport
       const directorDir = path.join(categoryDir, directorName);
       if (!fs.statSync(directorDir).isDirectory()) continue;
       const item = scanDirector(categoryDir, directorName, skipped);
-      if (item) items.push(item);
+      if (!item) continue;
+      if (!item.directorId) {
+        // The card is still importable, but it carries no merge identity.
+        conflicts.push({ path: item.sourcePath, reason: "missing-director-id" });
+      } else {
+        const owner = seenDirectorIds.get(item.directorId);
+        if (owner) {
+          // Two cards claim one director identity; they are never merged silently.
+          skipped.push({
+            path: item.sourcePath,
+            reason: `duplicate director id ${item.directorId}, already used by ${owner}`,
+          });
+          continue;
+        }
+        seenDirectorIds.set(item.directorId, item.sourcePath);
+      }
+      items.push(item);
     }
   }
   const counts = new Map<string, number>();
@@ -215,32 +238,44 @@ export function previewReferenceLibrary(rootPath: string): PromptReferenceImport
   return {
     items,
     skipped,
+    conflicts,
     categories: [...counts].map(([name, count]) => ({ name, count })),
   };
 }
 
-/** Writes the scanned metadata; images stay in the read-only source tree. */
+/**
+ * Writes the scanned metadata; images stay in the read-only source tree. A
+ * card imported before keeps its record id and creation time, so a saved
+ * selection still resolves after the source was re-imported.
+ */
 export function commitReferenceImport(
   db: PromptReferenceDB,
   preview: PromptReferenceImportPreview,
 ): PromptReferenceImportCommitResult {
   const now = Date.now();
-  const items: PromptReferenceItem[] = preview.items.map((item) => ({
-    id: crypto.randomUUID(),
-    nameZh: item.nameZh,
-    ...(item.nameEn ? { nameEn: item.nameEn } : {}),
-    category: item.category,
-    ...(item.nationality ? { nationality: item.nationality } : {}),
-    ...(item.era ? { era: item.era } : {}),
-    summary: item.summary,
-    palette: item.palette,
-    style: item.style ?? { avoid: [] },
-    ...(item.thumbnailPath ? { thumbnailPath: item.thumbnailPath } : {}),
-    sourcePath: item.sourcePath,
-    sourceHash: item.sourceHash,
-    createdAt: now,
-    updatedAt: now,
-  }));
+  const items: PromptReferenceItem[] = preview.items.map((item) => {
+    const existing = db.findBySourcePath(item.sourcePath);
+    return {
+      id: existing?.id ?? crypto.randomUUID(),
+      nameZh: item.nameZh,
+      ...(item.nameEn ? { nameEn: item.nameEn } : {}),
+      category: item.category,
+      ...(item.nationality ? { nationality: item.nationality } : {}),
+      ...(item.era ? { era: item.era } : {}),
+      summary: item.summary,
+      palette: item.palette,
+      style: item.style ?? { avoid: [] },
+      ...(item.thumbnailPath ? { thumbnailPath: item.thumbnailPath } : {}),
+      sourcePath: item.sourcePath,
+      sourceHash: item.sourceHash,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+  });
   db.saveItems(items);
-  return { itemIds: items.map((item) => item.id), skipped: preview.skipped };
+  return {
+    itemIds: items.map((item) => item.id),
+    skipped: preview.skipped,
+    conflicts: preview.conflicts,
+  };
 }

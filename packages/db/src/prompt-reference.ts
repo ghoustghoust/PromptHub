@@ -148,6 +148,14 @@ export class PromptReferenceDB {
     return row ? toItem(row) : null;
   }
 
+  /** Looks up the record imported from one source directory. */
+  findBySourcePath(sourcePath: string): PromptReferenceItem | null {
+    const row = this.db
+      .prepare("SELECT * FROM prompt_reference_items WHERE source_path = ?")
+      .get(sourcePath) as ReferenceRow | undefined;
+    return row ? toItem(row) : null;
+  }
+
   remove(id: string): boolean {
     const result = this.db
       .prepare("DELETE FROM prompt_reference_items WHERE id = ?")

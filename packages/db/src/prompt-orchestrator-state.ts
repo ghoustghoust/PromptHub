@@ -26,8 +26,6 @@ export function migratePromptOrchestratorState(db: Database.Database): void {
 const WORKSPACE_ID = "default";
 const MAX_STATE_CHARS = 4_000_000;
 const MAX_SECTION_IDS = 200;
-/** Materials marked in the picture library; the list only grows with the grid. */
-const MAX_SELECTED_ASSET_IDS = 500;
 
 interface WorkspaceRow {
   state_json: string;
@@ -139,9 +137,6 @@ export class PromptOrchestratorStateDB {
       ...(knowledgeIds(value.referenceItemIds) !== undefined
         ? { referenceItemIds: knowledgeIds(value.referenceItemIds)?.slice(0, 3) }
         : {}),
-      ...(knowledgeIds(value.selectedAssetIds) !== undefined
-        ? { selectedAssetIds: knowledgeIds(value.selectedAssetIds)?.slice(0, MAX_SELECTED_ASSET_IDS) }
-        : {}),
       ...(typeof value.allowAdult === "boolean" ? { allowAdult: value.allowAdult } : {}),
       updatedAt: new Date(row.updated_at).toISOString(),
     };
@@ -178,9 +173,6 @@ export class PromptOrchestratorStateDB {
         : {}),
       ...(state.referenceItemIds !== undefined
         ? { referenceItemIds: state.referenceItemIds.slice(0, 3) }
-        : {}),
-      ...(state.selectedAssetIds !== undefined
-        ? { selectedAssetIds: state.selectedAssetIds.slice(0, MAX_SELECTED_ASSET_IDS) }
         : {}),
       ...(state.allowAdult !== undefined ? { allowAdult: state.allowAdult } : {}),
     };

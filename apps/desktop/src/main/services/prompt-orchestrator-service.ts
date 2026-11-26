@@ -374,7 +374,6 @@ function parseWorkspaceState(
     throw new Error("referenceItemIds must contain at most 3 ids");
   }
   const allowAdult = optionalBoolean(value.allowAdult, "allowAdult");
-  const selectedAssetIds = workspaceIdList(value.selectedAssetIds, "selectedAssetIds");
   return {
     prefabTerms,
     modelId: typeof value.modelId === "string"
@@ -389,7 +388,6 @@ function parseWorkspaceState(
     ...(knowledgeModuleIds.length > 0 ? { knowledgeModuleIds } : {}),
     ...(knowledgeContractGroup ? { knowledgeContractGroup } : {}),
     ...(referenceItemIds.length > 0 ? { referenceItemIds } : {}),
-    ...(selectedAssetIds.length > 0 ? { selectedAssetIds } : {}),
     ...(allowAdult !== undefined ? { allowAdult } : {}),
   };
 }

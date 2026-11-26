@@ -5,7 +5,7 @@ import path from "path";
 
 import { captureAppPage, closePromptHub, launchPromptHub, setAppSettings } from "./helpers/electron";
 
-const SCREENSHOT_DIR = path.resolve(__dirname, "../../../../outputs/prompt-new-batch1-20261126");
+const SCREENSHOT_DIR = path.resolve(__dirname, "../../../../outputs/prompt-new-rollback-20261126");
 
 async function resize(
   app: ElectronApplication,
@@ -44,6 +44,11 @@ test("video tasks keep the writing layer, knowledge packs and color cards usable
     await expect(page.getByTestId("orchestrator-writing-layer")).toBeVisible();
     await expect(page.getByTestId("writing-layer-knowledge")).toBeVisible();
     await expect(page.getByTestId("orchestrator-reference-picker")).toBeVisible();
+
+    // Selection must happen in a role/unit context. A global asset count has no
+    // effect on the run, and the withdrawn importer must not remain half-wired.
+    await expect(page.getByTestId("orchestrator-asset-library")).toHaveCount(0);
+    await expect(page.getByTestId("reference-import-open")).toHaveCount(0);
 
     const layer = page.getByTestId("writing-layer-custom");
     await layer.fill("Cold hard key light, locked camera.");

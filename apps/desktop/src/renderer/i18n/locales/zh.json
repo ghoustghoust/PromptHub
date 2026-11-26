@@ -5607,48 +5607,6 @@
       "allowAdult": "允许成人内容",
       "hint": "只改变内容范围：可以满足明确的成人请求，但所有主体必须明确为成年人。"
     },
-    "library": {
-      "importReferenceTitle": "导入导演色卡",
-      "importAssetTitle": "导入 014 图库",
-      "importHint": "选择来源目录，先看清会写入什么，再确认导入。",
-      "sources": "来源目录",
-      "addSource": "添加来源目录",
-      "removeSource": "移除来源目录",
-      "noSource": "还没有来源目录。",
-      "preview": "预览",
-      "previewing": "读取中...",
-      "import": "导入",
-      "importing": "导入中...",
-      "close": "关闭",
-      "itemCount": "共 {{count}} 条记录",
-      "skipped": "跳过 {{count}}",
-      "conflicts": "冲突 {{count}}",
-      "imported": "已导入 {{count}} 条记录，更新 {{updated}} 条。"
-    },
-    "assetLibrary": {
-      "title": "素材库",
-      "hint": "筛选已导入的素材，并勾选后续要绑定到角色的素材。",
-      "summary": "共 {{total}} 条 · 已选 {{selected}}",
-      "browse": "浏览与选择",
-      "import": "导入图库",
-      "allKinds": "全部",
-      "kinds": {
-        "costume": "服装",
-        "hair": "发型",
-        "portrait": "人像",
-        "pose": "姿势"
-      },
-      "search": "搜索素材",
-      "total_one": "共 {{count}} 条素材",
-      "total_other": "共 {{count}} 条素材",
-      "selected_one": "已选 {{count}} 条",
-      "selected_other": "已选 {{count}} 条",
-      "clearSelection": "清空选择",
-      "close": "完成",
-      "loadMore": "加载更多",
-      "empty": "图库还没有素材，请先导入 014 图库。",
-      "emptyFilter": "没有符合筛选条件的素材。"
-    },
     "targetPipeline": "画师注入管线",
     "targetPipelineHint": "Anima 写 @artist；Kaloscope 只用节点参数；其余按规则卡自动处理。",
     "pipelines": {

@@ -67,26 +67,3 @@ export interface PromptAssetKindCount {
   kind: string;
   count: number;
 }
-
-export interface DesktopPromptAssetPreviewRequest {
-  rootPath: string;
-}
-
-export interface DesktopPromptAssetImportRequest {
-  rootPath: string;
-}
-
-export interface DesktopPromptAssetListRequest {
-  kind?: string;
-  query?: string;
-  limit?: number;
-  offset?: number;
-}
-
-export interface DesktopPromptAssetThumbnailRequest {
-  ids: string[];
-}
-
-export type PromptAssetIPCReply<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: { code: string; message: string } };

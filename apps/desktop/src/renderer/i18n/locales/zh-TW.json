@@ -4995,48 +4995,6 @@
       "allowAdult": "允許成人內容",
       "hint": "只改變內容範圍：可以滿足明確的成人請求，但所有主體必須明確為成年人。"
     },
-    "library": {
-      "importReferenceTitle": "匯入導演色卡",
-      "importAssetTitle": "匯入 014 圖庫",
-      "importHint": "選擇來源目錄，先看清會寫入什麼，再確認匯入。",
-      "sources": "來源目錄",
-      "addSource": "新增來源目錄",
-      "removeSource": "移除來源目錄",
-      "noSource": "尚未選擇來源目錄。",
-      "preview": "預覽",
-      "previewing": "讀取中...",
-      "import": "匯入",
-      "importing": "匯入中...",
-      "close": "關閉",
-      "itemCount": "共 {{count}} 筆紀錄",
-      "skipped": "略過 {{count}}",
-      "conflicts": "衝突 {{count}}",
-      "imported": "已匯入 {{count}} 筆紀錄，更新 {{updated}} 筆。"
-    },
-    "assetLibrary": {
-      "title": "素材庫",
-      "hint": "篩選已匯入的素材，並勾選後續要綁定到角色的素材。",
-      "summary": "共 {{total}} 筆 · 已選 {{selected}}",
-      "browse": "瀏覽與選擇",
-      "import": "匯入圖庫",
-      "allKinds": "全部",
-      "kinds": {
-        "costume": "服裝",
-        "hair": "髮型",
-        "portrait": "人像",
-        "pose": "姿勢"
-      },
-      "search": "搜尋素材",
-      "total_one": "共 {{count}} 筆素材",
-      "total_other": "共 {{count}} 筆素材",
-      "selected_one": "已選 {{count}} 筆",
-      "selected_other": "已選 {{count}} 筆",
-      "clearSelection": "清空選擇",
-      "close": "完成",
-      "loadMore": "載入更多",
-      "empty": "圖庫尚未有素材，請先匯入 014 圖庫。",
-      "emptyFilter": "沒有符合篩選條件的素材。"
-    },
     "targetPipeline": "畫師注入管線",
     "targetPipelineHint": "Anima 寫 @artist；Kaloscope 只用節點參數；其餘依規則卡自動處理。",
     "pipelines": {

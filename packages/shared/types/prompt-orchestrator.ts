@@ -615,8 +615,6 @@ export interface PromptOrchestratorWorkspaceState {
   knowledgeContractGroup?: PromptKnowledgeContractGroup;
   /** Selected director color cards; at most three per run. */
   referenceItemIds?: string[];
-  /** Materials marked in the picture library; they are not injected yet. */
-  selectedAssetIds?: string[];
   /** Content range switch; absent or false keeps the all-ages default. */
   allowAdult?: boolean;
   updatedAt?: string;

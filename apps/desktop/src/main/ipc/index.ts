@@ -51,7 +51,6 @@ import { registerGenerationIPC } from "./generation.ipc";
 import { registerPromptOrchestratorIPC } from "./prompt-orchestrator.ipc";
 import { registerPromptKnowledgeIPC } from "./prompt-knowledge.ipc";
 import { registerPromptReferenceIPC } from "./prompt-reference.ipc";
-import { registerPromptAssetIPC } from "./prompt-asset.ipc";
 import { registerPromptWritingPresetIPC } from "./prompt-writing-preset.ipc";
 import { registerLocalLlamaIPC } from "./local-llama.ipc";
 import { SkillInstaller } from "../services/skill-installer";
@@ -612,7 +611,6 @@ function registerAllIpcGroups(
   );
   registerIpcGroup("prompt-knowledge", () => registerPromptKnowledgeIPC(db));
   registerIpcGroup("prompt-reference", () => registerPromptReferenceIPC(db));
-  registerIpcGroup("prompt-asset", () => registerPromptAssetIPC(db));
   registerIpcGroup("prompt-writing-presets", () =>
     registerPromptWritingPresetIPC(db),
   );

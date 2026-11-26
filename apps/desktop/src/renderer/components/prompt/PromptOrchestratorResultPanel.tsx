@@ -20,6 +20,7 @@ import { PromptSkillDraftPanel } from "./PromptSkillDraftPanel";
 import { PromptMossLayoutResultView } from "./PromptMossLayoutResultView";
 import { PromptTermDecisionPanel } from "./PromptTermDecisionPanel";
 import { PromptTaskContractPanel } from "./PromptTaskContractPanel";
+import { PromptEvidencePanel } from "./PromptEvidencePanel";
 import { PromptEntityResolutionPanel } from "./PromptEntityResolutionPanel";
 import { PromptResultFeedback } from "./PromptResultFeedback";
 import type { OrchestratorStreamingState, RunStats } from "./usePromptOrchestratorWorkbench";
@@ -463,11 +464,15 @@ export function PromptOrchestratorResultPanel({
             )}
           </div>
         ) : tab === "decisions" ? (
-          result.termDecisions || result.taskContract ? (
+          result.termDecisions || result.taskContract || result.assembly ? (
             <div className="space-y-3">
               {result.taskContract && (
                 <PromptTaskContractPanel contract={result.taskContract} />
               )}
+              <PromptEvidencePanel
+                assembly={result.assembly}
+                evidence={result.evidence}
+              />
               {result.termDecisions && (
                 <PromptTermDecisionPanel
                   decisions={result.termDecisions}

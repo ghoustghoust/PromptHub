@@ -836,6 +836,41 @@ export interface PromptOrchestrationResult {
   systemPromptLayerMetrics?: PromptSystemPromptLayerMetrics;
   /** Deterministic rights this run worked under, including rejected input. */
   taskContract?: PromptTaskContract;
+  /** What Core assembled itself versus what the model wrote. */
+  assembly?: PromptAssemblyReport;
+  /** Observed actions and model claims, kept separate on purpose. */
+  evidence?: PromptEvidenceLedger;
+}
+
+/**
+ * `deterministic` means Core serialized the structured output itself;
+ * `model-assisted` means the model wrote the prompt under fixed requirements.
+ */
+export interface PromptAssemblyReport {
+  strategy: "deterministic" | "model-assisted";
+  deterministicParts: Array<"fixed-fields" | "selected-vocabulary" | "layout-json">;
+  /** Machine-checkable requirements confirmed in the final text. */
+  verifiedFacts: string[];
+  /** Requirements absent from the final text; Core never rewrites silently. */
+  missingFacts: string[];
+}
+
+/** Counts describe the run, never the model's opinion about the run. */
+export interface PromptEvidenceLedger {
+  observations: {
+    retrievalRounds: number;
+    retrievalQueries: number;
+    candidatesShown: number;
+    knowledgeModules: number;
+    referenceCards: number;
+    modelDecisions: number;
+    policyDecisions: number;
+    fixedFields: number;
+  };
+  /** Decisions whose rationale is the model's own explanation, not evidence. */
+  modelClaims: number;
+  /** Kept empty on purpose: one run cannot attribute downstream quality. */
+  effectInferences: string[];
 }
 
 export function isVideoOrchestrationMode(

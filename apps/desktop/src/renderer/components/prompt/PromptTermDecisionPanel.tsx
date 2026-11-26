@@ -86,8 +86,13 @@ function DecisionCard({ decision }: { decision: PromptTermDecision }) {
         </div>
       )}
       {decision.rationale && (
-        <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground">
-          {decision.rationale}
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          <span className="mr-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
+            {decision.origin === "model"
+              ? t("orchestrator.evidence.modelClaim")
+              : t("orchestrator.evidence.policyNote")}
+          </span>
+          <span className="whitespace-pre-wrap">{decision.rationale}</span>
         </p>
       )}
     </article>

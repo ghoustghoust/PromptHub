@@ -4838,7 +4838,37 @@
     "phase": { "stopped": "Arrêté", "starting": "Démarrage", "running": "En cours", "stopping": "Arrêt en cours", "error": "Erreur" }
   },
   "orchestrator": {
-    "taskContract": {
+    "evidence": {
+      "title": "Assemblage et preuves",
+      "modelClaim": "déclaration du modèle",
+      "policyNote": "note de politique",
+      "strategy": {
+        "deterministic": "Assemblé par Core",
+        "modelAssisted": "Rédigé par le modèle"
+      },
+      "parts": {
+        "fixed-fields": "champs fixes",
+        "selected-vocabulary": "vocabulaire choisi",
+        "layout-json": "JSON de mise en page"
+      },
+      "observations": {
+        "rounds": "Tours",
+        "queries": "Requêtes",
+        "candidates": "Candidats",
+        "knowledge": "Connaissances",
+        "references": "Cartes couleur",
+        "modelDecisions": "Décisions du modèle",
+        "policyDecisions": "Décisions de politique",
+        "fixedFields": "Champs fixes"
+      },
+      "verified": "Exigences fixes confirmées",
+      "missing": "Exigences fixes manquantes",
+      "missingHint": "Core le signale sans réécrire le texte du modèle.",
+      "boundary": "Cette section ne consigne que des actions observables. Les justifications du modèle sont des explications, pas des preuves.",
+      "modelClaims": "{{count}} décision(s) reposent sur l'explication du modèle.",
+      "effect": "Aucun effet aval n'est affirmé : la qualité d'image ne s'attribue que par comparaison contrôlée."
+    },
+"taskContract": {
       "title": "Contrat de tâche",
       "hint": "« Autorisé » signifie disponible pour cette exécution ; rien n'est injecté du seul fait d'exister.",
       "compactAllowed": "{{count}}/{{total}} groupes de ressources autorisés",

@@ -23,6 +23,7 @@ import {
   applyPromptTaskContract,
   taskContractWarnings,
 } from "@prompthub/shared/utils/prompt-task-contract";
+import { buildRunEvidence } from "./prompt-run-evidence";
 import {
   buildCompositionMessages,
   buildFallbackComposition,
@@ -934,9 +935,21 @@ const writingLayerText = buildWritingLayerText(input);
         fields: composition.fields,
         completePrompt: composition.completePrompt,
       });
+      const runEvidence = buildRunEvidence({
+        input,
+        completePrompt: composition.completePrompt,
+        fields: composition.fields,
+        selectedTerms: completed.selectedTerms,
+        decisions,
+        directives,
+        ...(completed.retrievalSummary
+          ? { retrieval: completed.retrievalSummary }
+          : {}),
+        layoutCompiled: composition.layout !== undefined,
+      });
       const warnings = this.warnings(
         input,
-        [...routingWarnings, ...completed.warnings],
+        [...routingWarnings, ...completed.warnings, ...runEvidence.warnings],
         tokenMetrics,
       );
       const pendingCaptions = composition.layout?.pendingCaptions ?? [];
@@ -973,6 +986,8 @@ const writingLayerText = buildWritingLayerText(input);
         alignment: buildPromptAlignment(input.prompt ?? "", composition.completePrompt),
         ...(layerMetrics ? { systemPromptLayerMetrics: layerMetrics } : {}),
         taskContract: contract,
+        assembly: runEvidence.assembly,
+        evidence: runEvidence.evidence,
       };
     } catch (error) {
       throwIfCancelled(this.options.signal);
@@ -1008,6 +1023,15 @@ const writingLayerText = buildWritingLayerText(input);
         fields: composition.fields,
         completePrompt: composition.completePrompt,
       });
+      const runEvidence = buildRunEvidence({
+        input,
+        completePrompt: composition.completePrompt,
+        fields: composition.fields,
+        selectedTerms: compositionTerms,
+        decisions,
+        directives,
+        layoutCompiled: composition.layout !== undefined,
+      });
       return {
         mode,
         skill: input.skill ?? "moodyMoss",
@@ -1026,7 +1050,11 @@ const writingLayerText = buildWritingLayerText(input);
         selectedTerms: compositionTerms,
         modelDirectives: directives,
         warnings: [
-          ...this.warnings(input, routingWarnings, tokenMetrics),
+          ...this.warnings(
+            input,
+            [...routingWarnings, ...runEvidence.warnings],
+            tokenMetrics,
+          ),
           `LLM composition failed; deterministic fallback used: ${errorMessage(error)}`,
         ],
         tokenMetrics,
@@ -1048,6 +1076,8 @@ const writingLayerText = buildWritingLayerText(input);
         ),
         ...(layerMetrics ? { systemPromptLayerMetrics: layerMetrics } : {}),
         taskContract: contract,
+        assembly: runEvidence.assembly,
+        evidence: runEvidence.evidence,
       };
     }
   }

@@ -4990,7 +4990,37 @@
     "eventLoopDelay": "上次启动实测：主进程事件循环 p50 {{p50}} ms，p95 {{p95}} ms。"
   },
   "orchestrator": {
-    "taskContract": {
+    "evidence": {
+      "title": "装配与证据",
+      "modelClaim": "模型自述",
+      "policyNote": "策略说明",
+      "strategy": {
+        "deterministic": "Core 装配",
+        "modelAssisted": "模型撰写"
+      },
+      "parts": {
+        "fixed-fields": "固定字段",
+        "selected-vocabulary": "已选词条",
+        "layout-json": "布局 JSON"
+      },
+      "observations": {
+        "rounds": "轮次",
+        "queries": "查询",
+        "candidates": "候选",
+        "knowledge": "知识模块",
+        "references": "色卡",
+        "modelDecisions": "模型决策",
+        "policyDecisions": "策略决策",
+        "fixedFields": "固定字段"
+      },
+      "verified": "已确认的固定要求",
+      "missing": "缺失的固定要求",
+      "missingHint": "这里只报告，不会自动改写模型文本。",
+      "boundary": "本节只记录可观察动作。模型给出的理由只是解释，不是证据。",
+      "modelClaims": "有 {{count}} 条决策依据来自模型自述。",
+      "effect": "本轮不对下游效果作任何断言：图片质量只能通过对照实验归因。"
+    },
+"taskContract": {
       "title": "任务合同",
       "hint": "“允许”只表示本轮可用，不会因为资源存在就自动注入。",
       "compactAllowed": "允许 {{count}}/{{total}} 类资源",

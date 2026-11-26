@@ -4837,7 +4837,37 @@
     "phase": { "stopped": "已停止", "starting": "正在啟動", "running": "執行中", "stopping": "正在停止", "error": "異常" }
   },
   "orchestrator": {
-    "taskContract": {
+    "evidence": {
+      "title": "裝配與證據",
+      "modelClaim": "模型自述",
+      "policyNote": "策略說明",
+      "strategy": {
+        "deterministic": "Core 裝配",
+        "modelAssisted": "模型撰寫"
+      },
+      "parts": {
+        "fixed-fields": "固定欄位",
+        "selected-vocabulary": "已選詞條",
+        "layout-json": "佈局 JSON"
+      },
+      "observations": {
+        "rounds": "輪次",
+        "queries": "查詢",
+        "candidates": "候選",
+        "knowledge": "知識模組",
+        "references": "色卡",
+        "modelDecisions": "模型決策",
+        "policyDecisions": "策略決策",
+        "fixedFields": "固定欄位"
+      },
+      "verified": "已確認的固定要求",
+      "missing": "缺失的固定要求",
+      "missingHint": "這裡只報告，不會自動改寫模型文字。",
+      "boundary": "本節只記錄可觀察動作。模型提供的理由只是解釋，不是證據。",
+      "modelClaims": "有 {{count}} 條決策依據來自模型自述。",
+      "effect": "本輪不對下游效果作任何斷言：圖片品質只能透過對照實驗歸因。"
+    },
+"taskContract": {
       "title": "任務合約",
       "hint": "「允許」只表示本輪可用，不會因為資源存在就自動注入。",
       "compactAllowed": "允許 {{count}}/{{total}} 類資源",

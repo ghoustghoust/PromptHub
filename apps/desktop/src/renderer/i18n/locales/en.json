@@ -4992,7 +4992,37 @@
     "eventLoopDelay": "Measured during the last start: main-process event loop p50 {{p50}} ms, p95 {{p95}} ms."
   },
   "orchestrator": {
-    "taskContract": {
+    "evidence": {
+      "title": "Assembly & evidence",
+      "modelClaim": "model claim",
+      "policyNote": "policy note",
+      "strategy": {
+        "deterministic": "Core-assembled",
+        "modelAssisted": "Model-written"
+      },
+      "parts": {
+        "fixed-fields": "fixed fields",
+        "selected-vocabulary": "selected vocabulary",
+        "layout-json": "layout JSON"
+      },
+      "observations": {
+        "rounds": "Rounds",
+        "queries": "Queries",
+        "candidates": "Candidates",
+        "knowledge": "Knowledge",
+        "references": "Color cards",
+        "modelDecisions": "Model decisions",
+        "policyDecisions": "Policy decisions",
+        "fixedFields": "Fixed fields"
+      },
+      "verified": "Fixed requirements confirmed",
+      "missing": "Fixed requirements missing",
+      "missingHint": "Core reports this instead of rewriting the model text.",
+      "boundary": "This section records observable actions. Model rationales are explanations, not proof.",
+      "modelClaims": "{{count}} decision(s) rely on the model's own explanation.",
+      "effect": "No downstream effect is claimed: image quality can only be attributed through controlled comparisons."
+    },
+"taskContract": {
       "title": "Task contract",
       "hint": "Allowed means this run may use the resource; it is never injected just because it exists.",
       "compactAllowed": "{{count}}/{{total}} resource groups allowed",

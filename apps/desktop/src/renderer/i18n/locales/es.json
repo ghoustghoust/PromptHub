@@ -4837,7 +4837,37 @@
     "phase": { "stopped": "Detenido", "starting": "Iniciando", "running": "En ejecución", "stopping": "Deteniendo", "error": "Error" }
   },
   "orchestrator": {
-    "taskContract": {
+    "evidence": {
+      "title": "Ensamblaje y evidencia",
+      "modelClaim": "afirmación del modelo",
+      "policyNote": "nota de política",
+      "strategy": {
+        "deterministic": "Ensamblado por Core",
+        "modelAssisted": "Escrito por el modelo"
+      },
+      "parts": {
+        "fixed-fields": "campos fijos",
+        "selected-vocabulary": "vocabulario elegido",
+        "layout-json": "JSON de diseño"
+      },
+      "observations": {
+        "rounds": "Rondas",
+        "queries": "Consultas",
+        "candidates": "Candidatos",
+        "knowledge": "Conocimiento",
+        "references": "Tarjetas de color",
+        "modelDecisions": "Decisiones del modelo",
+        "policyDecisions": "Decisiones de política",
+        "fixedFields": "Campos fijos"
+      },
+      "verified": "Requisitos fijos confirmados",
+      "missing": "Requisitos fijos ausentes",
+      "missingHint": "Core lo informa sin reescribir el texto del modelo.",
+      "boundary": "Esta sección solo registra acciones observables. Las razones del modelo son explicaciones, no pruebas.",
+      "modelClaims": "{{count}} decisión(es) se apoyan en la explicación del modelo.",
+      "effect": "No se afirma ningún efecto posterior: la calidad de imagen solo se atribuye con comparaciones controladas."
+    },
+"taskContract": {
       "title": "Contrato de tarea",
       "hint": "«Permitido» significa disponible para esta ejecución; nada se inyecta solo por existir.",
       "compactAllowed": "{{count}}/{{total}} grupos de recursos permitidos",

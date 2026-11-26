@@ -4837,7 +4837,37 @@
     "phase": { "stopped": "Gestoppt", "starting": "Startet", "running": "Läuft", "stopping": "Wird gestoppt", "error": "Fehler" }
   },
   "orchestrator": {
-    "taskContract": {
+    "evidence": {
+      "title": "Montage und Belege",
+      "modelClaim": "Modellaussage",
+      "policyNote": "Regelhinweis",
+      "strategy": {
+        "deterministic": "Von Core montiert",
+        "modelAssisted": "Vom Modell geschrieben"
+      },
+      "parts": {
+        "fixed-fields": "feste Felder",
+        "selected-vocabulary": "gewähltes Vokabular",
+        "layout-json": "Layout-JSON"
+      },
+      "observations": {
+        "rounds": "Runden",
+        "queries": "Abfragen",
+        "candidates": "Kandidaten",
+        "knowledge": "Wissen",
+        "references": "Farbkarten",
+        "modelDecisions": "Modellentscheidungen",
+        "policyDecisions": "Regelentscheidungen",
+        "fixedFields": "Feste Felder"
+      },
+      "verified": "Bestätigte feste Anforderungen",
+      "missing": "Fehlende feste Anforderungen",
+      "missingHint": "Core meldet dies, ohne den Modelltext umzuschreiben.",
+      "boundary": "Dieser Abschnitt hält nur beobachtbare Aktionen fest. Begründungen des Modells sind Erklärungen, kein Beweis.",
+      "modelClaims": "{{count}} Entscheidung(en) beruhen auf der Erklärung des Modells.",
+      "effect": "Keine Wirkung wird behauptet: Bildqualität lässt sich nur durch kontrollierte Vergleiche zuordnen."
+    },
+"taskContract": {
       "title": "Aufgabenvertrag",
       "hint": "„Erlaubt“ heißt für diesen Lauf verfügbar; nichts wird allein durch Existenz injiziert.",
       "compactAllowed": "{{count}}/{{total}} Ressourcengruppen erlaubt",

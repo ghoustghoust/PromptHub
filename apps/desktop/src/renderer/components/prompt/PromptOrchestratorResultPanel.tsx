@@ -19,6 +19,7 @@ import { PromptComparisonView } from "./PromptComparisonView";
 import { PromptSkillDraftPanel } from "./PromptSkillDraftPanel";
 import { PromptMossLayoutResultView } from "./PromptMossLayoutResultView";
 import { PromptTermDecisionPanel } from "./PromptTermDecisionPanel";
+import { PromptTaskContractPanel } from "./PromptTaskContractPanel";
 import { PromptEntityResolutionPanel } from "./PromptEntityResolutionPanel";
 import { PromptResultFeedback } from "./PromptResultFeedback";
 import type { OrchestratorStreamingState, RunStats } from "./usePromptOrchestratorWorkbench";
@@ -462,12 +463,19 @@ export function PromptOrchestratorResultPanel({
             )}
           </div>
         ) : tab === "decisions" ? (
-          result.termDecisions ? (
-            <PromptTermDecisionPanel
-              decisions={result.termDecisions}
-              summary={result.retrievalSummary}
-              trace={result.retrievalTrace}
-            />
+          result.termDecisions || result.taskContract ? (
+            <div className="space-y-3">
+              {result.taskContract && (
+                <PromptTaskContractPanel contract={result.taskContract} />
+              )}
+              {result.termDecisions && (
+                <PromptTermDecisionPanel
+                  decisions={result.termDecisions}
+                  summary={result.retrievalSummary}
+                  trace={result.retrievalTrace}
+                />
+              )}
+            </div>
           ) : (
             <p className="text-xs text-muted-foreground">
               {t("orchestrator.dynamicPolish.empty")}

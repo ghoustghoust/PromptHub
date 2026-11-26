@@ -4838,6 +4838,50 @@
     "phase": { "stopped": "Arrêté", "starting": "Démarrage", "running": "En cours", "stopping": "Arrêt en cours", "error": "Erreur" }
   },
   "orchestrator": {
+    "taskContract": {
+      "title": "Contrat de tâche",
+      "hint": "« Autorisé » signifie disponible pour cette exécution ; rien n'est injecté du seul fait d'exister.",
+      "compactAllowed": "{{count}}/{{total}} groupes de ressources autorisés",
+      "blocked": "non utilisé",
+      "blockedHint": "Cette tâche ne consomme pas la ressource ; elle n'est pas envoyée au modèle.",
+      "sourceAutomatic": "auto",
+      "sourceExplicit": "utilisateur",
+      "writing": {
+        "creative": "Écriture créative",
+        "dispatch": "Assemblage structuré"
+      },
+      "retrieval": {
+        "automatic": "Rappel automatique",
+        "manual": "Sélection manuelle"
+      },
+      "tools": {
+        "on": "Outils du modèle {{rounds}} tours / {{calls}} appels",
+        "compactOn": "Outils actifs",
+        "off": "Sans outils du modèle"
+      },
+      "depth": {
+        "exploratory": "Rappel exploratoire",
+        "focused": "Rappel ciblé seulement"
+      },
+      "resources": {
+        "vocabulary": "Vocabulaire",
+        "vocabularyRetrieval": "Recherche de vocabulaire",
+        "knowledge": "Connaissances",
+        "reference": "Cartes couleur",
+        "systemPromptLayer": "Couche de rédaction",
+        "images": "Images",
+        "layout": "Mise en page",
+        "video": "Vidéo",
+        "assets": "Bibliothèque d'assets"
+      },
+      "rejected": {
+        "title": "Ignoré pour cette tâche",
+        "video-ignored-for-image-task": "Paramètres vidéo (tâche image)",
+        "layout-ignored-for-non-layout-task": "Brouillon de mise en page (tâche non-layout)",
+        "layout-ignored-for-video-task": "Brouillon de mise en page (tâche vidéo)",
+        "images-ignored-for-text-task": "Images de référence (tâche texte)"
+      }
+    },
     "title": "Orchestrateur de prompts",
     "subtitle": "Créez des prompts adaptés au modèle avec un vocabulaire structuré et des règles natives.",
     "inputLabel": "Intention ou prompt source",

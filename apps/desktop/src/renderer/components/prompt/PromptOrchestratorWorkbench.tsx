@@ -30,6 +30,7 @@ import { PromptTermPicker } from "./PromptTermPicker";
 import { PromptMossLayoutCanvas } from "./PromptMossLayoutCanvas";
 import { PromptWritingLayerPanel } from "./PromptWritingLayerPanel";
 import { PromptReferencePicker } from "./PromptReferencePicker";
+import { PromptTaskContractPanel } from "./PromptTaskContractPanel";
 import {
   PREFAB_CATEGORIES,
   taskModesForSkill,
@@ -988,6 +989,7 @@ export function PromptOrchestratorWorkbench() {
                 : "sticky bottom-0 -mx-4 mt-4 border-t border-border bg-background px-4 py-3"
             }
           >
+            <PromptTaskContractPanel contract={state.taskContractPreview} compact />
             <div className={`flex gap-2 ${humanLed ? "flex-nowrap" : "flex-wrap"}`}>
               <Button
                 className="min-w-[132px] flex-1 whitespace-nowrap"

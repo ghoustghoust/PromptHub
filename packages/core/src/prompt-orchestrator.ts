@@ -20,6 +20,10 @@ import {
   supportsReferenceImages,
 } from "@prompthub/shared/types";
 import {
+  applyPromptTaskContract,
+  taskContractWarnings,
+} from "@prompthub/shared/utils/prompt-task-contract";
+import {
   buildCompositionMessages,
   buildFallbackComposition,
   buildFixedFields,
@@ -797,8 +801,15 @@ export class PromptOrchestrator {
   }
 
   async orchestrate(
-    input: PromptOrchestrationInput,
+    rawInput: PromptOrchestrationInput,
   ): Promise<PromptOrchestrationResult> {
+    // The contract runs first: input this task does not consume is removed
+    // before validation, so a stray video/layout payload cannot either reach
+    // the model or fail a request the user never intended to make.
+    const applied = applyPromptTaskContract(rawInput);
+    const input = applied.input;
+    const contract = applied.contract;
+    const contractWarnings = taskContractWarnings(contract);
     validateInput(input);
     throwIfCancelled(this.options.signal);
     this.options.onEvent?.({ type: "phase", stage: "planning", round: 0 });
@@ -829,6 +840,7 @@ export class PromptOrchestrator {
     // (Anima/MOSS) may enter the prompt body.
     const compositionTerms = artistRouting.terms;
     const routingWarnings = [
+      ...contractWarnings,
       ...selection.warnings,
       ...artistRouting.warnings,
       ...routePlan.warnings,
@@ -960,6 +972,7 @@ const writingLayerText = buildWritingLayerText(input);
           : {}),
         alignment: buildPromptAlignment(input.prompt ?? "", composition.completePrompt),
         ...(layerMetrics ? { systemPromptLayerMetrics: layerMetrics } : {}),
+        taskContract: contract,
       };
     } catch (error) {
       throwIfCancelled(this.options.signal);
@@ -1034,6 +1047,7 @@ const writingLayerText = buildWritingLayerText(input);
           composition.completePrompt,
         ),
         ...(layerMetrics ? { systemPromptLayerMetrics: layerMetrics } : {}),
+        taskContract: contract,
       };
     }
   }

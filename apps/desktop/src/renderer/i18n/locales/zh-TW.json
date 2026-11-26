@@ -4837,6 +4837,50 @@
     "phase": { "stopped": "已停止", "starting": "正在啟動", "running": "執行中", "stopping": "正在停止", "error": "異常" }
   },
   "orchestrator": {
+    "taskContract": {
+      "title": "任務合約",
+      "hint": "「允許」只表示本輪可用，不會因為資源存在就自動注入。",
+      "compactAllowed": "允許 {{count}}/{{total}} 類資源",
+      "blocked": "不參與",
+      "blockedHint": "目前任務不消費該資源，不會傳送給模型。",
+      "sourceAutomatic": "自動",
+      "sourceExplicit": "使用者",
+      "writing": {
+        "creative": "創意寫作",
+        "dispatch": "結構裝配"
+      },
+      "retrieval": {
+        "automatic": "自動召回",
+        "manual": "僅人工選擇"
+      },
+      "tools": {
+        "on": "模型工具 {{rounds}} 輪 / {{calls}} 次",
+        "compactOn": "工具開啟",
+        "off": "無模型工具"
+      },
+      "depth": {
+        "exploratory": "可探索召回",
+        "focused": "僅聚焦召回"
+      },
+      "resources": {
+        "vocabulary": "詞庫",
+        "vocabularyRetrieval": "詞條檢索",
+        "knowledge": "知識包",
+        "reference": "色卡",
+        "systemPromptLayer": "寫作層",
+        "images": "圖片",
+        "layout": "佈局",
+        "video": "影片",
+        "assets": "圖庫"
+      },
+      "rejected": {
+        "title": "本輪已忽略的輸入",
+        "video-ignored-for-image-task": "影片參數（圖片任務不使用）",
+        "layout-ignored-for-non-layout-task": "佈局草稿（非佈局任務）",
+        "layout-ignored-for-video-task": "佈局草稿（影片任務不使用）",
+        "images-ignored-for-text-task": "參考圖片（文字任務不讀圖）"
+      }
+    },
     "title": "提示詞編排助手",
     "subtitle": "使用結構化詞庫與原生規則卡片，產生可直接用於目標模型的提示詞。",
     "inputLabel": "創作意圖或原始提示詞",

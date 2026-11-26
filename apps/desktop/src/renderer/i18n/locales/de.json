@@ -4837,6 +4837,50 @@
     "phase": { "stopped": "Gestoppt", "starting": "Startet", "running": "Läuft", "stopping": "Wird gestoppt", "error": "Fehler" }
   },
   "orchestrator": {
+    "taskContract": {
+      "title": "Aufgabenvertrag",
+      "hint": "„Erlaubt“ heißt für diesen Lauf verfügbar; nichts wird allein durch Existenz injiziert.",
+      "compactAllowed": "{{count}}/{{total}} Ressourcengruppen erlaubt",
+      "blocked": "ungenutzt",
+      "blockedHint": "Diese Aufgabe nutzt die Ressource nicht; sie wird nicht an das Modell gesendet.",
+      "sourceAutomatic": "auto",
+      "sourceExplicit": "Nutzer",
+      "writing": {
+        "creative": "Kreatives Schreiben",
+        "dispatch": "Strukturierte Montage"
+      },
+      "retrieval": {
+        "automatic": "Automatischer Abruf",
+        "manual": "Nur manuelle Auswahl"
+      },
+      "tools": {
+        "on": "Modellwerkzeuge {{rounds}} Runden / {{calls}} Aufrufe",
+        "compactOn": "Werkzeuge an",
+        "off": "Keine Modellwerkzeuge"
+      },
+      "depth": {
+        "exploratory": "Explorativer Abruf",
+        "focused": "Nur fokussierter Abruf"
+      },
+      "resources": {
+        "vocabulary": "Vokabular",
+        "vocabularyRetrieval": "Vokabularsuche",
+        "knowledge": "Wissen",
+        "reference": "Farbkarten",
+        "systemPromptLayer": "Schreibebene",
+        "images": "Bilder",
+        "layout": "Layout",
+        "video": "Video",
+        "assets": "Asset-Bibliothek"
+      },
+      "rejected": {
+        "title": "Für diese Aufgabe ignoriert",
+        "video-ignored-for-image-task": "Videoparameter (Bildaufgabe)",
+        "layout-ignored-for-non-layout-task": "Layoutentwurf (keine Layoutaufgabe)",
+        "layout-ignored-for-video-task": "Layoutentwurf (Videoaufgabe)",
+        "images-ignored-for-text-task": "Referenzbilder (Textaufgabe)"
+      }
+    },
     "title": "Prompt-Orchestrator",
     "subtitle": "Erstellen Sie modellgerechte Prompts mit strukturiertem Vokabular und nativen Regelkarten.",
     "inputLabel": "Absicht oder Ausgangsprompt",

@@ -71,4 +71,35 @@ describe("layer budget preview", () => {
     expect(() => service.getLayerBudget({ skill: "sdxl" })).toThrow("Unsupported prompt rule skill");
     expect(() => service.getLayerBudget({ imageCount: 9 })).toThrow("imageCount");
   });
+
+  it("returns the same task contract the run will work under", () => {
+    const expand = service.getLayerBudget({
+      skill: "moss",
+      mode: "expand",
+      outputFormat: "caption",
+    });
+    expect(expand.taskContract.taskKind).toBe("expand");
+    expect(expand.taskContract.media).toBe("image");
+    expect(expand.taskContract.retrieval.modelTools).toBe(true);
+    expect(expand.taskContract.resources.layout.allowed).toBe(false);
+
+    const video = service.getLayerBudget({
+      skill: "minimaxH3",
+      mode: "video-text",
+      outputFormat: "h3",
+    });
+    expect(video.taskContract.media).toBe("video");
+    expect(video.taskContract.retrieval.modelTools).toBe(false);
+    expect(video.taskContract.resources.layout.allowed).toBe(false);
+
+    const human = service.getLayerBudget({
+      skill: "moss",
+      mode: "expand",
+      guidanceMode: "human-led",
+    });
+    expect(human.taskContract.resources.vocabularyRetrieval.allowed).toBe(false);
+    expect(() => service.getLayerBudget({ guidanceMode: "auto" })).toThrow(
+      "guidanceMode",
+    );
+  });
 });

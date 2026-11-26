@@ -4992,6 +4992,50 @@
     "eventLoopDelay": "Measured during the last start: main-process event loop p50 {{p50}} ms, p95 {{p95}} ms."
   },
   "orchestrator": {
+    "taskContract": {
+      "title": "Task contract",
+      "hint": "Allowed means this run may use the resource; it is never injected just because it exists.",
+      "compactAllowed": "{{count}}/{{total}} resource groups allowed",
+      "blocked": "not used",
+      "blockedHint": "This task does not consume the resource, so it is not sent to the model.",
+      "sourceAutomatic": "auto",
+      "sourceExplicit": "user",
+      "writing": {
+        "creative": "Creative writing",
+        "dispatch": "Structured assembly"
+      },
+      "retrieval": {
+        "automatic": "Automatic recall",
+        "manual": "Manual selection"
+      },
+      "tools": {
+        "on": "Model tools {{rounds}} rounds / {{calls}} calls",
+        "compactOn": "Tools on",
+        "off": "No model tools"
+      },
+      "depth": {
+        "exploratory": "Exploratory recall",
+        "focused": "Focused recall only"
+      },
+      "resources": {
+        "vocabulary": "Vocabulary",
+        "vocabularyRetrieval": "Vocabulary search",
+        "knowledge": "Knowledge",
+        "reference": "Color cards",
+        "systemPromptLayer": "Writing layer",
+        "images": "Images",
+        "layout": "Layout",
+        "video": "Video",
+        "assets": "Asset library"
+      },
+      "rejected": {
+        "title": "Ignored for this task",
+        "video-ignored-for-image-task": "Video parameters (image task)",
+        "layout-ignored-for-non-layout-task": "Layout draft (not a layout task)",
+        "layout-ignored-for-video-task": "Layout draft (video task)",
+        "images-ignored-for-text-task": "Reference images (text task)"
+      }
+    },
     "reference": {
       "title": "Director color cards",
       "hint": "Pick up to 3 visual style references. They guide palette and light, never replace the skill contract.",

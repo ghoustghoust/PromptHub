@@ -27,6 +27,7 @@ import type {
 import { supportsReferenceImages } from "@prompthub/shared/types";
 import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
 import { buildReferenceStyleText } from "@prompthub/shared/utils/prompt-reference";
+import { resolvePromptTaskContract } from "@prompthub/shared/utils/prompt-task-contract";
 import { useSettingsStore } from "../../stores/settings.store";
 import { LOCAL_LLAMA_MODEL_ID } from "../../stores/settings/settings-ai-actions";
 import { usePromptStore } from "../../stores/prompt.store";
@@ -984,6 +985,23 @@ export function usePromptOrchestratorWorkbench() {
   const canRun =
     runBlockers.length === 0 && !isRunning && !isGeneratingSkill && !isAssistingLayout;
 
+  // Derived from the same fields buildInput sends, so the pre-run summary and
+  // the actual run cannot describe different rights.
+  const taskContractPreview = useMemo(
+    () =>
+      resolvePromptTaskContract({
+        mode,
+        outputFormat,
+        guidanceMode,
+        skill,
+        ...(isVideoTask(mode) ? { video } : {}),
+        ...(referenceImages.length > 0
+          ? { imageUrls: referenceImages.map((image) => image.dataUrl) }
+          : {}),
+      }),
+    [mode, outputFormat, guidanceMode, skill, video, referenceImages],
+  );
+
   function toggleRandomCategory(category: string): void {
     setRandomCategories((current) => current.includes(category)
       ? current.filter((item) => item !== category)
@@ -1423,6 +1441,7 @@ export function usePromptOrchestratorWorkbench() {
     backfillResultTerms,
     vocabularyTokenBudget, setVocabularyTokenBudget,
     rightPanel, setRightPanel, result, error, isRunning, canRun, runBlockers, run,
+    taskContractPreview,
     streaming, reuseResultAsIntent, lastRunStats, cancelRun, canceling,
     acceptReferenceFiles, pasteReferenceImage,
     isAssistingLayout, layoutAssistNote, refineLayoutCaptions, reverseLayoutFromImage, cancelAssistLayout,

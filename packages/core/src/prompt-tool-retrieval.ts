@@ -31,18 +31,13 @@ import {
   parseTermDecisions,
 } from "./prompt-term-decisions";
 import type { PromptTermDecision } from "@prompthub/shared/types";
+import { resolvePromptTaskContract } from "@prompthub/shared/utils/prompt-task-contract";
 import {
   createStreamCallbacks,
   type PromptStreamEmitter,
 } from "./prompt-orchestrator-stream";
 import type { PromptRetrievalTraceCollector } from "./prompt-retrieval-trace";
 
-const TOOL_MODES: ReadonlySet<string> = new Set([
-  "expand",
-  "professional",
-  "polish",
-  "reverse",
-]);
 const MAX_TOOL_ROUNDS = 4;
 const MAX_TOOL_CALLS = 6;
 
@@ -71,21 +66,14 @@ export interface ToolRetrievalResult {
   warnings: string[];
 }
 
-/** The four text modes share one tool layer; layout and video keep their paths. */
+/** The task contract decides; the four text modes share one tool layer. */
 export function supportsToolRetrieval(
   input: PromptOrchestrationInput,
   llm: PromptOrchestratorLlm,
 ): boolean {
-  const mode = input.mode ?? "expand";
-  // A reverse request with images is a vision-heavy single shot; running tools
-  // there doubles a multi-thousand-token prompt and invites stale vision KV.
-  if (mode === "reverse" && (input.imageUrls?.length ?? 0) > 0) return false;
-  return (
-    typeof llm.completeWithTools === "function" &&
-    (input.guidanceMode ?? "agent-led") === "agent-led" &&
-    input.outputFormat !== "layout" &&
-    TOOL_MODES.has(mode)
-  );
+  if (typeof llm.completeWithTools !== "function") return false;
+  const contract = resolvePromptTaskContract(input);
+  return contract.retrieval.modelTools;
 }
 
 function toolContract(routePlan: PromptRoutePlan | undefined): string {

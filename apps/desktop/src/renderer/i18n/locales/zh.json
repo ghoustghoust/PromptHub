@@ -4990,6 +4990,50 @@
     "eventLoopDelay": "上次启动实测：主进程事件循环 p50 {{p50}} ms，p95 {{p95}} ms。"
   },
   "orchestrator": {
+    "taskContract": {
+      "title": "任务合同",
+      "hint": "“允许”只表示本轮可用，不会因为资源存在就自动注入。",
+      "compactAllowed": "允许 {{count}}/{{total}} 类资源",
+      "blocked": "不参与",
+      "blockedHint": "当前任务不消费该资源，不会发送给模型。",
+      "sourceAutomatic": "自动",
+      "sourceExplicit": "用户",
+      "writing": {
+        "creative": "创意写作",
+        "dispatch": "结构装配"
+      },
+      "retrieval": {
+        "automatic": "自动召回",
+        "manual": "仅人工选择"
+      },
+      "tools": {
+        "on": "模型工具 {{rounds}} 轮 / {{calls}} 次",
+        "compactOn": "工具开启",
+        "off": "无模型工具"
+      },
+      "depth": {
+        "exploratory": "可探索召回",
+        "focused": "仅聚焦召回"
+      },
+      "resources": {
+        "vocabulary": "词库",
+        "vocabularyRetrieval": "词条检索",
+        "knowledge": "知识包",
+        "reference": "色卡",
+        "systemPromptLayer": "写作层",
+        "images": "图片",
+        "layout": "布局",
+        "video": "视频",
+        "assets": "图库"
+      },
+      "rejected": {
+        "title": "本轮已忽略的输入",
+        "video-ignored-for-image-task": "视频参数（图片任务不使用）",
+        "layout-ignored-for-non-layout-task": "布局草稿（非布局任务）",
+        "layout-ignored-for-video-task": "布局草稿（视频任务不使用）",
+        "images-ignored-for-text-task": "参考图片（文本任务不读图）"
+      }
+    },
     "reference": {
       "title": "导演色卡",
       "hint": "最多选 3 张作为视觉风格参考，只影响色调与光线，不替代 Skill 契约。",

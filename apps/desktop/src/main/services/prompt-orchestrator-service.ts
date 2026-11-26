@@ -37,6 +37,7 @@ import {
   MAX_LAYOUT_TEXT_CHARS,
   MAX_WRITING_LAYER_CHARS,
 } from "@prompthub/shared/utils/prompt-orchestrator-limits";
+import { resolvePromptTaskContract } from "@prompthub/shared/utils/prompt-task-contract";
 
 const MAX_REVERSE_IMAGES = 4;
 const MAX_IMAGE_CHARS = 16_000_000;
@@ -584,18 +585,30 @@ export class DesktopPromptOrchestratorService {
       throw new Error("Layer budget outputFormat must be a string");
     }
     const allowAdult = optionalBoolean(value.allowAdult, "allowAdult");
+    const guidanceMode = value.guidanceMode;
+    if (
+      guidanceMode !== undefined &&
+      guidanceMode !== "agent-led" &&
+      guidanceMode !== "human-led"
+    ) {
+      throw new Error("Layer budget guidanceMode must be agent-led or human-led");
+    }
+    const contractInput: PromptOrchestrationInput = {
+      ...(normalizedSkill !== undefined ? { skill: normalizedSkill } : {}),
+      ...(mode !== undefined ? { mode: mode as PromptOrchestrationInput["mode"] } : {}),
+      ...(outputFormat !== undefined
+        ? { outputFormat: outputFormat as PromptOrchestrationInput["outputFormat"] }
+        : {}),
+      ...(allowAdult !== undefined ? { allowAdult } : {}),
+      ...(guidanceMode !== undefined
+        ? { guidanceMode: guidanceMode as PromptOrchestrationInput["guidanceMode"] }
+        : {}),
+      ...(imageCount > 0
+        ? { imageUrls: Array.from({ length: imageCount }, () => "data:image/png;base64,x") }
+        : {}),
+    };
     const budget = resolveSystemPromptLayerBudget(
-      {
-        ...(normalizedSkill !== undefined ? { skill: normalizedSkill } : {}),
-        ...(mode !== undefined ? { mode: mode as PromptOrchestrationInput["mode"] } : {}),
-        ...(outputFormat !== undefined
-          ? { outputFormat: outputFormat as PromptOrchestrationInput["outputFormat"] }
-          : {}),
-        ...(allowAdult !== undefined ? { allowAdult } : {}),
-        ...(imageCount > 0
-          ? { imageUrls: Array.from({ length: imageCount }, () => "data:image/png;base64,x") }
-          : {}),
-      },
+      contractInput,
       "",
       {
         ...(contextTokens !== undefined ? { contextTokens } : {}),
@@ -614,6 +627,7 @@ export class DesktopPromptOrchestratorService {
       safetyTokens: budget.safetyTokens,
       referenceTokens: budget.referenceTokens,
       budgetTokens: budget.budgetTokens,
+      taskContract: resolvePromptTaskContract(contractInput),
     };
   }
 

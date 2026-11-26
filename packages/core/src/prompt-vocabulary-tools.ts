@@ -6,6 +6,7 @@ import type {
   PromptTerm,
 } from "@prompthub/shared/types";
 import { normalizeEntityKey } from "@prompthub/shared/utils/prompt-entity-key";
+import { resolvePromptTaskContract } from "@prompthub/shared/utils/prompt-task-contract";
 import { entityCandidates } from "./prompt-entity-resolution";
 import type { PromptLlmTool } from "./prompt-orchestrator-llm";
 import {
@@ -119,6 +120,8 @@ export interface VocabularyToolState {
   warnings: string[];
   round: number;
   trace: PromptRetrievalTraceCollector;
+  /** Reverse runs read the picture; they must not widen vocabulary recall. */
+  allowExploratory: boolean;
 }
 
 export function createVocabularyToolState(options: {
@@ -148,6 +151,8 @@ export function createVocabularyToolState(options: {
     warnings: [],
     round: 0,
     trace: options.trace ?? new PromptRetrievalTraceCollector(),
+    allowExploratory: resolvePromptTaskContract(options.input).retrieval
+      .allowExploratory,
   };
 }
 
@@ -325,22 +330,31 @@ function searchTool(value: Record<string, unknown>, state: VocabularyToolState):
   const used: PromptTerm[] = [];
   const acceptable: RetrievalQuery[] = [];
   for (const query of queries) {
-    if (!CATEGORY_SET.has(query.category) || FORBIDDEN_SEARCH_CATEGORIES.has(query.category)) {
+    const effective =
+      query.depth === "exploratory" && !state.allowExploratory
+        ? { ...query, depth: "focused" as const }
+        : query;
+    if (effective !== query) {
+      state.warnings.push(
+        `Exploratory recall is not allowed for this task; slot ${query.slotId} was searched as focused.`,
+      );
+    }
+    if (!CATEGORY_SET.has(effective.category) || FORBIDDEN_SEARCH_CATEGORIES.has(effective.category)) {
       groups.push({
-        slotId: query.slotId,
+        slotId: effective.slotId,
         status: "forbidden",
         candidates: [],
-        reason: `Category ${query.category} is not searchable; identities go through resolve_vocabulary.`,
+        reason: `Category ${effective.category} is not searchable; identities go through resolve_vocabulary.`,
       });
       const traced: PromptRetrievalSearchTrace = {
         round: state.round,
         origin: "model",
-        slotId: query.slotId,
-        category: query.category,
-        query: query.query,
-        ...(query.alternateQuery ? { alternateQuery: query.alternateQuery } : {}),
-        purpose: query.purpose,
-        depth: query.depth,
+        slotId: effective.slotId,
+        category: effective.category,
+        query: effective.query,
+        ...(effective.alternateQuery ? { alternateQuery: effective.alternateQuery } : {}),
+        purpose: effective.purpose,
+        depth: effective.depth,
         status: "forbidden",
         escalated: false,
         truncated: false,
@@ -348,11 +362,11 @@ function searchTool(value: Record<string, unknown>, state: VocabularyToolState):
       };
       state.trace.addSearches([traced]);
       state.warnings.push(
-        `Search rejected forbidden category "${query.category}" for slot ${query.slotId}.`,
+        `Search rejected forbidden category "${effective.category}" for slot ${effective.slotId}.`,
       );
       continue;
     }
-    acceptable.push(query);
+    acceptable.push(effective);
   }
   state.queryCount += acceptable.length;
   if (acceptable.length === 0) {

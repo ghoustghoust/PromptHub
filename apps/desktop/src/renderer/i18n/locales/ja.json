@@ -4837,6 +4837,50 @@
     "phase": { "stopped": "停止中", "starting": "起動中", "running": "実行中", "stopping": "停止処理中", "error": "エラー" }
   },
   "orchestrator": {
+    "taskContract": {
+      "title": "タスク契約",
+      "hint": "「許可」はこの実行で使えるという意味で、存在するだけで自動注入されることはありません。",
+      "compactAllowed": "{{count}}/{{total}} 種類のリソースを許可",
+      "blocked": "不使用",
+      "blockedHint": "このタスクはリソースを消費しないため、モデルへ送信されません。",
+      "sourceAutomatic": "自動",
+      "sourceExplicit": "ユーザー",
+      "writing": {
+        "creative": "創作文",
+        "dispatch": "構造組み立て"
+      },
+      "retrieval": {
+        "automatic": "自動検索",
+        "manual": "手動選択のみ"
+      },
+      "tools": {
+        "on": "モデルツール {{rounds}} ラウンド / {{calls}} 回",
+        "compactOn": "ツール有効",
+        "off": "モデルツールなし"
+      },
+      "depth": {
+        "exploratory": "探索的検索",
+        "focused": "焦点検索のみ"
+      },
+      "resources": {
+        "vocabulary": "語彙",
+        "vocabularyRetrieval": "語彙検索",
+        "knowledge": "ナレッジ",
+        "reference": "カラーカード",
+        "systemPromptLayer": "記述レイヤー",
+        "images": "画像",
+        "layout": "レイアウト",
+        "video": "動画",
+        "assets": "素材ライブラリ"
+      },
+      "rejected": {
+        "title": "今回無視された入力",
+        "video-ignored-for-image-task": "動画パラメータ（画像タスク）",
+        "layout-ignored-for-non-layout-task": "レイアウト草案（レイアウト以外）",
+        "layout-ignored-for-video-task": "レイアウト草案（動画タスク）",
+        "images-ignored-for-text-task": "参照画像（テキストタスク）"
+      }
+    },
     "title": "プロンプトオーケストレーター",
     "subtitle": "構造化語彙とネイティブルールカードで、モデルに適したプロンプトを作成します。",
     "inputLabel": "意図または元のプロンプト",

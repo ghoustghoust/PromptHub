@@ -4837,6 +4837,50 @@
     "phase": { "stopped": "Detenido", "starting": "Iniciando", "running": "En ejecución", "stopping": "Deteniendo", "error": "Error" }
   },
   "orchestrator": {
+    "taskContract": {
+      "title": "Contrato de tarea",
+      "hint": "«Permitido» significa disponible para esta ejecución; nada se inyecta solo por existir.",
+      "compactAllowed": "{{count}}/{{total}} grupos de recursos permitidos",
+      "blocked": "sin usar",
+      "blockedHint": "Esta tarea no consume el recurso; no se envía al modelo.",
+      "sourceAutomatic": "auto",
+      "sourceExplicit": "usuario",
+      "writing": {
+        "creative": "Escritura creativa",
+        "dispatch": "Ensamblaje estructurado"
+      },
+      "retrieval": {
+        "automatic": "Recuperación automática",
+        "manual": "Solo selección manual"
+      },
+      "tools": {
+        "on": "Herramientas del modelo {{rounds}} rondas / {{calls}} llamadas",
+        "compactOn": "Herramientas activas",
+        "off": "Sin herramientas del modelo"
+      },
+      "depth": {
+        "exploratory": "Recuperación exploratoria",
+        "focused": "Solo recuperación enfocada"
+      },
+      "resources": {
+        "vocabulary": "Vocabulario",
+        "vocabularyRetrieval": "Búsqueda de vocabulario",
+        "knowledge": "Conocimiento",
+        "reference": "Tarjetas de color",
+        "systemPromptLayer": "Capa de redacción",
+        "images": "Imágenes",
+        "layout": "Diseño",
+        "video": "Vídeo",
+        "assets": "Biblioteca de recursos"
+      },
+      "rejected": {
+        "title": "Ignorado para esta tarea",
+        "video-ignored-for-image-task": "Parámetros de vídeo (tarea de imagen)",
+        "layout-ignored-for-non-layout-task": "Borrador de diseño (tarea sin diseño)",
+        "layout-ignored-for-video-task": "Borrador de diseño (tarea de vídeo)",
+        "images-ignored-for-text-task": "Imágenes de referencia (tarea de texto)"
+      }
+    },
     "title": "Orquestador de prompts",
     "subtitle": "Crea prompts listos para el modelo con vocabulario estructurado y reglas nativas.",
     "inputLabel": "Intención o prompt de origen",

@@ -8,6 +8,7 @@ import type {
   PromptMossLayoutResult,
 } from "./prompt-moss-layout";
 import type { PromptKnowledgeContractGroup, PromptKnowledgeModuleLayer } from "./prompt-knowledge";
+import type { PromptTaskContract } from "./prompt-task-contract";
 
 export type PromptOrchestrationMode =
   | "expand"
@@ -762,6 +763,8 @@ export interface PromptWritingLayerBudgetPreview {
   referenceTokens: number;
   /** Tokens left for the writing layer in this configuration. */
   budgetTokens: number;
+  /** The same contract the real run will work under. */
+  taskContract: PromptTaskContract;
 }
 
 export interface DesktopPromptWritingBudgetRequest {
@@ -776,6 +779,8 @@ export interface DesktopPromptWritingBudgetRequest {
   referenceTokens?: number;
   /** Content range of the rule card the preview must price. */
   allowAdult?: boolean;
+  /** Guidance mode the preview must price; the contract depends on it. */
+  guidanceMode?: PromptGuidanceMode;
 }
 
 export interface PromptSystemPromptLayerMetrics {
@@ -829,6 +834,8 @@ export interface PromptOrchestrationResult {
   provenance?: PromptProvenanceEntry[];
   /** Present when a writing layer was injected, with the budget it had to fit. */
   systemPromptLayerMetrics?: PromptSystemPromptLayerMetrics;
+  /** Deterministic rights this run worked under, including rejected input. */
+  taskContract?: PromptTaskContract;
 }
 
 export function isVideoOrchestrationMode(

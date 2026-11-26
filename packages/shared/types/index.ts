@@ -21,6 +21,7 @@ export * from "./provider-preset";
 export * from "./image-generation";
 export * from "./prompt-vocab";
 export * from "./prompt-orchestrator";
+export * from "./prompt-task-contract";
 export * from "./prompt-writing-preset";
 export * from "./prompt-moss-layout";
 export * from "./prompt-knowledge";

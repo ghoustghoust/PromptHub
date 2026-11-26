@@ -376,4 +376,35 @@ describe("tool-assisted retrieval", () => {
     expect(result.termDecisions).toEqual([]);
     expect(result.retrievalSummary).toEqual({ rounds: 0, queryCount: 0, candidateCount: 0 });
   });
+
+  it("downgrades exploratory recall when the task contract forbids it", async () => {
+    const { llm } = scriptedLlm([
+      {
+        toolCalls: [
+          {
+            name: SEARCH_VOCABULARY_TOOL,
+            arguments: {
+              queries: [
+                {
+                  slotId: "lighting",
+                  category: "lighting",
+                  query: "soft light",
+                  depth: "exploratory",
+                },
+              ],
+            },
+          },
+        ],
+      },
+      { content: finalJson() },
+    ]);
+    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(
+      input({ mode: "reverse" }),
+    );
+    expect(result.taskContract?.retrieval.allowExploratory).toBe(false);
+    expect(result.retrievalTrace?.searches[0]?.depth).toBe("focused");
+    expect(result.warnings.join(" ")).toContain(
+      "Exploratory recall is not allowed for this task",
+    );
+  });
 });

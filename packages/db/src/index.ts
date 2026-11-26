@@ -112,6 +112,7 @@ export {
   PROMPT_REFERENCE_SCHEMA,
   migratePromptReference,
 } from "./prompt-reference";
+export { PromptAssetDB } from "./prompt-assets";
 export {
   PromptWritingPresetDB,
   PROMPT_WRITING_PRESET_SCHEMA,

@@ -119,7 +119,8 @@ export interface PromptSourceAsset {
   path: string | null;
   title: string | null;
   meta: Record<string, unknown> | null;
-  createdAt: string;
+  /** Epoch milliseconds of the first import; a re-import keeps it. */
+  createdAt: number;
 }
 
 /** Counts of newly inserted rows; `skipped` counts malformed KB entries. */

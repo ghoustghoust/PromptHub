@@ -4996,6 +4996,48 @@
       "allowAdult": "Autoriser le contenu adulte",
       "hint": "Seule la plage de contenu change : une demande adulte explicite peut être honorée, et chaque sujet doit être clairement adulte."
     },
+    "library": {
+      "importReferenceTitle": "Importer les cartes de couleur de réalisateurs",
+      "importAssetTitle": "Importer la bibliothèque d'images 014",
+      "importHint": "Choisissez les dossiers sources, lisez ce qui sera écrit, puis importez.",
+      "sources": "Dossiers sources",
+      "addSource": "Ajouter un dossier",
+      "removeSource": "Retirer le dossier",
+      "noSource": "Aucun dossier source pour l'instant.",
+      "preview": "Prévisualiser",
+      "previewing": "Lecture...",
+      "import": "Importer",
+      "importing": "Importation...",
+      "close": "Fermer",
+      "itemCount": "{{count}} enregistrements",
+      "skipped": "{{count}} ignorés",
+      "conflicts": "{{count}} conflits",
+      "imported": "{{count}} enregistrements importés, {{updated}} mis à jour."
+    },
+    "assetLibrary": {
+      "title": "Bibliothèque d'images",
+      "hint": "Filtrez les matériaux importés et cochez ceux qu'une étape suivante associera à un rôle.",
+      "summary": "{{total}} matériaux · {{selected}} cochés",
+      "browse": "Parcourir",
+      "import": "Importer la bibliothèque",
+      "allKinds": "Toutes",
+      "kinds": {
+        "costume": "Vêtements",
+        "hair": "Cheveux",
+        "portrait": "Portrait",
+        "pose": "Pose"
+      },
+      "search": "Rechercher un matériau",
+      "total_one": "{{count}} matériau",
+      "total_other": "{{count}} matériaux",
+      "selected_one": "{{count}} coché",
+      "selected_other": "{{count}} cochés",
+      "clearSelection": "Tout décocher",
+      "close": "Terminé",
+      "loadMore": "Charger plus",
+      "empty": "La bibliothèque est vide. Importez d'abord la bibliothèque d'images 014.",
+      "emptyFilter": "Aucun matériau ne correspond à ce filtre."
+    },
     "targetPipeline": "Pipeline d'artiste",
     "targetPipelineHint": "Anima écrit @artist ; Kaloscope utilise les paramètres du nœud ; les autres fiches s'appliquent automatiquement.",
     "pipelines": {

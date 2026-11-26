@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PromptReferenceItem } from "@prompthub/shared/types";
+import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { LocalImage } from "../ui/LocalImage";
@@ -13,6 +14,10 @@ interface Props {
   disabled?: boolean;
   error?: string;
   referenceTokens?: number;
+  /** Pictures handed out by the main process, keyed by the record id. */
+  thumbnails?: Record<string, string>;
+  /** Opens the import flow of the color card libraries. */
+  onImport?: () => void;
   onToggle: (id: string) => void;
 }
 
@@ -23,6 +28,8 @@ export function PromptReferencePicker({
   disabled = false,
   error = "",
   referenceTokens = 0,
+  thumbnails = {},
+  onImport,
   onToggle,
 }: Props) {
   const { t } = useTranslation();
@@ -47,6 +54,17 @@ export function PromptReferencePicker({
     <div className="space-y-2 rounded-lg border border-border/70 p-3" data-testid="orchestrator-reference-picker">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-medium">{t("orchestrator.reference.title")}</span>
+        {onImport && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onImport}
+            disabled={disabled}
+            data-testid="reference-import-open"
+          >
+            {t("orchestrator.library.import")}
+          </Button>
+        )}
         <span className="text-[11px] text-muted-foreground" data-testid="reference-selected-count">
           {t("orchestrator.reference.selected", {
             count: selectedIds.length,
@@ -104,7 +122,7 @@ export function PromptReferencePicker({
                 data-testid={`reference-card-${item.id}`}
               >
                 <LocalImage
-                  src={item.thumbnailPath ?? ""}
+                  src={thumbnails[item.id] ?? ""}
                   alt={item.nameZh}
                   className="h-20 w-full object-cover"
                   fallbackClassName="h-20 w-full"

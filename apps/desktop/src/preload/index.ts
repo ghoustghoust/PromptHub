@@ -262,7 +262,8 @@ contextBridge.exposeInMainWorld("electron", {
     ipcRenderer.send("window:closeDialogCancel");
   },
   selectFolder: () => ipcRenderer.invoke("dialog:selectFolder"),
-  selectImportFolders: () => ipcRenderer.invoke("dialog:selectImportFolders"),
+  selectImportFolders: (kind?: "reference" | "asset") =>
+    ipcRenderer.invoke("dialog:selectImportFolders", kind),
   selectMcpSourceFolder: () =>
     ipcRenderer.invoke("dialog:selectMcpSourceFolder"),
   selectMcpConfigFile: () => ipcRenderer.invoke("dialog:selectMcpConfigFile"),
@@ -606,7 +607,7 @@ declare global {
       ) => void;
       sendCloseDialogCancel?: () => void;
       selectFolder?: () => Promise<string | null>;
-      selectImportFolders?: () => Promise<string[]>;
+      selectImportFolders?: (kind?: "reference" | "asset") => Promise<string[]>;
       selectMcpSourceFolder?: () => Promise<string | null>;
       selectMcpConfigFile?: () => Promise<string | null>;
       getPathForFile?: (file: File) => string;

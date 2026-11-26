@@ -31,6 +31,11 @@ import { PromptMossLayoutCanvas } from "./PromptMossLayoutCanvas";
 import { PromptWritingLayerPanel } from "./PromptWritingLayerPanel";
 import { PromptReferencePicker } from "./PromptReferencePicker";
 import {
+  PromptLibraryImportModal,
+  type PromptLibraryImportMode,
+} from "./PromptLibraryImportModal";
+import { PromptAssetLibraryModal } from "./PromptAssetLibraryModal";
+import {
   PREFAB_CATEGORIES,
   taskModesForSkill,
   isVideoTask,
@@ -364,6 +369,10 @@ export function PromptOrchestratorWorkbench() {
   const [pickerExpanded, setPickerExpanded] = useState(false);
   const [intentCollapsed, setIntentCollapsed] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState<"picker" | "canvas">("picker");
+  const [libraryImportMode, setLibraryImportMode] = useState<
+    PromptLibraryImportMode | null
+  >(null);
+  const [assetLibraryOpen, setAssetLibraryOpen] = useState(false);
   const [resultWidth, setResultWidth] = useState(520);
   const [wideLayout, setWideLayout] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(min-width: 1440px)").matches,
@@ -617,10 +626,49 @@ export function PromptOrchestratorWorkbench() {
               items={state.referenceItems}
               selectedIds={state.referenceItemIds}
               referenceTokens={state.referenceTokens}
+              thumbnails={state.referenceThumbnails}
+              onImport={() => setLibraryImportMode("reference")}
               onToggle={state.toggleReferenceItem}
               error={state.referenceError}
               disabled={state.isRunning}
             />
+            <div
+              className="space-y-2 rounded-lg border border-border/70 p-3"
+              data-testid="orchestrator-asset-library"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-medium">
+                  {t("orchestrator.assetLibrary.title")}
+                </span>
+                <span className="text-[11px] text-muted-foreground" data-testid="asset-library-summary">
+                  {t("orchestrator.assetLibrary.summary", {
+                    total: state.assetTotal,
+                    selected: state.selectedAssetIds.length,
+                  })}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setAssetLibraryOpen(true)}
+                  data-testid="asset-library-open"
+                >
+                  {t("orchestrator.assetLibrary.browse")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setLibraryImportMode("asset")}
+                  data-testid="asset-library-import-open"
+                >
+                  {t("orchestrator.assetLibrary.import")}
+                </Button>
+              </div>
+              {state.assetError && (
+                <p className="text-xs text-destructive">{state.assetError}</p>
+              )}
+            </div>
           </div>
           <div className="space-y-1.5">
             <span className="text-xs font-medium text-foreground">
@@ -1116,6 +1164,38 @@ export function PromptOrchestratorWorkbench() {
           </div>
         )}
       </div>
+      <PromptLibraryImportModal
+        mode={libraryImportMode ?? "reference"}
+        isOpen={libraryImportMode !== null}
+        onClose={() => setLibraryImportMode(null)}
+        onImported={() => {
+          void state.refreshReferenceItems();
+          void state.refreshAssetKindCounts();
+          state.refreshAssetLibrary();
+          setAssetLibraryOpen(false);
+        }}
+      />
+      <PromptAssetLibraryModal
+        isOpen={assetLibraryOpen}
+        onClose={() => setAssetLibraryOpen(false)}
+        items={state.assetItems}
+        total={state.assetTotal}
+        kindCounts={state.assetKindCounts}
+        kind={state.assetKind}
+        query={state.assetQuery}
+        thumbnails={state.assetThumbnails}
+        selectedIds={state.selectedAssetIds}
+        hasMore={state.assetHasMore}
+        onKindChange={state.setAssetKind}
+        onQueryChange={state.setAssetQuery}
+        onToggle={state.toggleAsset}
+        onClearSelection={() => state.setSelectedAssetIds([])}
+        onLoadMore={state.loadMoreAssets}
+        onImport={() => {
+          setAssetLibraryOpen(false);
+          setLibraryImportMode("asset");
+        }}
+      />
     </div>
   );
 }

@@ -661,10 +661,24 @@ ipcMain.handle("dialog:selectFolder", async () => {
   return null;
 });
 
-ipcMain.handle("dialog:selectImportFolders", async () => {
+ipcMain.handle("dialog:selectImportFolders", async (_event, kind?: unknown) => {
+  const wanted = kind === "asset" ? "asset" : "reference";
+  // A test run cannot drive a native dialog; it names the folders instead.
+  if (process.env.PROMPTHUB_E2E === "1") {
+    const stubbed =
+      wanted === "asset"
+        ? process.env.PROMPTHUB_E2E_IMPORT_ASSET_FOLDER
+        : process.env.PROMPTHUB_E2E_IMPORT_FOLDERS;
+    if (stubbed) {
+      return stubbed
+        .split(";")
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+    }
+  }
   const result = await dialog.showOpenDialog(mainWindow!, {
     properties: ["openDirectory", "multiSelections"],
-    title: "选择导入来源目录",
+    title: wanted === "asset" ? "选择图库目录" : "选择色卡来源目录",
   });
   if (result.canceled) return [];
   return result.filePaths;

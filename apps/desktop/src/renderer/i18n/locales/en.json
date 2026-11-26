@@ -5609,6 +5609,48 @@
       "allowAdult": "Allow adult content",
       "hint": "Only the content range changes: an explicit adult request may be honored, and every subject must be clearly an adult."
     },
+    "library": {
+      "importReferenceTitle": "Import director color cards",
+      "importAssetTitle": "Import the 014 picture library",
+      "importHint": "Pick the source folders, read what an import would write, then write it.",
+      "sources": "Source folders",
+      "addSource": "Add source folder",
+      "removeSource": "Remove source folder",
+      "noSource": "No source folder yet.",
+      "preview": "Preview",
+      "previewing": "Reading...",
+      "import": "Import",
+      "importing": "Importing...",
+      "close": "Close",
+      "itemCount": "{{count}} records",
+      "skipped": "Skipped {{count}}",
+      "conflicts": "Conflicts {{count}}",
+      "imported": "Imported {{count}} records, updated {{updated}}."
+    },
+    "assetLibrary": {
+      "title": "Picture library",
+      "hint": "Filter the imported materials and mark the ones a later step binds to a role.",
+      "summary": "{{total}} materials · {{selected}} marked",
+      "browse": "Browse",
+      "import": "Import library",
+      "allKinds": "All",
+      "kinds": {
+        "costume": "Clothing",
+        "hair": "Hair",
+        "portrait": "Portrait",
+        "pose": "Pose"
+      },
+      "search": "Search materials",
+      "total_one": "{{count}} material",
+      "total_other": "{{count}} materials",
+      "selected_one": "{{count}} marked",
+      "selected_other": "{{count}} marked",
+      "clearSelection": "Clear",
+      "close": "Done",
+      "loadMore": "Load more",
+      "empty": "The library has no materials yet. Import the 014 picture library first.",
+      "emptyFilter": "No material matches this filter."
+    },
     "targetPipeline": "Artist pipeline",
     "targetPipelineHint": "Anima writes @artist; Kaloscope uses node parameters; other rule cards route automatically.",
     "pipelines": {

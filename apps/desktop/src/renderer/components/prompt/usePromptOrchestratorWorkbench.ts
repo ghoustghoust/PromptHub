@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   PromptArtistPipeline,
+  PromptAssetKindCount,
   PromptGuidanceMode,
   PromptKnowledgeContractGroup,
   PromptKnowledgeImportCommitResult,
@@ -19,6 +20,7 @@ import type {
   PromptPickerTermState,
   PromptReferenceItem,
   PromptSkillDraft,
+  PromptSourceAsset,
   PromptTermDomain,
   PromptVideoOrchestrationInput,
   PromptVocabularySearchItem,
@@ -44,6 +46,10 @@ import {
   shouldBackfillProvenance,
 } from "./prompt-backfill";
 import { normalizeWorkspaceTerms } from "./prompt-workspace-state";
+import {
+  usePromptAssetLibrary,
+  useReferenceThumbnails,
+} from "./usePromptAssetLibrary";
 import {
   EMPTY_WRITING_LAYER,
   type WritingLayerSelection,
@@ -182,7 +188,14 @@ export function usePromptOrchestratorWorkbench() {
   const [referenceItemIds, setReferenceItemIds] = useState<string[]>([]);
   /** Content range of the rule card; false keeps the all-ages default. */
   const [allowAdult, setAllowAdult] = useState(false);
+  /** Materials marked in the picture library; the workspace owns them. */
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
+  const assetLibrary = usePromptAssetLibrary({
+    selectedIds: selectedAssetIds,
+    onSelectedIdsChange: setSelectedAssetIds,
+  });
   const [referenceError, setReferenceError] = useState("");
+  const { referenceThumbnails } = useReferenceThumbnails(referenceItems, setReferenceError);
   const [knowledgeError, setKnowledgeError] = useState("");
   const knowledgeLoading = useRef(new Set<string>());
   const [layerContextTokens, setLayerContextTokens] = useState(8192);
@@ -270,6 +283,7 @@ export function usePromptOrchestratorWorkbench() {
           setKnowledgeContractGroup(reply.data.knowledgeContractGroup);
           setReferenceItemIds(reply.data.referenceItemIds ?? []);
           setAllowAdult(reply.data.allowAdult === true);
+          setSelectedAssetIds(reply.data.selectedAssetIds ?? []);
         }
       })
       .catch((cause: unknown) => {
@@ -323,6 +337,17 @@ export function usePromptOrchestratorWorkbench() {
       .map((id) => byId.get(id))
       .filter((item): item is PromptReferenceItem => Boolean(item));
   }, [referenceItemIds, referenceItems]);
+
+  /** Reads the color cards again, for example after an import. */
+  const refreshReferenceItems = useCallback(async (): Promise<void> => {
+    const reply = await window.api.promptReference.list();
+    if (reply.ok !== true) {
+      setReferenceError(reply.error.message);
+      return;
+    }
+    setReferenceItems(reply.data);
+  }, [setReferenceError]);
+
 
   const referenceStyles = useMemo(
     () => selectedReferenceItems.map((item) => ({
@@ -573,6 +598,7 @@ export function usePromptOrchestratorWorkbench() {
           ...(knowledgeContractGroup ? { knowledgeContractGroup } : {}),
           referenceItemIds,
           allowAdult,
+          selectedAssetIds,
         })
         .then((reply) => {
           if (reply.ok !== true) {
@@ -602,6 +628,7 @@ export function usePromptOrchestratorWorkbench() {
     knowledgeContractGroup,
     referenceItemIds,
     allowAdult,
+    selectedAssetIds,
     workspaceHydrated,
   ]);
 
@@ -1442,7 +1469,25 @@ export function usePromptOrchestratorWorkbench() {
     knowledgeContractGroup, setKnowledgeContractGroup, hasGroupedContracts,
     knowledgeModules: activeKnowledgeModules, knowledgeError,
     referenceItems, selectedReferenceItems, referenceItemIds, toggleReferenceItem, referenceTokens, referenceError,
+    referenceThumbnails,
     allowAdult, setAllowAdult,
+    assetItems: assetLibrary.items,
+    assetTotal: assetLibrary.total,
+    assetKindCounts: assetLibrary.kindCounts,
+    assetKind: assetLibrary.kind,
+    setAssetKind: assetLibrary.setKind,
+    assetQuery: assetLibrary.query,
+    setAssetQuery: assetLibrary.setQuery,
+    assetThumbnails: assetLibrary.thumbnails,
+    assetError: assetLibrary.error,
+    selectedAssetIds,
+    toggleAsset: assetLibrary.toggle,
+    setSelectedAssetIds,
+    assetHasMore: assetLibrary.hasMore,
+    loadMoreAssets: assetLibrary.loadMore,
+    refreshAssetKindCounts: assetLibrary.refreshKindCounts,
+    refreshAssetLibrary: assetLibrary.refresh,
+    refreshReferenceItems,
     toggleKnowledgePack, toggleKnowledgeModule,
     importKnowledgePack, deleteKnowledgePack,
     layerContextTokens, setLayerContextTokens,

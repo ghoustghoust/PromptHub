@@ -4995,6 +4995,48 @@
       "allowAdult": "Inhalte für Erwachsene erlauben",
       "hint": "Nur der Inhaltsbereich ändert sich: Eine ausdrückliche Erwachsenenanfrage darf erfüllt werden, und jedes Motiv muss eindeutig erwachsen sein."
     },
+    "library": {
+      "importReferenceTitle": "Regisseur-Farbkarten importieren",
+      "importAssetTitle": "014-Bibliothek importieren",
+      "importHint": "Quellordner wählen, prüfen, was geschrieben wird, dann importieren.",
+      "sources": "Quellordner",
+      "addSource": "Ordner hinzufügen",
+      "removeSource": "Ordner entfernen",
+      "noSource": "Noch kein Quellordner.",
+      "preview": "Vorschau",
+      "previewing": "Wird gelesen...",
+      "import": "Importieren",
+      "importing": "Import läuft...",
+      "close": "Schließen",
+      "itemCount": "{{count}} Einträge",
+      "skipped": "{{count}} übersprungen",
+      "conflicts": "{{count}} Konflikte",
+      "imported": "{{count}} Einträge importiert, {{updated}} aktualisiert."
+    },
+    "assetLibrary": {
+      "title": "Bildbibliothek",
+      "hint": "Importierte Materialien filtern und diejenigen markieren, die später eine Rolle erhalten.",
+      "summary": "{{total}} Materialien · {{selected}} markiert",
+      "browse": "Durchsuchen",
+      "import": "Bibliothek importieren",
+      "allKinds": "Alle",
+      "kinds": {
+        "costume": "Kleidung",
+        "hair": "Frisuren",
+        "portrait": "Porträt",
+        "pose": "Pose"
+      },
+      "search": "Materialien suchen",
+      "total_one": "{{count}} Material",
+      "total_other": "{{count}} Materialien",
+      "selected_one": "{{count}} markiert",
+      "selected_other": "{{count}} markiert",
+      "clearSelection": "Auswahl aufheben",
+      "close": "Fertig",
+      "loadMore": "Mehr laden",
+      "empty": "Die Bibliothek ist leer. Importiere zuerst die 014-Bibliothek.",
+      "emptyFilter": "Kein Material passt zu diesem Filter."
+    },
     "targetPipeline": "Künstler-Pipeline",
     "targetPipelineHint": "Anima schreibt @artist; Kaloscope nutzt Knotenparameter; andere Regelkarten routen automatisch.",
     "pipelines": {

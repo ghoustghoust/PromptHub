@@ -4995,6 +4995,48 @@
       "allowAdult": "成人の内容を許可",
       "hint": "内容範囲のみが変わります。明示的な成人のリクエストは実行できますが、被写体はすべて成人であることが必要です。"
     },
+    "library": {
+      "importReferenceTitle": "ディレクターカラーカードをインポート",
+      "importAssetTitle": "014 画像ライブラリをインポート",
+      "importHint": "インポート元フォルダを選び、書き込まれる内容を確認してから取り込みます。",
+      "sources": "インポート元フォルダ",
+      "addSource": "フォルダを追加",
+      "removeSource": "フォルダを削除",
+      "noSource": "インポート元フォルダがまだありません。",
+      "preview": "プレビュー",
+      "previewing": "読み込み中...",
+      "import": "インポート",
+      "importing": "インポート中...",
+      "close": "閉じる",
+      "itemCount": "{{count}} 件のレコード",
+      "skipped": "{{count}} 件をスキップ",
+      "conflicts": "{{count}} 件の競合",
+      "imported": "{{count}} 件をインポートし、{{updated}} 件を更新しました。"
+    },
+    "assetLibrary": {
+      "title": "素材ライブラリ",
+      "hint": "インポート済みの素材を絞り込み、後で役割に割り当てるものを選びます。",
+      "summary": "全 {{total}} 件 · 選択 {{selected}} 件",
+      "browse": "閲覧して選択",
+      "import": "ライブラリをインポート",
+      "allKinds": "すべて",
+      "kinds": {
+        "costume": "衣装",
+        "hair": "髪型",
+        "portrait": "ポートレート",
+        "pose": "ポーズ"
+      },
+      "search": "素材を検索",
+      "total_one": "全 {{count}} 件の素材",
+      "total_other": "全 {{count}} 件の素材",
+      "selected_one": "{{count}} 件を選択中",
+      "selected_other": "{{count}} 件を選択中",
+      "clearSelection": "選択を解除",
+      "close": "完了",
+      "loadMore": "さらに読み込む",
+      "empty": "ライブラリに素材がありません。まず 014 画像ライブラリをインポートしてください。",
+      "emptyFilter": "条件に一致する素材はありません。"
+    },
     "targetPipeline": "画師注入パイプライン",
     "targetPipelineHint": "Anima は @artist を書き、Kaloscope はノードパラメータのみを使います。他のルールカードは自動で振り分けます。",
     "pipelines": {

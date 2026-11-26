@@ -4991,6 +4991,10 @@
       "flexible": "Deducción razonable",
       "optional": "Sugerencia creativa"
     },
+    "contentRange": {
+      "allowAdult": "Permitir contenido adulto",
+      "hint": "Solo cambia el rango de contenido: puede atender una petición adulta explícita y cada sujeto debe ser claramente adulto."
+    },
     "targetPipeline": "Canal del artista",
     "targetPipelineHint": "Anima escribe @artist; Kaloscope usa parámetros del nodo; las demás tarjetas se enrutan automáticamente.",
     "pipelines": {

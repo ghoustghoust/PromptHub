@@ -180,6 +180,8 @@ export function usePromptOrchestratorWorkbench() {
   >();
   const [referenceItems, setReferenceItems] = useState<PromptReferenceItem[]>([]);
   const [referenceItemIds, setReferenceItemIds] = useState<string[]>([]);
+  /** Content range of the rule card; false keeps the all-ages default. */
+  const [allowAdult, setAllowAdult] = useState(false);
   const [referenceError, setReferenceError] = useState("");
   const [knowledgeError, setKnowledgeError] = useState("");
   const knowledgeLoading = useRef(new Set<string>());
@@ -267,6 +269,7 @@ export function usePromptOrchestratorWorkbench() {
           setKnowledgeModuleIds(reply.data.knowledgeModuleIds ?? []);
           setKnowledgeContractGroup(reply.data.knowledgeContractGroup);
           setReferenceItemIds(reply.data.referenceItemIds ?? []);
+          setAllowAdult(reply.data.allowAdult === true);
         }
       })
       .catch((cause: unknown) => {
@@ -569,6 +572,7 @@ export function usePromptOrchestratorWorkbench() {
           knowledgeModuleIds,
           ...(knowledgeContractGroup ? { knowledgeContractGroup } : {}),
           referenceItemIds,
+          allowAdult,
         })
         .then((reply) => {
           if (reply.ok !== true) {
@@ -597,6 +601,7 @@ export function usePromptOrchestratorWorkbench() {
     knowledgeModuleIds,
     knowledgeContractGroup,
     referenceItemIds,
+    allowAdult,
     workspaceHydrated,
   ]);
 
@@ -615,6 +620,7 @@ export function usePromptOrchestratorWorkbench() {
           contextTokens: layerContextTokens,
           outputReserveTokens: 4096,
           referenceTokens,
+          allowAdult,
         })
         .then((reply) => {
           if (!active) return;
@@ -642,6 +648,7 @@ export function usePromptOrchestratorWorkbench() {
     referenceImages.length,
     layerContextTokens,
     referenceTokens,
+    allowAdult,
   ]);
 
   useEffect(() => {
@@ -1022,6 +1029,7 @@ export function usePromptOrchestratorWorkbench() {
           }
         : {}),
       ...(referenceStyles.length > 0 ? { referenceStyles } : {}),
+      ...(allowAdult ? { allowAdult: true } : {}),
       series: series || undefined,
       ...(domain === "all" ? {} : { domain }),
       outputFormat,
@@ -1434,6 +1442,7 @@ export function usePromptOrchestratorWorkbench() {
     knowledgeContractGroup, setKnowledgeContractGroup, hasGroupedContracts,
     knowledgeModules: activeKnowledgeModules, knowledgeError,
     referenceItems, selectedReferenceItems, referenceItemIds, toggleReferenceItem, referenceTokens, referenceError,
+    allowAdult, setAllowAdult,
     toggleKnowledgePack, toggleKnowledgeModule,
     importKnowledgePack, deleteKnowledgePack,
     layerContextTokens, setLayerContextTokens,

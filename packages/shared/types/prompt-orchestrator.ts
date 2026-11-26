@@ -229,6 +229,12 @@ export interface PromptOrchestrationInput {
    * same token budget as `systemPromptLayer` and are never executed.
    */
   knowledgeModules?: PromptKnowledgeModuleSelection[];
+  /**
+   * Content range for the rule card. Absent or false keeps the all-ages
+   * default; true allows the explicit adult branch of the skill contract.
+   * It permits a branch, it never forces one.
+   */
+  allowAdult?: boolean;
   /** Director color cards (reference layer), at most three per run. */
   referenceStyles?: PromptReferenceStyleInput[];
   /** Adds a structured payload without turning JSON into a separate authoring task. */
@@ -609,6 +615,8 @@ export interface PromptOrchestratorWorkspaceState {
   knowledgeContractGroup?: PromptKnowledgeContractGroup;
   /** Selected director color cards; at most three per run. */
   referenceItemIds?: string[];
+  /** Content range switch; absent or false keeps the all-ages default. */
+  allowAdult?: boolean;
   updatedAt?: string;
 }
 
@@ -693,6 +701,8 @@ export interface DesktopPromptWritingBudgetRequest {
   outputReserveTokens?: number;
   /** Reference tokens the UI already selected; the preview reserves them. */
   referenceTokens?: number;
+  /** Content range of the rule card the preview must price. */
+  allowAdult?: boolean;
 }
 
 export interface PromptSystemPromptLayerMetrics {

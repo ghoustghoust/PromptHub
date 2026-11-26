@@ -4992,6 +4992,10 @@
       "flexible": "Déduction raisonnable",
       "optional": "Suggestion créative"
     },
+    "contentRange": {
+      "allowAdult": "Autoriser le contenu adulte",
+      "hint": "Seule la plage de contenu change : une demande adulte explicite peut être honorée, et chaque sujet doit être clairement adulte."
+    },
     "targetPipeline": "Pipeline d'artiste",
     "targetPipelineHint": "Anima écrit @artist ; Kaloscope utilise les paramètres du nœud ; les autres fiches s'appliquent automatiquement.",
     "pipelines": {

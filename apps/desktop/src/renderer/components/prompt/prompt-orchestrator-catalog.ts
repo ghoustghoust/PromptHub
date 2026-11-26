@@ -139,6 +139,11 @@ export function supportsLayoutDraft(skill: PromptOrchestrationSkill): boolean {
   return skill === "moss" || skill === "moodyMoss";
 }
 
+/** Rule cards that declare a content range the user can widen explicitly. */
+export function supportsContentRange(skill: PromptOrchestrationSkill): boolean {
+  return skill === "k2";
+}
+
 export function referenceImageLimit(mode: PromptOrchestrationMode): number {
   if (mode === "video-frames") return 2;
   if (mode === "video-multi-reference") return 6;

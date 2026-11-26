@@ -89,6 +89,27 @@ describe("PromptSkillGenerator", () => {
     expect(draft.warnings.join(" ")).toContain("offline");
   });
 
+  it("writes the allowed content range into the rule card", async () => {
+    const generator = new PromptSkillGenerator({
+      vocabulary,
+      llm: llmReturning(JSON.stringify({
+        name: "Content Range Skill",
+        description: "A reusable guide.",
+        workflow: ["Start from the user's intent."],
+        suggestions: [{ title: "Backlight", content: "Try restrained rim light." }],
+      })),
+    });
+    const draft = await generator.generate({
+      prompt: "Two adults in a dim room",
+      skill: "k2",
+      mode: "expand",
+      allowAdult: true,
+    });
+
+    expect(draft.content).toContain(getPromptRuleCard("k2", { allowAdult: true }));
+    expect(draft.content).not.toContain(getPromptRuleCard("k2"));
+  });
+
   it("honors an explicit normalized skill name", async () => {
     const generator = new PromptSkillGenerator({
       vocabulary,

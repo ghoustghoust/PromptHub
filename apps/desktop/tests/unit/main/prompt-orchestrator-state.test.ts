@@ -218,6 +218,20 @@ describe("orchestrator workspace state", () => {
     ).toThrow("referenceItemIds");
   });
 
+  it("round-trips the content range switch and rejects a non-boolean value", () => {
+    const service = new DesktopPromptOrchestratorService(rawDb);
+    const saved = service.saveWorkspaceState({ ...state(), allowAdult: true });
+    expect(saved.allowAdult).toBe(true);
+    expect(service.getWorkspaceState()?.allowAdult).toBe(true);
+
+    service.saveWorkspaceState({ ...state(), allowAdult: false });
+    expect(service.getWorkspaceState()?.allowAdult).toBe(false);
+
+    expect(() =>
+      service.saveWorkspaceState({ ...state(), allowAdult: "yes" as never }),
+    ).toThrow("allowAdult");
+  });
+
   it("keeps a long writing layer intact after closing and reopening the database", () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), "prompthub-orchestrator-state-"));
     const file = path.join(directory, "prompthub.db");

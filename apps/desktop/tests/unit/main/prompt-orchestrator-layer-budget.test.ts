@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SCHEMA_TABLES } from "@prompthub/db";
+import { resolveSystemPromptLayerBudget } from "@prompthub/core/prompt-writing-budget";
 import DatabaseAdapter from "../../../src/main/database/sqlite";
 import { DesktopPromptOrchestratorService } from "../../../src/main/services/prompt-orchestrator-service";
 
@@ -37,6 +38,26 @@ describe("layer budget preview", () => {
         preview.imageTokens +
         preview.safetyTokens,
     ).toBe(8192);
+  });
+
+  it("prices the content range the rule card will actually inject", () => {
+    const base = service.getLayerBudget({ skill: "k2", mode: "expand" });
+    const adult = service.getLayerBudget({
+      skill: "k2",
+      mode: "expand",
+      allowAdult: true,
+    });
+    expect(adult.contractTokens).toBeGreaterThan(0);
+    expect(adult.contractTokens).not.toBe(base.contractTokens);
+    expect(adult.contractTokens).toBe(
+      resolveSystemPromptLayerBudget(
+        { skill: "k2", mode: "expand", allowAdult: true },
+        "",
+      ).contractTokens,
+    );
+    expect(() => service.getLayerBudget({ skill: "k2", allowAdult: "yes" })).toThrow(
+      "allowAdult",
+    );
   });
 
   it("scales with the declared context and rejects invalid values", () => {

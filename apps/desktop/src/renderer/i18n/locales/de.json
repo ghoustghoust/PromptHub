@@ -4991,6 +4991,10 @@
       "flexible": "Begründete Ableitung",
       "optional": "Kreativer Vorschlag"
     },
+    "contentRange": {
+      "allowAdult": "Inhalte für Erwachsene erlauben",
+      "hint": "Nur der Inhaltsbereich ändert sich: Eine ausdrückliche Erwachsenenanfrage darf erfüllt werden, und jedes Motiv muss eindeutig erwachsen sein."
+    },
     "targetPipeline": "Künstler-Pipeline",
     "targetPipelineHint": "Anima schreibt @artist; Kaloscope nutzt Knotenparameter; andere Regelkarten routen automatisch.",
     "pipelines": {

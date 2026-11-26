@@ -4991,6 +4991,10 @@
       "flexible": "合理推導",
       "optional": "創意建議"
     },
+    "contentRange": {
+      "allowAdult": "允許成人內容",
+      "hint": "只改變內容範圍：可以滿足明確的成人請求，但所有主體必須明確為成年人。"
+    },
     "targetPipeline": "畫師注入管線",
     "targetPipelineHint": "Anima 寫 @artist；Kaloscope 只用節點參數；其餘依規則卡自動處理。",
     "pipelines": {

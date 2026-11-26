@@ -134,7 +134,7 @@ function buildReferences(
     kind: "rule-card",
     id: ruleCard,
     label: `Rule card: ${ruleCard}`,
-    content: getPromptRuleCard(ruleCard),
+    content: getPromptRuleCard(ruleCard, { allowAdult: input.allowAdult }),
   }];
   selectedTerms.forEach((term) => {
     references.push({

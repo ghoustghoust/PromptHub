@@ -5603,6 +5603,10 @@
       "flexible": "合理推导",
       "optional": "创意建议"
     },
+    "contentRange": {
+      "allowAdult": "允许成人内容",
+      "hint": "只改变内容范围：可以满足明确的成人请求，但所有主体必须明确为成年人。"
+    },
     "targetPipeline": "画师注入管线",
     "targetPipelineHint": "Anima 写 @artist；Kaloscope 只用节点参数；其余按规则卡自动处理。",
     "pipelines": {

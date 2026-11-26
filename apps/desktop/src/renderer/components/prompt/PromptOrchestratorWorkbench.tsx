@@ -35,6 +35,7 @@ import {
   taskModesForSkill,
   isVideoTask,
   outputFormatOptions,
+  supportsContentRange,
 } from "./prompt-orchestrator-catalog";
 
 type WorkbenchState = ReturnType<typeof usePromptOrchestratorWorkbench>;
@@ -485,6 +486,26 @@ export function PromptOrchestratorWorkbench() {
             ]}
             onChange={(value) => state.setSkill(value as WorkbenchState["skill"])}
           />
+          {supportsContentRange(state.skill) && (
+            <div
+              className="space-y-1 rounded-lg border border-border/60 bg-muted/20 p-3"
+              data-testid="orchestrator-content-range"
+            >
+              <label className="flex items-center gap-2 text-xs font-medium">
+                <input
+                  type="checkbox"
+                  checked={state.allowAdult}
+                  onChange={(event) => state.setAllowAdult(event.target.checked)}
+                  disabled={state.isRunning}
+                  data-testid="orchestrator-content-range-adult"
+                />
+                <span>{t("orchestrator.contentRange.allowAdult")}</span>
+              </label>
+              <p className="text-[11px] text-muted-foreground">
+                {t("orchestrator.contentRange.hint")}
+              </p>
+            </div>
+          )}
           <div
             className="space-y-1 rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
             data-testid="orchestrator-shared-selection"

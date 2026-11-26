@@ -4991,6 +4991,10 @@
       "flexible": "妥当な推論",
       "optional": "創作提案"
     },
+    "contentRange": {
+      "allowAdult": "成人の内容を許可",
+      "hint": "内容範囲のみが変わります。明示的な成人のリクエストは実行できますが、被写体はすべて成人であることが必要です。"
+    },
     "targetPipeline": "画師注入パイプライン",
     "targetPipelineHint": "Anima は @artist を書き、Kaloscope はノードパラメータのみを使います。他のルールカードは自動で振り分けます。",
     "pipelines": {

@@ -373,6 +373,7 @@ function parseWorkspaceState(
   if (referenceItemIds.length > 3) {
     throw new Error("referenceItemIds must contain at most 3 ids");
   }
+  const allowAdult = optionalBoolean(value.allowAdult, "allowAdult");
   return {
     prefabTerms,
     modelId: typeof value.modelId === "string"
@@ -387,7 +388,17 @@ function parseWorkspaceState(
     ...(knowledgeModuleIds.length > 0 ? { knowledgeModuleIds } : {}),
     ...(knowledgeContractGroup ? { knowledgeContractGroup } : {}),
     ...(referenceItemIds.length > 0 ? { referenceItemIds } : {}),
+    ...(allowAdult !== undefined ? { allowAdult } : {}),
   };
+}
+
+/** A missing flag stays missing; a present flag must be a boolean. */
+function optionalBoolean(value: unknown, label: string): boolean | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "boolean") {
+    throw new Error(`${label} must be a boolean`);
+  }
+  return value;
 }
 
 function workspaceContractGroup(
@@ -572,6 +583,7 @@ export class DesktopPromptOrchestratorService {
     if (outputFormat !== undefined && typeof outputFormat !== "string") {
       throw new Error("Layer budget outputFormat must be a string");
     }
+    const allowAdult = optionalBoolean(value.allowAdult, "allowAdult");
     const budget = resolveSystemPromptLayerBudget(
       {
         ...(normalizedSkill !== undefined ? { skill: normalizedSkill } : {}),
@@ -579,6 +591,7 @@ export class DesktopPromptOrchestratorService {
         ...(outputFormat !== undefined
           ? { outputFormat: outputFormat as PromptOrchestrationInput["outputFormat"] }
           : {}),
+        ...(allowAdult !== undefined ? { allowAdult } : {}),
         ...(imageCount > 0
           ? { imageUrls: Array.from({ length: imageCount }, () => "data:image/png;base64,x") }
           : {}),

@@ -137,6 +137,7 @@ export class PromptOrchestratorStateDB {
       ...(knowledgeIds(value.referenceItemIds) !== undefined
         ? { referenceItemIds: knowledgeIds(value.referenceItemIds)?.slice(0, 3) }
         : {}),
+      ...(typeof value.allowAdult === "boolean" ? { allowAdult: value.allowAdult } : {}),
       updatedAt: new Date(row.updated_at).toISOString(),
     };
   }
@@ -173,6 +174,7 @@ export class PromptOrchestratorStateDB {
       ...(state.referenceItemIds !== undefined
         ? { referenceItemIds: state.referenceItemIds.slice(0, 3) }
         : {}),
+      ...(state.allowAdult !== undefined ? { allowAdult: state.allowAdult } : {}),
     };
     const json = JSON.stringify(base);
     if (json.length > MAX_STATE_CHARS) {

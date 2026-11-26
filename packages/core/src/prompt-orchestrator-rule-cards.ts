@@ -32,9 +32,11 @@ const MOSS_RULE_CARD = [
 ].join("\n");
 
 // Sources: prompt/K2二次元提示词引擎-SFW版-B站-是古手梨花sama.md and prompt/krea2官方生图规范.htm.
-const K2_RULE_CARD = [
-  "Krea 2 / K2 natural-language rule card:",
-  "- Keep the result all-ages, non-sexual, and non-sexualized.",
+const K2_CONTENT_RANGE = [
+  "- Content range: keep the result all-ages, non-sexual, and non-sexualized.",
+  "- Content range: the user explicitly allows adult content, so honor an explicit adult request, but every subject must be clearly an adult and minors or subjects of uncertain age are never sexualized.",
+];
+const K2_RULE_CARD_BODY = [
   "- Write one coherent paragraph or phrase list, not bullets, JSON, headings, weight syntax, BREAK syntax or quality boosters.",
   "- Use exactly one visual style and one medium. If the user explicitly specifies a style, preserve it as one continuous segment at the beginning. If unspecified, omit style/medium wording rather than substituting a library approximation.",
   "- Preserve every original subject, action, count, color, position and medium. Do not add people, animals or objects that were not implied by the initial idea, and do not turn drawing/painting into photography.",
@@ -44,7 +46,20 @@ const K2_RULE_CARD = [
   "- Use one moment and one composition. Choose one main shot size, viewpoint and lighting setup with plausible visibility and physical support.",
   "- Adapt length to complexity and polish already-detailed prompts instead of expanding them again. Do not add seed, aspect-ratio, reference-strength or generation-slider parameters.",
   "- Krea 2 is text-to-image and its default negative prompt is ineffective; describe the desired positive state instead of listing exclusions.",
-].join("\n");
+];
+
+/**
+ * The K2 card. The content range is the only rule the user can relax: the
+ * caption form, single style, single medium and attribute binding stay the
+ * same in both ranges.
+ */
+function k2RuleCard(allowAdult: boolean): string {
+  return [
+    "Krea 2 / K2 natural-language rule card:",
+    K2_CONTENT_RANGE[allowAdult ? 1 : 0],
+    ...K2_RULE_CARD_BODY,
+  ].join("\n");
+}
 
 // Source: prompt/minimaxh3官方生图规范.htm. This is a video guide, not a still-image card.
 const MINIMAX_H3_RULE_CARD = [
@@ -61,11 +76,18 @@ const MINIMAX_H3_RULE_CARD = [
   "- Prompt enhancement must remain conceptually disabled: do not append unrequested style, music or entity text.",
 ].join("\n");
 
+/** Options that change what a rule card is allowed to produce. */
+export interface PromptRuleCardOptions {
+  /** Allows the explicit adult branch of a content-scoped rule card. */
+  allowAdult?: boolean;
+}
+
 export function getPromptRuleCard(
   skill: PromptOrchestrationSkill | undefined,
+  options: PromptRuleCardOptions = {},
 ): string {
   if (skill === "moss") return MOSS_RULE_CARD;
-  if (skill === "k2") return K2_RULE_CARD;
+  if (skill === "k2") return k2RuleCard(options.allowAdult === true);
   if (skill === "minimaxH3") return MINIMAX_H3_RULE_CARD;
   return MOODY_MOSS_RULE_CARD;
 }

@@ -5605,6 +5605,10 @@
       "flexible": "Reasoned inference",
       "optional": "Creative suggestion"
     },
+    "contentRange": {
+      "allowAdult": "Allow adult content",
+      "hint": "Only the content range changes: an explicit adult request may be honored, and every subject must be clearly an adult."
+    },
     "targetPipeline": "Artist pipeline",
     "targetPipelineHint": "Anima writes @artist; Kaloscope uses node parameters; other rule cards route automatically.",
     "pipelines": {

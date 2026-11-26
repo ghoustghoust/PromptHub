@@ -4,6 +4,7 @@ import type {
   PromptModelDirective,
   PromptOrchestrationInput,
   PromptRetrievalSummary,
+  PromptRetrievalTrace,
   PromptRoutePlan,
   PromptSelectedTerm,
 } from "@prompthub/shared/types";
@@ -34,6 +35,7 @@ import {
   createStreamCallbacks,
   type PromptStreamEmitter,
 } from "./prompt-orchestrator-stream";
+import type { PromptRetrievalTraceCollector } from "./prompt-retrieval-trace";
 
 const TOOL_MODES: ReadonlySet<string> = new Set([
   "expand",
@@ -56,6 +58,8 @@ export interface ToolRetrievalOptions {
   onEvent?: PromptStreamEmitter;
   /** Cancels before the next model round; the in-flight request aborts itself. */
   signal?: AbortSignal;
+  /** Shared with the outer orchestrator so failures keep their partial trace. */
+  trace?: PromptRetrievalTraceCollector;
 }
 
 export interface ToolRetrievalResult {
@@ -63,6 +67,7 @@ export interface ToolRetrievalResult {
   selectedTerms: PromptSelectedTerm[];
   termDecisions: PromptTermDecision[];
   retrievalSummary: PromptRetrievalSummary;
+  retrievalTrace: PromptRetrievalTrace;
   warnings: string[];
 }
 
@@ -144,6 +149,7 @@ export async function runToolRetrieval(
     input: options.input,
     vocabulary: options.vocabulary,
     explicitTerms: options.explicitTerms,
+    ...(options.trace ? { trace: options.trace } : {}),
   });
   const base = buildCompositionMessages(
     options.input,
@@ -161,6 +167,7 @@ export async function runToolRetrieval(
   let rounds = 0;
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+    state.round = round + 1;
     if (options.signal?.aborted) {
       throw new Error("Orchestration was cancelled");
     }
@@ -248,6 +255,7 @@ export async function runToolRetrieval(
     composition,
     selectedTerms: [...selected.values()],
     termDecisions: parsed.decisions,
+    retrievalTrace: state.trace.snapshot(),
     retrievalSummary: {
       rounds,
       queryCount: state.queryCount,

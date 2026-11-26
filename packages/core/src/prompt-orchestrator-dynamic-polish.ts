@@ -4,6 +4,7 @@ import type {
   PromptEntityResolution,
   PromptOrchestrationInput,
   PromptRetrievalSummary,
+  PromptRetrievalTrace,
   PromptRoutePlan,
   PromptSelectedTerm,
   PromptTermDecision,
@@ -24,6 +25,10 @@ import {
   type RetrievalQuery,
   type RetrievalResult,
 } from "./prompt-vocabulary-retrieval";
+import {
+  buildSearchTraceEntries,
+  PromptRetrievalTraceCollector,
+} from "./prompt-retrieval-trace";
 import {
   assertNoConflicts,
   availableTerms,
@@ -46,6 +51,8 @@ interface DynamicPolishOptions {
   entities?: PromptEntityResolution[];
   /** Input classification that decides whether retrieval runs at all. */
   routePlan?: PromptRoutePlan;
+  /** Shared with the outer orchestrator so fallbacks keep the same evidence. */
+  trace?: PromptRetrievalTraceCollector;
 }
 
 export interface DynamicPolishResult {
@@ -53,6 +60,7 @@ export interface DynamicPolishResult {
   selectedTerms: PromptSelectedTerm[];
   termDecisions: PromptTermDecision[];
   retrievalSummary: PromptRetrievalSummary;
+  retrievalTrace: PromptRetrievalTrace;
   warnings: string[];
 }
 
@@ -233,6 +241,7 @@ export async function runDynamicPolish(
   options: DynamicPolishOptions,
 ): Promise<DynamicPolishResult> {
   const budget = options.input.vocabularyTokenBudget ?? 900;
+  const trace = options.trace ?? new PromptRetrievalTraceCollector();
   const retriever = new VocabularyRetriever(options.vocabulary, options.input);
   // Conflicts with anything the user already selected are filtered before the
   // model sees candidates; otherwise a plausible-looking conflicting row turns
@@ -269,6 +278,13 @@ export async function runDynamicPolish(
   let queryCount = rounds > 0 ? initialQueries.length : 0;
   let content = "";
   let visible = presentRetrieval(results, budget, blockedConflicts);
+  trace.addSearches(buildSearchTraceEntries({
+    round: 1,
+    origin: "model",
+    queries: initialQueries,
+    results,
+    visible,
+  }));
 
   for (let round = 1; round <= 2; round += 1) {
     const allowFollowUp = round === 1 && budget > 0 && !entityOnly;
@@ -283,6 +299,13 @@ export async function runDynamicPolish(
     rounds += 1;
     queryCount += followUp.length;
     visible = presentRetrieval(results, budget, blockedConflicts);
+    trace.addSearches(buildSearchTraceEntries({
+      round: 2,
+      origin: "model",
+      queries: followUp,
+      results: next,
+      visible,
+    }));
   }
 
   const composition = parsePromptComposition(content, "polish", options.input.includePayload);
@@ -311,6 +334,7 @@ export async function runDynamicPolish(
     selectedTerms: [...selected.values()],
     termDecisions: parsed.decisions,
     retrievalSummary,
+    retrievalTrace: trace.snapshot(),
     warnings: [
       ...noMatchWarnings(results, budget),
       ...parsed.warnings,

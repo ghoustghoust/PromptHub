@@ -175,6 +175,28 @@ describe("tool-assisted retrieval", () => {
     expect(result.provenance?.some((entry) => entry.termId === "light-1")).toBe(true);
     expect(result.termDecisions?.[0].terms.map((term) => term.id)).toEqual(["light-1"]);
     expect(result.selectedTerms.map((term) => term.id)).toContain("light-1");
+
+    expect(result.retrievalTrace?.searches).toHaveLength(1);
+    expect(result.retrievalTrace?.searches[0]).toMatchObject({
+      round: 1,
+      origin: "model",
+      slotId: "lighting",
+      query: "soft light",
+      purpose: "compare",
+      depth: "focused",
+      status: "match",
+    });
+    expect(result.retrievalTrace?.searches[0].candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "light-1", status: "presented" }),
+      ]),
+    );
+    expect(result.retrievalTrace?.identities).toHaveLength(1);
+    expect(result.retrievalTrace?.identities[0]).toMatchObject({
+      round: 2,
+      term: "ganyu (genshin impact)",
+      status: "resolved",
+    });
   });
 
   it("uses tools for polish and text-only reverse, but not for reverse with images", async () => {
@@ -246,12 +268,18 @@ describe("tool-assisted retrieval", () => {
       },
       { content: finalJson([decision()]) },
     ]);
-    await new PromptOrchestrator({ vocabulary, llm }).orchestrate(input());
+    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(input());
     const second = toolContents(requests[2]).at(-1) as {
       groups: Array<{ excludedByAvoid: Array<{ id: string }>; duplicates: Array<{ id: string }>; candidates: Array<{ id: string }> }>;
     };
     expect(second.groups[0].excludedByAvoid.map((row) => row.id)).toContain("light-1");
     expect(second.groups[0].candidates.map((row) => row.id)).not.toContain("light-1");
+    expect(result.retrievalTrace?.searches[1].candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "light-1", status: "avoid" }),
+        expect.objectContaining({ id: "light-2", status: "duplicate" }),
+      ]),
+    );
   });
 
   it("returns budget_exceeded instead of silently dropping the budget rule", async () => {
@@ -312,19 +340,40 @@ describe("tool-assisted retrieval", () => {
 
   it("falls back to the former path when tool calling fails", async () => {
     const { llm, requests } = scriptedLlm([
+      {
+        toolCalls: [
+          { name: SEARCH_VOCABULARY_TOOL, arguments: { queries: [{ slotId: "lighting", category: "lighting", query: "soft light" }] } },
+        ],
+      },
       { error: new Error("tools are not supported") },
     ]);
     const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(input());
-    expect(requests).toHaveLength(1);
+    expect(requests).toHaveLength(2);
     expect(result.status).toBe("complete");
     expect(result.warnings.join(" ")).toContain("Tool retrieval failed");
     expect(result.termDecisions?.some((decision) => decision.origin === "model")).toBe(false);
+    expect(result.retrievalTrace?.searches).toHaveLength(1);
+    expect(result.retrievalTrace?.fallbacks).toEqual([
+      expect.objectContaining({
+        from: "tool-retrieval",
+        to: "plain-composition",
+        reason: "tools are not supported",
+      }),
+    ]);
   });
 
   it("allows a final answer without any tool call", async () => {
     const { llm } = scriptedLlm([{ content: finalJson([decision({ termIds: [], strategy: "create" })]) }]);
     const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(input());
     expect(result.status).toBe("complete");
+    expect(result.retrievalSummary).toEqual({ rounds: 0, queryCount: 0, candidateCount: 0 });
+  });
+
+  it("accepts zero decisions when the model legitimately makes no retrieval", async () => {
+    const { llm } = scriptedLlm([{ content: finalJson([]) }]);
+    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(input());
+    expect(result.status).toBe("complete");
+    expect(result.termDecisions).toEqual([]);
     expect(result.retrievalSummary).toEqual({ rounds: 0, queryCount: 0, candidateCount: 0 });
   });
 });

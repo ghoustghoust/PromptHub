@@ -5383,6 +5383,69 @@
         "ignore": "弃用"
       }
     },
+    "retrievalTrace": {
+      "title": "检索过程",
+      "summary": "{{searches}} 次检索 · {{identities}} 次身份解析",
+      "queryTitle": "第 {{round}} 轮 · {{category}} / {{slot}} · {{query}}",
+      "showDetails": "展开",
+      "hideDetails": "收起",
+      "alternate": "备用查询：{{query}}",
+      "score": "得分 {{score}}",
+      "escalated": "短查询已按规则扩展",
+      "truncated": "受预算或策略限制",
+      "noCandidates": "没有返回候选。",
+      "identities": "身份解析",
+      "purpose": {
+        "resolve": "精确解析",
+        "compare": "候选比较",
+        "inspire": "创意启发"
+      },
+      "depth": {
+        "exact": "精确",
+        "focused": "聚焦",
+        "exploratory": "探索"
+      },
+      "searchStatus": {
+        "match": "有候选",
+        "no_match": "无匹配",
+        "budget_exceeded": "预算不足",
+        "forbidden": "禁止查询"
+      },
+      "candidateStatus": {
+        "presented": "展示给模型",
+        "avoid": "主动避开",
+        "duplicate": "重复过滤",
+        "conflict": "冲突过滤",
+        "budget": "预算过滤",
+        "relation": "关系过滤",
+        "collapsed": "近似合并"
+      },
+      "match": {
+        "exact": "精确匹配",
+        "phrase": "短语匹配",
+        "lexical": "词法匹配"
+      },
+      "relation": {
+        "equivalent": "等价",
+        "narrower": "更具体",
+        "broader": "更宽泛",
+        "related": "相关",
+        "opposite": "相反"
+      },
+      "identityStatus": {
+        "resolved": "已解析",
+        "ambiguous": "有歧义",
+        "unresolved": "未解析",
+        "budget_exceeded": "预算不足"
+      },
+      "path": {
+        "tool-retrieval": "工具检索",
+        "dynamic-polish": "动态润色",
+        "plain-composition": "普通组成",
+        "composition": "提示词组成",
+        "deterministic-fallback": "确定性回退"
+      }
+    },
     "skillDraft": "可复用 Skill 草稿",
     "referenceContent": "参考内容（由 PromptHub 提供）",
     "creativeSuggestions": "创意建议（可选）",

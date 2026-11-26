@@ -252,6 +252,32 @@ describe("PromptOrchestrator dynamic polish", () => {
     expect(JSON.stringify(secondRound)).toContain("golden hour");
     expect(JSON.stringify(secondRound)).not.toContain("soft light");
     expect(result.selectedTerms.map((term) => term.id)).toEqual(["light-4"]);
+
+    const trace = result.retrievalTrace;
+    expect(trace?.searches).toHaveLength(2);
+    expect(trace?.searches[0]).toMatchObject({
+      round: 1,
+      origin: "model",
+      slotId: "lighting",
+      category: "lighting",
+      query: "soft light",
+      alternateQuery: "柔和光线",
+      purpose: "compare",
+      depth: "focused",
+    });
+    expect(trace?.searches[1]).toMatchObject({ round: 2, query: "golden hour" });
+    expect(trace?.searches[0].candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "light-1", status: "presented" }),
+        expect.objectContaining({ id: "light-2", status: "collapsed" }),
+      ]),
+    );
+    expect(trace?.searches[1].candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "light-4", status: "presented" }),
+      ]),
+    );
+    expect(trace?.fallbacks).toEqual([]);
   });
 
   it("refuses a third retrieval round and degrades instead of looping", async () => {
@@ -325,6 +351,19 @@ describe("PromptOrchestrator dynamic polish", () => {
     );
     expect(fixed?.source).toBe("vocabulary");
     expect(calls[0].user).toContain("style-1");
+  });
+
+  it("accepts an empty decision list when no retrieval is needed", async () => {
+    const { llm } = scriptedLlm([
+      planResponse([]),
+      finalComposition([]),
+    ]);
+    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(
+      polishInput(),
+    );
+    expect(result.status).toBe("complete");
+    expect(result.termDecisions).toEqual([]);
+    expect(result.retrievalSummary).toEqual({ rounds: 0, queryCount: 0, candidateCount: 0 });
   });
 
   it("never retrieves artist, character or NSFW categories even when the model asks", async () => {

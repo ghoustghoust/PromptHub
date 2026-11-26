@@ -4905,6 +4905,69 @@
         "ignore": "Ignorar"
       }
     },
+    "retrievalTrace": {
+      "title": "Traza de recuperación",
+      "summary": "{{searches}} búsquedas · {{identities}} resoluciones de identidad",
+      "queryTitle": "Ronda {{round}} · {{category}} / {{slot}} · {{query}}",
+      "showDetails": "Detalles",
+      "hideDetails": "Ocultar",
+      "alternate": "Consulta alternativa: {{query}}",
+      "score": "Puntuación {{score}}",
+      "escalated": "Consulta corta ampliada por la regla",
+      "truncated": "Limitado por presupuesto o política",
+      "noCandidates": "No se devolvieron candidatos.",
+      "identities": "Resoluciones de identidad",
+      "purpose": {
+        "resolve": "Resolve",
+        "compare": "Compare",
+        "inspire": "Inspire"
+      },
+      "depth": {
+        "exact": "Exact",
+        "focused": "Focused",
+        "exploratory": "Exploratory"
+      },
+      "searchStatus": {
+        "match": "Coincidencia",
+        "no_match": "Sin coincidencias",
+        "budget_exceeded": "Presupuesto superado",
+        "forbidden": "Prohibido"
+      },
+      "candidateStatus": {
+        "presented": "presentado",
+        "avoid": "evitado",
+        "duplicate": "duplicado",
+        "conflict": "conflicto",
+        "budget": "filtrado por presupuesto",
+        "relation": "filtrado por relación",
+        "collapsed": "fusionado"
+      },
+      "match": {
+        "exact": "exact match",
+        "phrase": "phrase match",
+        "lexical": "lexical match"
+      },
+      "relation": {
+        "equivalent": "equivalent",
+        "narrower": "narrower",
+        "broader": "broader",
+        "related": "related",
+        "opposite": "opposite"
+      },
+      "identityStatus": {
+        "resolved": "resuelto",
+        "ambiguous": "ambiguo",
+        "unresolved": "sin resolver",
+        "budget_exceeded": "presupuesto superado"
+      },
+      "path": {
+        "tool-retrieval": "Tool retrieval",
+        "dynamic-polish": "Dynamic polish",
+        "plain-composition": "Plain composition",
+        "composition": "Composition",
+        "deterministic-fallback": "Deterministic fallback"
+      }
+    },
     "skillDraft": "Borrador de Skill reutilizable",
     "referenceContent": "Contenido de referencia (proporcionado por PromptHub)",
     "creativeSuggestions": "Sugerencias creativas (opcionales)",

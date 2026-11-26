@@ -65,6 +65,7 @@ import {
   refineMossLayoutCaptions,
   reverseMossLayoutFromImages,
 } from "./prompt-moss-layout-assist";
+import { PromptRetrievalTraceCollector } from "./prompt-retrieval-trace";
 
 const MODES: ReadonlySet<string> = new Set([
   "expand",
@@ -695,6 +696,7 @@ export class PromptOrchestrator {
     directives: PromptModelDirective[],
     entities: PromptEntityResolution[],
     routePlan: PromptRoutePlan,
+    retrievalTrace: PromptRetrievalTraceCollector,
   ): Promise<CompositionRun> {
     if (isDynamicPolish(input)) {
       const dynamic = await runDynamicPolish({
@@ -705,6 +707,7 @@ export class PromptOrchestrator {
         modelDirectives: directives,
         entities,
         routePlan,
+        trace: retrievalTrace,
       });
       return { ...dynamic, warnings: [...selection.warnings, ...dynamic.warnings] };
     }
@@ -748,6 +751,7 @@ export class PromptOrchestrator {
     directives: PromptModelDirective[],
     entities: PromptEntityResolution[],
     routePlan: PromptRoutePlan,
+    retrievalTrace: PromptRetrievalTraceCollector,
   ): Promise<CompositionRun> {
     if (supportsToolRetrieval(input, this.options.llm)) {
       try {
@@ -759,6 +763,7 @@ export class PromptOrchestrator {
           modelDirectives: directives,
           entities,
           routePlan,
+          trace: retrievalTrace,
           ...(this.options.onEvent ? { onEvent: this.options.onEvent } : {}),
           ...(this.options.signal ? { signal: this.options.signal } : {}),
         });
@@ -766,12 +771,18 @@ export class PromptOrchestrator {
       } catch (error) {
         // A cancelled run must not silently degrade into a deterministic fallback.
         throwIfCancelled(this.options.signal);
+        retrievalTrace.addFallback({
+          from: "tool-retrieval",
+          to: isDynamicPolish(input) ? "dynamic-polish" : "plain-composition",
+          reason: errorMessage(error),
+        });
         const fallback = await this.composePlain(
           input,
           selection,
           directives,
           entities,
           routePlan,
+          retrievalTrace,
         );
         return {
           ...fallback,
@@ -782,7 +793,7 @@ export class PromptOrchestrator {
         };
       }
     }
-    return this.composePlain(input, selection, directives, entities, routePlan);
+    return this.composePlain(input, selection, directives, entities, routePlan, retrievalTrace);
   }
 
   async orchestrate(
@@ -876,6 +887,7 @@ const writingLayerText = buildWritingLayerText(input);
             : {}),
         }
       : null;
+    const retrievalTrace = new PromptRetrievalTraceCollector();
     try {
       const completed = await this.compose(
         input,
@@ -883,6 +895,7 @@ const writingLayerText = buildWritingLayerText(input);
         directives,
         entities,
         routePlan,
+        retrievalTrace,
       );
       validateTaskComposition(input, completed.composition);
       const finalized = finalizeMossLayoutComposition(input, completed.composition);
@@ -937,6 +950,9 @@ const writingLayerText = buildWritingLayerText(input);
         ...(completed.retrievalSummary
           ? { retrievalSummary: completed.retrievalSummary }
           : {}),
+        ...(retrievalTrace.hasContent()
+          ? { retrievalTrace: retrievalTrace.snapshot() }
+          : {}),
         ...(entities.length > 0 ? { entityResolutions: entities } : {}),
         routePlan,
         ...(artistRouting.routes.length > 0
@@ -947,6 +963,11 @@ const writingLayerText = buildWritingLayerText(input);
       };
     } catch (error) {
       throwIfCancelled(this.options.signal);
+      retrievalTrace.addFallback({
+        from: "composition",
+        to: "deterministic-fallback",
+        reason: errorMessage(error),
+      });
       const composition = buildFallbackComposition(
         input,
         compositionTerms,
@@ -1000,6 +1021,9 @@ const writingLayerText = buildWritingLayerText(input);
         guidanceMode: input.guidanceMode ?? "agent-led",
         termDecisions: decisions,
         provenance,
+        ...(retrievalTrace.hasContent()
+          ? { retrievalTrace: retrievalTrace.snapshot() }
+          : {}),
         ...(entities.length > 0 ? { entityResolutions: entities } : {}),
         routePlan,
         ...(artistRouting.routes.length > 0

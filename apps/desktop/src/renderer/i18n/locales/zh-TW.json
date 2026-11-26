@@ -4905,6 +4905,69 @@
         "ignore": "棄用"
       }
     },
+    "retrievalTrace": {
+      "title": "檢索過程",
+      "summary": "{{searches}} 次檢索 · {{identities}} 次身分解析",
+      "queryTitle": "第 {{round}} 輪 · {{category}} / {{slot}} · {{query}}",
+      "showDetails": "展開",
+      "hideDetails": "收起",
+      "alternate": "備用查詢：{{query}}",
+      "score": "得分 {{score}}",
+      "escalated": "短查詢已按規則擴展",
+      "truncated": "受預算或策略限制",
+      "noCandidates": "沒有返回候選。",
+      "identities": "身分解析",
+      "purpose": {
+        "resolve": "精確解析",
+        "compare": "候選比較",
+        "inspire": "創意啟發"
+      },
+      "depth": {
+        "exact": "精確",
+        "focused": "聚焦",
+        "exploratory": "探索"
+      },
+      "searchStatus": {
+        "match": "有候選",
+        "no_match": "無匹配",
+        "budget_exceeded": "預算不足",
+        "forbidden": "禁止查詢"
+      },
+      "candidateStatus": {
+        "presented": "展示給模型",
+        "avoid": "主動避開",
+        "duplicate": "重複過濾",
+        "conflict": "衝突過濾",
+        "budget": "預算過濾",
+        "relation": "關係過濾",
+        "collapsed": "近似合併"
+      },
+      "match": {
+        "exact": "精確匹配",
+        "phrase": "短語匹配",
+        "lexical": "詞法匹配"
+      },
+      "relation": {
+        "equivalent": "等價",
+        "narrower": "更具體",
+        "broader": "更寬泛",
+        "related": "相關",
+        "opposite": "相反"
+      },
+      "identityStatus": {
+        "resolved": "已解析",
+        "ambiguous": "有歧義",
+        "unresolved": "未解析",
+        "budget_exceeded": "預算不足"
+      },
+      "path": {
+        "tool-retrieval": "工具檢索",
+        "dynamic-polish": "動態潤色",
+        "plain-composition": "普通組成",
+        "composition": "提示詞組成",
+        "deterministic-fallback": "確定性回退"
+      }
+    },
     "skillDraft": "可重用 Skill 草稿",
     "referenceContent": "參考內容（由 PromptHub 提供）",
     "creativeSuggestions": "創意建議（可選）",

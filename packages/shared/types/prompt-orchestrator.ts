@@ -326,6 +326,79 @@ export interface PromptRetrievalSummary {
   candidateCount: number;
 }
 
+export type PromptRetrievalCandidateStatus =
+  | "presented"
+  | "avoid"
+  | "duplicate"
+  | "conflict"
+  | "budget"
+  | "relation"
+  | "collapsed";
+
+/** One candidate observed by the retrieval policy and its actual disposition. */
+export interface PromptRetrievalCandidateTrace {
+  id: string;
+  en: string;
+  zh?: string | null;
+  match?: "exact" | "phrase" | "lexical";
+  relation?: "equivalent" | "narrower" | "broader" | "related" | "opposite";
+  score?: number;
+  status: PromptRetrievalCandidateStatus;
+  reason?: string;
+}
+
+/** A real search issued during one assistant round. */
+export interface PromptRetrievalSearchTrace {
+  round: number;
+  origin: "model" | "policy";
+  slotId: string;
+  category: string;
+  query: string;
+  alternateQuery?: string;
+  purpose: "resolve" | "compare" | "inspire";
+  depth: "exact" | "focused" | "exploratory";
+  status: "match" | "no_match" | "budget_exceeded" | "forbidden";
+  escalated: boolean;
+  truncated: boolean;
+  candidates: PromptRetrievalCandidateTrace[];
+}
+
+/** Exact identity lookup; ambiguous candidates are shown without guessing. */
+export interface PromptIdentityLookupTrace {
+  round: number;
+  origin: "model" | "policy";
+  term: string;
+  status: "resolved" | "ambiguous" | "unresolved" | "budget_exceeded";
+  displayName?: string;
+  candidates: Array<{
+    displayName: string;
+    category: string;
+    series: string | null;
+    zh: string | null;
+  }>;
+}
+
+export interface PromptRetrievalToolErrorTrace {
+  round: number;
+  tool: string;
+  error: string;
+  message: string;
+}
+
+export interface PromptRetrievalFallbackTrace {
+  from: string;
+  to: string;
+  reason: string;
+}
+
+/** Observable execution evidence, not a model chain-of-thought transcript. */
+export interface PromptRetrievalTrace {
+  searches: PromptRetrievalSearchTrace[];
+  identities: PromptIdentityLookupTrace[];
+  errors: PromptRetrievalToolErrorTrace[];
+  fallbacks: PromptRetrievalFallbackTrace[];
+}
+
 export interface PromptModelDirective {
   modelId: string;
   kind: PromptModelProfileKind;
@@ -744,6 +817,8 @@ export interface PromptOrchestrationResult {
   /** Present for the dynamic polish prototype; ignored candidates remain auditable. */
   termDecisions?: PromptTermDecision[];
   retrievalSummary?: PromptRetrievalSummary;
+  /** Actual queries, candidates, identity lookups, tool errors and fallbacks. */
+  retrievalTrace?: PromptRetrievalTrace;
   /** Named identities recognized in the input, including ambiguous candidates. */
   entityResolutions?: PromptEntityResolution[];
   /** Deterministic input classification used to choose the retrieval path. */

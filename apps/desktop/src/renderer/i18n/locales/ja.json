@@ -4905,6 +4905,69 @@
         "ignore": "不採用"
       }
     },
+    "retrievalTrace": {
+      "title": "検索トレース",
+      "summary": "{{searches}} 件の検索 · {{identities}} 件の身份解決",
+      "queryTitle": "ラウンド {{round}} · {{category}} / {{slot}} · {{query}}",
+      "showDetails": "詳細",
+      "hideDetails": "閉じる",
+      "alternate": "代替クエリ：{{query}}",
+      "score": "スコア {{score}}",
+      "escalated": "短いクエリを規則で拡張",
+      "truncated": "予算またはポリシーで制限",
+      "noCandidates": "候補はありません。",
+      "identities": "身份解決",
+      "purpose": {
+        "resolve": "Resolve",
+        "compare": "Compare",
+        "inspire": "Inspire"
+      },
+      "depth": {
+        "exact": "Exact",
+        "focused": "Focused",
+        "exploratory": "Exploratory"
+      },
+      "searchStatus": {
+        "match": "一致",
+        "no_match": "一致なし",
+        "budget_exceeded": "予算超過",
+        "forbidden": "禁止"
+      },
+      "candidateStatus": {
+        "presented": "提示済み",
+        "avoid": "除外指定",
+        "duplicate": "重複除外",
+        "conflict": "競合除外",
+        "budget": "予算で除外",
+        "relation": "関係で除外",
+        "collapsed": "近似を統合"
+      },
+      "match": {
+        "exact": "exact match",
+        "phrase": "phrase match",
+        "lexical": "lexical match"
+      },
+      "relation": {
+        "equivalent": "equivalent",
+        "narrower": "narrower",
+        "broader": "broader",
+        "related": "related",
+        "opposite": "opposite"
+      },
+      "identityStatus": {
+        "resolved": "解決済み",
+        "ambiguous": "曖昧",
+        "unresolved": "未解決",
+        "budget_exceeded": "予算超過"
+      },
+      "path": {
+        "tool-retrieval": "Tool retrieval",
+        "dynamic-polish": "Dynamic polish",
+        "plain-composition": "Plain composition",
+        "composition": "Composition",
+        "deterministic-fallback": "Deterministic fallback"
+      }
+    },
     "skillDraft": "再利用可能な Skill ドラフト",
     "referenceContent": "参照コンテンツ（PromptHub 提供）",
     "creativeSuggestions": "創作提案（任意）",

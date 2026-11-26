@@ -5385,6 +5385,69 @@
         "ignore": "Ignore"
       }
     },
+    "retrievalTrace": {
+      "title": "Retrieval trace",
+      "summary": "{{searches}} searches · {{identities}} identity lookups",
+      "queryTitle": "Round {{round}} · {{category}} / {{slot}} · {{query}}",
+      "showDetails": "Details",
+      "hideDetails": "Hide",
+      "alternate": "Alternate query: {{query}}",
+      "score": "Score {{score}}",
+      "escalated": "Widened by the short-query rule",
+      "truncated": "Limited by budget or policy",
+      "noCandidates": "No candidates were returned.",
+      "identities": "Identity lookups",
+      "purpose": {
+        "resolve": "Resolve",
+        "compare": "Compare",
+        "inspire": "Inspire"
+      },
+      "depth": {
+        "exact": "Exact",
+        "focused": "Focused",
+        "exploratory": "Exploratory"
+      },
+      "searchStatus": {
+        "match": "Match",
+        "no_match": "No match",
+        "budget_exceeded": "Budget exceeded",
+        "forbidden": "Forbidden"
+      },
+      "candidateStatus": {
+        "presented": "presented",
+        "avoid": "avoided",
+        "duplicate": "duplicate",
+        "conflict": "conflict",
+        "budget": "budget-filtered",
+        "relation": "relation-filtered",
+        "collapsed": "collapsed"
+      },
+      "match": {
+        "exact": "exact match",
+        "phrase": "phrase match",
+        "lexical": "lexical match"
+      },
+      "relation": {
+        "equivalent": "equivalent",
+        "narrower": "narrower",
+        "broader": "broader",
+        "related": "related",
+        "opposite": "opposite"
+      },
+      "identityStatus": {
+        "resolved": "resolved",
+        "ambiguous": "ambiguous",
+        "unresolved": "unresolved",
+        "budget_exceeded": "budget exceeded"
+      },
+      "path": {
+        "tool-retrieval": "Tool retrieval",
+        "dynamic-polish": "Dynamic polish",
+        "plain-composition": "Plain composition",
+        "composition": "Composition",
+        "deterministic-fallback": "Deterministic fallback"
+      }
+    },
     "skillDraft": "Reusable Skill draft",
     "referenceContent": "Reference content (supplied by PromptHub)",
     "creativeSuggestions": "Creative suggestions (optional)",

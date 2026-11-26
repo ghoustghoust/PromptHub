@@ -466,6 +466,7 @@ export function PromptOrchestratorResultPanel({
             <PromptTermDecisionPanel
               decisions={result.termDecisions}
               summary={result.retrievalSummary}
+              trace={result.retrievalTrace}
             />
           ) : (
             <p className="text-xs text-muted-foreground">

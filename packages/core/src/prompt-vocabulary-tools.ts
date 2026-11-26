@@ -1,5 +1,10 @@
 import type { PromptVocabDB } from "@prompthub/db";
-import type { PromptOrchestrationInput, PromptSelectedTerm, PromptTerm } from "@prompthub/shared/types";
+import type {
+  PromptOrchestrationInput,
+  PromptRetrievalSearchTrace,
+  PromptSelectedTerm,
+  PromptTerm,
+} from "@prompthub/shared/types";
 import { normalizeEntityKey } from "@prompthub/shared/utils/prompt-entity-key";
 import { entityCandidates } from "./prompt-entity-resolution";
 import type { PromptLlmTool } from "./prompt-orchestrator-llm";
@@ -13,6 +18,10 @@ import {
   type RetrievalQuery,
 } from "./prompt-vocabulary-retrieval";
 import { estimatePromptTokens } from "./prompt-token-budget";
+import {
+  buildSearchTraceEntries,
+  PromptRetrievalTraceCollector,
+} from "./prompt-retrieval-trace";
 
 const FORBIDDEN_SEARCH_CATEGORIES: ReadonlySet<string> = new Set([
   "artist",
@@ -108,12 +117,15 @@ export interface VocabularyToolState {
   queryCount: number;
   candidateCount: number;
   warnings: string[];
+  round: number;
+  trace: PromptRetrievalTraceCollector;
 }
 
 export function createVocabularyToolState(options: {
   input: PromptOrchestrationInput;
   vocabulary: PromptVocabDB;
   explicitTerms: PromptSelectedTerm[];
+  trace?: PromptRetrievalTraceCollector;
 }): VocabularyToolState {
   const blockedConflicts = new Map<string, string>();
   for (const term of options.explicitTerms) {
@@ -134,6 +146,8 @@ export function createVocabularyToolState(options: {
     queryCount: 0,
     candidateCount: 0,
     warnings: [],
+    round: 0,
+    trace: options.trace ?? new PromptRetrievalTraceCollector(),
   };
 }
 
@@ -191,11 +205,25 @@ function resolveTool(value: Record<string, unknown>, state: VocabularyToolState)
     })));
     if (candidates.length === 0) {
       results.push({ term, status: "unresolved", candidates: [] });
+      state.trace.addIdentity({
+        round: state.round,
+        origin: "model",
+        term,
+        status: "unresolved",
+        candidates: [],
+      });
       continue;
     }
     const cost = estimatePromptTokens(JSON.stringify(candidates)) + 8;
     if (state.budget <= 0 || state.spent + cost > state.budget) {
       results.push({ term, status: "budget_exceeded", candidates: [] });
+      state.trace.addIdentity({
+        round: state.round,
+        origin: "model",
+        term,
+        status: "budget_exceeded",
+        candidates: [],
+      });
       state.warnings.push(`Identity lookup for "${term}" exceeded the vocabulary budget.`);
       continue;
     }
@@ -223,6 +251,19 @@ function resolveTool(value: Record<string, unknown>, state: VocabularyToolState)
             hasAppearanceBundle: only.hasAppearanceBundle,
           }
         : null,
+      candidates: candidates.map((candidate) => ({
+        displayName: candidate.displayName,
+        category: candidate.category,
+        series: candidate.series,
+        zh: candidate.zh,
+      })),
+    });
+    state.trace.addIdentity({
+      round: state.round,
+      origin: "model",
+      term,
+      status: only ? "resolved" : "ambiguous",
+      ...(only ? { displayName: only.displayName } : {}),
       candidates: candidates.map((candidate) => ({
         displayName: candidate.displayName,
         category: candidate.category,
@@ -291,6 +332,21 @@ function searchTool(value: Record<string, unknown>, state: VocabularyToolState):
         candidates: [],
         reason: `Category ${query.category} is not searchable; identities go through resolve_vocabulary.`,
       });
+      const traced: PromptRetrievalSearchTrace = {
+        round: state.round,
+        origin: "model",
+        slotId: query.slotId,
+        category: query.category,
+        query: query.query,
+        ...(query.alternateQuery ? { alternateQuery: query.alternateQuery } : {}),
+        purpose: query.purpose,
+        depth: query.depth,
+        status: "forbidden",
+        escalated: false,
+        truncated: false,
+        candidates: [],
+      };
+      state.trace.addSearches([traced]);
       state.warnings.push(
         `Search rejected forbidden category "${query.category}" for slot ${query.slotId}.`,
       );
@@ -331,6 +387,14 @@ function searchTool(value: Record<string, unknown>, state: VocabularyToolState):
     excludedByAvoid: result.excludedByAvoid,
     duplicates: result.duplicates,
   }]));
+  state.trace.addSearches(buildSearchTraceEntries({
+    round: state.round,
+    origin: "model",
+    queries: acceptable,
+    results,
+    visible,
+    extrasBySlot: bySlot,
+  }));
   for (const group of visible.groups) {
     const record = group as Record<string, unknown>;
     const extra = bySlot.get(String(record.slotId));
@@ -349,6 +413,16 @@ function searchTool(value: Record<string, unknown>, state: VocabularyToolState):
   return { content: JSON.stringify({ groups }), terms: used };
 }
 
+function toolError(
+  state: VocabularyToolState,
+  tool: string,
+  error: string,
+  message: string,
+): VocabularyToolOutcome {
+  state.trace.addError({ round: state.round, tool, error, message });
+  return { content: JSON.stringify({ error, message }), terms: [] };
+}
+
 /**
  * Executes one model tool call. Argument or policy failures come back as a
  * tool result, not as an exception: the model can correct itself, while the
@@ -363,32 +437,22 @@ export function executeVocabularyTool(
   try {
     parsed = rawArguments.trim() ? JSON.parse(rawArguments) : {};
   } catch {
-    return {
-      content: JSON.stringify({ error: "invalid_arguments", message: "arguments must be valid JSON" }),
-      terms: [],
-    };
+    return toolError(state, name, "invalid_arguments", "arguments must be valid JSON");
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    return {
-      content: JSON.stringify({ error: "invalid_arguments", message: "arguments must be an object" }),
-      terms: [],
-    };
+    return toolError(state, name, "invalid_arguments", "arguments must be an object");
   }
   const value = parsed as Record<string, unknown>;
   try {
     if (name === RESOLVE_VOCABULARY_TOOL) return resolveTool(value, state);
     if (name === SEARCH_VOCABULARY_TOOL) return searchTool(value, state);
-    return {
-      content: JSON.stringify({ error: "unknown_tool", message: `Unknown tool: ${name}` }),
-      terms: [],
-    };
+    return toolError(state, name, "unknown_tool", `Unknown tool: ${name}`);
   } catch (error) {
-    return {
-      content: JSON.stringify({
-        error: "invalid_arguments",
-        message: error instanceof Error ? error.message : String(error),
-      }),
-      terms: [],
-    };
+    return toolError(
+      state,
+      name,
+      "invalid_arguments",
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }

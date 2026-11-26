@@ -119,6 +119,7 @@ function parseDecision(
 /**
  * One decision contract for every retrieval mode: the model either reused,
  * adapted, created or ignored a slot, and only supplied ids are acceptable.
+ * An empty list is valid when no retrieval or candidate use was needed.
  */
 export function parseTermDecisions(
   content: string,
@@ -126,10 +127,8 @@ export function parseTermDecisions(
   label = "Prompt composition",
 ): ParsedTermDecisions {
   const root = parseJsonObject(content, label);
-  if (!Array.isArray(root.termDecisions) ||
-      root.termDecisions.length < 1 ||
-      root.termDecisions.length > MAX_DECISIONS) {
-    throw new Error(`${label} requires 1 to ${MAX_DECISIONS} termDecisions`);
+  if (!Array.isArray(root.termDecisions) || root.termDecisions.length > MAX_DECISIONS) {
+    throw new Error(`${label} requires 0 to ${MAX_DECISIONS} termDecisions`);
   }
   const warnings: string[] = [];
   const decisions = root.termDecisions.map((value, index) =>

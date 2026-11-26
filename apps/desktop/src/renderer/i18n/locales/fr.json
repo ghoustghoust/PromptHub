@@ -4906,6 +4906,69 @@
         "ignore": "Rejeter"
       }
     },
+    "retrievalTrace": {
+      "title": "Trace de recherche",
+      "summary": "{{searches}} recherches · {{identities}} résolutions d’identité",
+      "queryTitle": "Tour {{round}} · {{category}} / {{slot}} · {{query}}",
+      "showDetails": "Détails",
+      "hideDetails": "Masquer",
+      "alternate": "Requête alternative : {{query}}",
+      "score": "Score {{score}}",
+      "escalated": "Requête courte élargie par la règle",
+      "truncated": "Limité par le budget ou la politique",
+      "noCandidates": "Aucun candidat renvoyé.",
+      "identities": "Résolutions d’identité",
+      "purpose": {
+        "resolve": "Resolve",
+        "compare": "Compare",
+        "inspire": "Inspire"
+      },
+      "depth": {
+        "exact": "Exact",
+        "focused": "Focused",
+        "exploratory": "Exploratory"
+      },
+      "searchStatus": {
+        "match": "Correspondance",
+        "no_match": "Aucune correspondance",
+        "budget_exceeded": "Budget dépassé",
+        "forbidden": "Interdit"
+      },
+      "candidateStatus": {
+        "presented": "présenté",
+        "avoid": "évité",
+        "duplicate": "doublon",
+        "conflict": "conflit",
+        "budget": "filtré par budget",
+        "relation": "filtré par relation",
+        "collapsed": "fusionné"
+      },
+      "match": {
+        "exact": "exact match",
+        "phrase": "phrase match",
+        "lexical": "lexical match"
+      },
+      "relation": {
+        "equivalent": "equivalent",
+        "narrower": "narrower",
+        "broader": "broader",
+        "related": "related",
+        "opposite": "opposite"
+      },
+      "identityStatus": {
+        "resolved": "résolu",
+        "ambiguous": "ambigu",
+        "unresolved": "non résolu",
+        "budget_exceeded": "budget dépassé"
+      },
+      "path": {
+        "tool-retrieval": "Tool retrieval",
+        "dynamic-polish": "Dynamic polish",
+        "plain-composition": "Plain composition",
+        "composition": "Composition",
+        "deterministic-fallback": "Deterministic fallback"
+      }
+    },
     "skillDraft": "Brouillon de Skill réutilisable",
     "referenceContent": "Contenu de référence (fourni par PromptHub)",
     "creativeSuggestions": "Suggestions créatives (facultatives)",

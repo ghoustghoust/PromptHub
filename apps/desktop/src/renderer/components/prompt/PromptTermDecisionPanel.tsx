@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   PromptRetrievalSummary,
+  PromptRetrievalTrace,
   PromptTermDecision,
   PromptTermDecisionStrategy,
 } from "@prompthub/shared/types";
+import { PromptRetrievalTracePanel } from "./PromptRetrievalTracePanel";
 
 type DecisionFilter = "all" | PromptTermDecisionStrategy;
 
@@ -19,6 +21,7 @@ const STRATEGY_CLASSES: Record<PromptTermDecisionStrategy, string> = {
 interface Props {
   decisions: PromptTermDecision[];
   summary?: PromptRetrievalSummary;
+  trace?: PromptRetrievalTrace;
 }
 
 function DecisionCard({ decision }: { decision: PromptTermDecision }) {
@@ -91,7 +94,7 @@ function DecisionCard({ decision }: { decision: PromptTermDecision }) {
   );
 }
 
-export function PromptTermDecisionPanel({ decisions, summary }: Props) {
+export function PromptTermDecisionPanel({ decisions, summary, trace }: Props) {
   const { t } = useTranslation();
   const [filter, setFilter] = useState<DecisionFilter>("all");
   useEffect(() => setFilter("all"), [decisions]);
@@ -110,6 +113,7 @@ export function PromptTermDecisionPanel({ decisions, summary }: Props) {
           })}
         </p>
       )}
+      {trace && <PromptRetrievalTracePanel trace={trace} />}
       <div className="flex flex-wrap gap-1.5" aria-label={t("orchestrator.dynamicPolish.tab")}>
         {FILTERS.map((value) => {
           const count = value === "all"

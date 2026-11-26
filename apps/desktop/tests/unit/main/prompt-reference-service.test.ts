@@ -165,12 +165,23 @@ describe("director color card import", () => {
 });
 
 describe("director identity in the color card library", () => {
+  let secondRoot: string;
+
+  function writeIn(target: string, relativePath: string, content: string | Buffer): void {
+    const file = path.join(target, relativePath);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, content);
+  }
+
   function writeCard(
     directory: string,
     director: Record<string, unknown>,
     summary: string,
+    options: { target?: string; palette?: unknown; thumbnail?: string } = {},
   ): void {
-    write(
+    const target = options.target ?? root;
+    writeIn(
+      target,
       `${directory}/assets/color_palettes/palette.json`,
       JSON.stringify({
         director: {
@@ -178,17 +189,29 @@ describe("director identity in the color card library", () => {
           category: "01_黑色悬疑与冷调惊悚",
           ...director,
         },
-        palette: { primary: [{ hex: "#112233" }] },
+        palette: options.palette ?? { primary: [{ hex: "#112233" }] },
       }),
     );
-    write(
+    writeIn(
+      target,
       `${directory}/assets/references/reference_director_manifest.json`,
       JSON.stringify({
         director: { zh: "测试导演" },
         style_profile: { definition: summary },
       }),
     );
+    if (options.thumbnail) {
+      writeIn(target, `${directory}/assets/color_palettes/${options.thumbnail}`, Buffer.from("png"));
+    }
   }
+
+  beforeEach(() => {
+    secondRoot = fs.mkdtempSync(path.join(os.tmpdir(), "prompthub-reference-b-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(secondRoot, { recursive: true, force: true });
+  });
 
   it("reads the director id declared by the source card", () => {
     writeCard("01_黑色悬疑与冷调惊悚/001_Test_测试导演", { id: "001" }, "冷调。");
@@ -208,14 +231,81 @@ describe("director identity in the color card library", () => {
     ]);
   });
 
-  it("skips a second card that claims the same director id", () => {
-    writeCard("01_黑色悬疑与冷调惊悚/001_First_第一位", { id: "001" }, "冷调。");
-    writeCard("01_黑色悬疑与冷调惊悚/002_Second_第二位", { id: "001" }, "暖调。");
-    const preview = previewReferenceLibrary(root);
+  it("merges one director found in two roots into a single card", () => {
+    writeCard("01_黑色悬疑与冷调惊悚/001_Test_测试导演", { id: "001" }, "冷调。");
+    writeCard("01_黑色悬疑与冷调惊悚/001_Test_测试导演", { id: "001" }, "冷调。", {
+      target: secondRoot,
+    });
+
+    const preview = previewReferenceLibrary([root, secondRoot]);
     expect(preview.items).toHaveLength(1);
-    expect(preview.items[0].sourcePath).toContain("第一位");
-    const duplicate = preview.skipped.find((entry) => entry.path.includes("第二位"));
-    expect(duplicate?.reason).toContain("duplicate director id 001");
+    expect(preview.items[0].directorId).toBe("001");
+    expect(preview.items[0].sourcePaths).toHaveLength(2);
+    expect(preview.conflicts).toEqual([]);
+  });
+
+  it("reports a director whose content differs between the roots", () => {
+    writeCard("01_黑色悬疑与冷调惊悚/001_Test_测试导演", { id: "001" }, "冷调。");
+    writeCard("01_黑色悬疑与冷调惊悚/001_Test_测试导演", { id: "001" }, "暖调。", {
+      target: secondRoot,
+    });
+
+    const preview = previewReferenceLibrary([root, secondRoot]);
+    expect(preview.items).toHaveLength(1);
+    expect(preview.conflicts).toEqual([
+      {
+        path: expect.stringContaining(secondRoot),
+        reason: "divergent-director-content",
+        directorId: "001",
+      },
+    ]);
+  });
+
+  it("treats a formatting-only difference as the same content", () => {
+    writeCard("01_黑色悬疑与冷调惊悚/001_Test_测试导演", { id: "001" }, "冷调。");
+    // The same card written with another key order and line endings.
+    writeIn(
+      secondRoot,
+      "01_黑色悬疑与冷调惊悚/001_Test_测试导演/assets/color_palettes/palette.json",
+      JSON.stringify(
+        {
+          palette: { primary: [{ hex: "#112233" }] },
+          director: {
+            category: "01_黑色悬疑与冷调惊悚",
+            name_zh: "测试导演",
+            id: "001",
+          },
+        },
+        null,
+        2,
+      ).replace(/\n/g, "\r\n"),
+    );
+    writeIn(
+      secondRoot,
+      "01_黑色悬疑与冷调惊悚/001_Test_测试导演/assets/references/reference_director_manifest.json",
+      JSON.stringify({
+        style_profile: { definition: "冷调。" },
+        director: { zh: "测试导演" },
+      }),
+    );
+
+    const preview = previewReferenceLibrary([root, secondRoot]);
+    expect(preview.conflicts).toEqual([]);
+    expect(preview.items).toHaveLength(1);
+  });
+
+  it("picks the thumbnail by the fixed priority across the roots", () => {
+    writeCard("01_黑色悬疑与冷调惊悚/001_Test_测试导演", { id: "001" }, "冷调。", {
+      thumbnail: "影调色卡.png",
+    });
+    writeCard("01_黑色悬疑与冷调惊悚/001_Test_测试导演", { id: "001" }, "冷调。", {
+      target: secondRoot,
+      thumbnail: "palette_main.png",
+    });
+
+    const preview = previewReferenceLibrary([root, secondRoot]);
+    expect(preview.items).toHaveLength(1);
+    expect(preview.items[0].thumbnailPath).toContain("palette_main.png");
   });
 
   it("keeps the record id and creation time across a same-source re-import", () => {
@@ -254,5 +344,22 @@ describe("director identity in the color card library", () => {
     expect(rows.find((row) => row.id === second.id)?.summary).toBe(second.summary);
     // A selection stored in the workspace still resolves to the same record.
     expect(references.get(savedSelection)?.id).toBe(savedSelection);
+  });
+
+  it("keeps the record id when the card is later imported from another source", () => {
+    writeCard("01_黑色悬疑与冷调惊悚/001_Test_测试导演", { id: "001" }, "冷调。", {
+      target: secondRoot,
+    });
+    const first = commitReferenceImport(references, previewReferenceLibrary(secondRoot));
+    const stored = references.list()[0];
+    expect(first.itemIds).toEqual([stored.id]);
+
+    writeCard("01_黑色悬疑与冷调惊悚/001_Test_测试导演", { id: "001" }, "冷调。");
+    const second = commitReferenceImport(references, previewReferenceLibrary([root, secondRoot]));
+    const rows = references.list();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe(stored.id);
+    expect(rows[0].createdAt).toBe(stored.createdAt);
+    expect(rows[0].sourcePath).toContain(root);
   });
 });

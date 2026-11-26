@@ -44,6 +44,8 @@ export interface PromptReferenceItemPreview {
   style: PromptReferenceStyleProfile;
   thumbnailPath?: string;
   sourcePath: string;
+  /** Every source directory that holds this director, primary source first. */
+  sourcePaths?: string[];
   sourceHash: string;
 }
 
@@ -54,7 +56,8 @@ export interface PromptReferenceImportSkipped {
 
 export type PromptReferenceConflictReason =
   | "missing-director-id"
-  | "duplicate-director-id";
+  | "duplicate-director-id"
+  | "divergent-director-content";
 
 /** A card that needs attention but does not block the import. */
 export interface PromptReferenceImportConflict {

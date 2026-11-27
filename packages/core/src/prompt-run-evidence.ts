@@ -63,7 +63,12 @@ function checkableFacts(options: RunEvidenceOptions): CheckableFact[] {
     // The English form is the executable wording the prompt itself uses; a
     // localized template or CJK row is an explanation, not a literal fact.
     const text = (term.en || term.template || "").trim();
-    if (text && !CJK_TEXT.test(text)) facts.push({ label: text, text });
+    if (!text) continue;
+    // A locked term is a promise: it must survive verbatim whatever language
+    // the row uses. A merely recommended CJK row may legitimately be
+    // translated into an English prompt, so it is not checked literally.
+    if (!term.locked && CJK_TEXT.test(text)) continue;
+    facts.push({ label: text, text });
   }
   for (const directive of options.directives) {
     for (const word of directive.triggerWords) {

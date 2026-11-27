@@ -290,6 +290,52 @@ describe("deterministic final assembly", () => {
     expect(result.warnings.join(" ")).toContain("torn_shorts");
   });
 
+  it("reports a locked Chinese term the output did not keep", async () => {
+    vocabulary.addTerm({
+      id: "cloth-cn",
+      category: "clothing",
+      en: "黑色风衣",
+      validationStatus: "validated",
+      createdAt: "2026-11-26T00:00:00.000Z",
+    });
+    const result = await new PromptOrchestrator({
+      vocabulary,
+      llm: textLlm("A man in a black coat crossing a wet street"),
+    }).orchestrate(
+      baseInput({
+        guidanceMode: "human-led",
+        lockedTermIds: ["cloth-cn"],
+        selectedTermIds: ["cloth-cn"],
+      }),
+    );
+
+    // A locked term is a promise to the user: dropping it must be reported,
+    // even when the stored wording is Chinese and the prompt is English.
+    expect(result.assembly?.missingFacts).toContain("黑色风衣");
+    expect(result.warnings.join(" ")).toContain("黑色风衣");
+  });
+
+  it("does not report a merely recommended Chinese term", async () => {
+    vocabulary.addTerm({
+      id: "cloth-cn-2",
+      category: "clothing",
+      en: "灰色围巾",
+      validationStatus: "validated",
+      createdAt: "2026-11-26T00:00:00.000Z",
+    });
+    const result = await new PromptOrchestrator({
+      vocabulary,
+      llm: textLlm("A woman in a grey scarf crossing a wet street"),
+    }).orchestrate(
+      baseInput({
+        guidanceMode: "human-led",
+        selectedTermIds: ["cloth-cn-2"],
+      }),
+    );
+
+    expect(result.assembly?.missingFacts).not.toContain("灰色围巾");
+  });
+
   it("reports a missing trigger word without injecting it", async () => {
     const result = await new PromptOrchestrator({
       vocabulary,

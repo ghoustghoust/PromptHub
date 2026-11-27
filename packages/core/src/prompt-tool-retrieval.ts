@@ -87,7 +87,7 @@ Tool-assisted knowledge contract:
 - Four strategies per slot: reuse (use a supplied term), adapt (anchor on supplied ids and add context), create (no suitable candidate, write your own), ignore (reject the candidates). Never invent ids.
 - Preserve the user's identity anchors, negations, fixed parameters and explicit selections. Do not expand a resolved name into an assumed appearance.
 - The current retrieval path is ${path}. When it is entity-only, no search is needed and creativity must not invent visual facts.
-- Finish by returning the final JSON composition with initialPrompt, completePrompt, fields and termDecisions, exactly as the output contract requires.`;
+- Finish by returning the final JSON composition with initialPrompt, completePrompt, fields and termDecisions, exactly as the output contract requires. When you made no vocabulary decision, return "termDecisions": [] instead of omitting the field.`;
 }
 
 function identityWarnings(

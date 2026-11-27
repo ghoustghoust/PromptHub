@@ -127,11 +127,19 @@ export function parseTermDecisions(
   label = "Prompt composition",
 ): ParsedTermDecisions {
   const root = parseJsonObject(content, label);
-  if (!Array.isArray(root.termDecisions) || root.termDecisions.length > MAX_DECISIONS) {
+  const warnings: string[] = [];
+  const rawDecisions = root.termDecisions;
+  // An omitted or null list means the model made no vocabulary decision.
+  // That is a legitimate outcome, not a malformed answer; only a present,
+  // non-array or oversized value is rejected.
+  if (rawDecisions !== undefined && rawDecisions !== null && !Array.isArray(rawDecisions)) {
     throw new Error(`${label} requires 0 to ${MAX_DECISIONS} termDecisions`);
   }
-  const warnings: string[] = [];
-  const decisions = root.termDecisions.map((value, index) =>
+  if (Array.isArray(rawDecisions) && rawDecisions.length > MAX_DECISIONS) {
+    throw new Error(`${label} requires 0 to ${MAX_DECISIONS} termDecisions`);
+  }
+  const rows: unknown[] = Array.isArray(rawDecisions) ? rawDecisions : [];
+  const decisions = rows.map((value, index) =>
     parseDecision(value, index, available, warnings));
   const used = new Map<string, PromptSelectedTerm>();
   for (const decision of decisions) {

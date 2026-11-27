@@ -366,6 +366,23 @@ describe("PromptOrchestrator dynamic polish", () => {
     expect(result.retrievalSummary).toEqual({ rounds: 0, queryCount: 0, candidateCount: 0 });
   });
 
+  it("accepts a composition that omits the decision list", async () => {
+    const { llm } = scriptedLlm([
+      planResponse([]),
+      JSON.stringify({
+        initialPrompt: "source",
+        completePrompt: "polished output",
+        fields: [],
+      }),
+    ]);
+    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(
+      polishInput(),
+    );
+    expect(result.status).toBe("complete");
+    expect(result.termDecisions).toEqual([]);
+    expect(result.warnings.join(" ")).not.toContain("deterministic fallback");
+  });
+
   it("never retrieves artist, character or NSFW categories even when the model asks", async () => {
     const { llm, calls } = scriptedLlm([
       planResponse([

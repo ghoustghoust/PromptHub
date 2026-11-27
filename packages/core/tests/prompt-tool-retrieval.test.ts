@@ -377,6 +377,20 @@ describe("tool-assisted retrieval", () => {
     expect(result.retrievalSummary).toEqual({ rounds: 0, queryCount: 0, candidateCount: 0 });
   });
 
+  it("does not downgrade when the final answer omits termDecisions", async () => {
+    const { llm } = scriptedLlm([
+      { content: JSON.stringify({
+        initialPrompt: "source",
+        completePrompt: "ganyu (genshin impact) in soft light",
+        fields: [],
+      }) },
+    ]);
+    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(input());
+    expect(result.status).toBe("complete");
+    expect(result.warnings.join(" ")).not.toContain("Tool retrieval failed");
+    expect(result.termDecisions).toEqual([]);
+  });
+
   it("downgrades exploratory recall when the task contract forbids it", async () => {
     const { llm } = scriptedLlm([
       {

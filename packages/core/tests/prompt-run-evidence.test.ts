@@ -235,6 +235,61 @@ describe("deterministic final assembly", () => {
     expect(result.warnings.join(" ")).not.toContain("golden hour");
   });
 
+  it("compares storage syntax against the written form, not the raw row", async () => {
+    vocabulary.addTerm({
+      id: "cloth-a",
+      category: "clothing",
+      en: "torn_shorts",
+      validationStatus: "validated",
+      createdAt: "2026-11-26T00:00:00.000Z",
+    });
+    vocabulary.addTerm({
+      id: "style-a",
+      category: "style",
+      en: "((wash painting)), ((ink wash))",
+      validationStatus: "validated",
+      createdAt: "2026-11-26T00:00:00.000Z",
+    });
+    const result = await new PromptOrchestrator({
+      vocabulary,
+      llm: textLlm("A runner in torn shorts, wash painting, ink wash treatment"),
+    }).orchestrate(
+      baseInput({
+        guidanceMode: "human-led",
+        lockedTermIds: ["cloth-a", "style-a"],
+        selectedTermIds: ["cloth-a", "style-a"],
+      }),
+    );
+
+    expect(result.assembly?.verifiedFacts).toEqual(
+      expect.arrayContaining(["torn_shorts", "((wash painting)), ((ink wash))"]),
+    );
+    expect(result.assembly?.missingFacts).toEqual([]);
+  });
+
+  it("still reports a term the model genuinely dropped", async () => {
+    vocabulary.addTerm({
+      id: "cloth-b",
+      category: "clothing",
+      en: "torn_shorts",
+      validationStatus: "validated",
+      createdAt: "2026-11-26T00:00:00.000Z",
+    });
+    const result = await new PromptOrchestrator({
+      vocabulary,
+      llm: textLlm("A runner in a plain tracksuit"),
+    }).orchestrate(
+      baseInput({
+        guidanceMode: "human-led",
+        lockedTermIds: ["cloth-b"],
+        selectedTermIds: ["cloth-b"],
+      }),
+    );
+
+    expect(result.assembly?.missingFacts).toContain("torn_shorts");
+    expect(result.warnings.join(" ")).toContain("torn_shorts");
+  });
+
   it("reports a missing trigger word without injecting it", async () => {
     const result = await new PromptOrchestrator({
       vocabulary,

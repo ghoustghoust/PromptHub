@@ -27,8 +27,19 @@ export interface RunEvidenceResult {
   warnings: string[];
 }
 
+/**
+ * Vocabulary rows use storage syntax (`torn_shorts`, `((wash painting))`)
+ * while the prompt uses written syntax. Comparison must ignore that
+ * difference, otherwise every such term is reported as missing.
+ */
 function normalized(value: string): string {
-  return value.replace(/\s+/g, " ").trim().toLowerCase();
+  return value
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/[()[\]{}]/g, " ")
+    .replace(/[,;，；、]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** A CJK term is a localized explanation; it is not expected verbatim. */

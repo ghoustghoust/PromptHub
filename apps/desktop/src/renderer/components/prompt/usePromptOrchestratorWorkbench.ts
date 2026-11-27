@@ -1028,10 +1028,13 @@ export function usePromptOrchestratorWorkbench() {
                     : {}),
                 }
               : {}),
-            systemPromptLayerContextSize: layerContextTokens,
             systemPromptLayerOutputReserve: 4096,
           }
         : {}),
+      // The declared window also caps the tool loop's output share; it must be
+      // sent even when no writing layer exists, otherwise a 32K engine is
+      // priced as 8K and the final answer gets truncated.
+      systemPromptLayerContextSize: layerContextTokens,
       ...(activeKnowledgeModules.length > 0
         ? {
             knowledgeModules: activeKnowledgeModules.map((module) => ({

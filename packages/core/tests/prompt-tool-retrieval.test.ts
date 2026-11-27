@@ -12,6 +12,7 @@ import type {
   PromptOrchestratorLlm,
 } from "../src/prompt-orchestrator-llm";
 import { RESOLVE_VOCABULARY_TOOL, SEARCH_VOCABULARY_TOOL } from "../src/prompt-vocabulary-tools";
+import { outputBudget } from "../src/prompt-tool-retrieval";
 import type { PromptOrchestrationInput } from "@prompthub/shared/types";
 
 let database: DatabaseAdapter.Database;
@@ -206,7 +207,7 @@ describe("tool-assisted retrieval", () => {
     );
     expect(polished.status).toBe("complete");
     expect(polish.requests).toHaveLength(1);
-    expect(polish.requests[0].maxTokens).toBe(2048);
+    expect(polish.requests[0].maxTokens).toBe(4096);
     expect(String(polish.requests[0].messages[0].content)).toContain(
       "Tool-assisted knowledge contract",
     );
@@ -389,6 +390,46 @@ describe("tool-assisted retrieval", () => {
     expect(result.status).toBe("complete");
     expect(result.warnings.join(" ")).not.toContain("Tool retrieval failed");
     expect(result.termDecisions).toEqual([]);
+  });
+
+  it("keeps the output budget inside the declared context", () => {
+    const long = [{ role: "system" as const, content: "rule ".repeat(3000) }];
+    const short = [{ role: "system" as const, content: "short system" }];
+    const tight = outputBudget(long, 4096, 2048);
+    expect(tight).toBeGreaterThanOrEqual(512);
+    expect(tight).toBeLessThan(2048);
+    expect(outputBudget(short, 8192, 2048)).toBe(2048);
+    expect(outputBudget(short, 32_768, 4096)).toBe(4096);
+  });
+
+  it("forces one retrieval on the first turn, then releases control", async () => {
+    const { llm, requests } = scriptedLlm([
+      {
+        toolCalls: [
+          {
+            name: SEARCH_VOCABULARY_TOOL,
+            arguments: {
+              queries: [{ slotId: "lighting", category: "lighting", query: "soft light" }],
+            },
+          },
+        ],
+      },
+      { content: finalJson([decision({ termIds: [], strategy: "create" })]) },
+    ]);
+    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(input());
+    expect(requests[0].toolChoice).toBe("required");
+    expect(requests[1].toolChoice).toBe("auto");
+    expect(result.status).toBe("complete");
+  });
+
+  it("keeps an identity-only request on auto because no search applies", async () => {
+    const { llm, requests } = scriptedLlm([
+      { content: finalJson([decision({ termIds: [], strategy: "create" })]) },
+    ]);
+    await new PromptOrchestrator({ vocabulary, llm }).orchestrate(
+      input({ prompt: "ganyu (genshin impact)" }),
+    );
+    expect(requests[0].toolChoice).toBe("none");
   });
 
   it("downgrades exploratory recall when the task contract forbids it", async () => {

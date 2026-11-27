@@ -85,7 +85,11 @@ export function vocabularyToolDefinitions(): PromptLlmTool[] {
                 properties: {
                   slotId: { type: "string", description: "Stable slot id you will cite in decisions." },
                   category: { type: "string", enum: [...RETRIEVAL_CATEGORIES] },
-                  query: { type: "string" },
+                  query: {
+                    type: "string",
+                    description:
+                      "Short descriptive phrase from the user's request, e.g. 'warm tungsten light'. Never a category name or slot id.",
+                  },
                   alternateQuery: { type: "string" },
                   purpose: { type: "string", enum: ["resolve", "compare", "inspire"] },
                   depth: { type: "string", enum: ["exact", "focused", "exploratory"] },

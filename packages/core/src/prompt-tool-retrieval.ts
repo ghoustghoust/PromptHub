@@ -37,9 +37,27 @@ import {
   type PromptStreamEmitter,
 } from "./prompt-orchestrator-stream";
 import type { PromptRetrievalTraceCollector } from "./prompt-retrieval-trace";
+import { estimatePromptTokens } from "./prompt-token-budget";
 
 const MAX_TOOL_ROUNDS = 4;
 const MAX_TOOL_CALLS = 6;
+
+/**
+ * Output tokens the remaining context can still hold. A 4096-token answer on
+ * top of a long tool conversation overruns an 8K window and is cut off, which
+ * then looks like a provider failure; this keeps the answer inside the window.
+ */
+export function outputBudget(
+  messages: PromptLlmMessage[],
+  contextTokens: number,
+  requested: number,
+): number {
+  const used = estimatePromptTokens(
+    messages.map((message) => `${message.role}: ${message.content ?? ""}`).join("\n"),
+  );
+  const remaining = contextTokens - used - 256;
+  return Math.max(512, Math.min(requested, remaining));
+}
 
 export interface ToolRetrievalOptions {
   input: PromptOrchestrationInput;
@@ -80,10 +98,10 @@ function toolContract(routePlan: PromptRoutePlan | undefined): string {
   const path = routePlan?.path ?? "lexical";
   return `
 Tool-assisted knowledge contract:
-- You have exactly two tools: ${RESOLVE_VOCABULARY_TOOL} for named identities and ${SEARCH_VOCABULARY_TOOL} for descriptor slots. Call them only when the current slot genuinely benefits from library knowledge. Zero tool calls is a valid outcome.
+- You have exactly two tools: ${RESOLVE_VOCABULARY_TOOL} for named identities and ${SEARCH_VOCABULARY_TOOL} for descriptor slots. Before composing, check each descriptor slot the user supplied (lighting, camera or lens, clothing, pose, style, environment, props). If any of them could use library wording, call ${SEARCH_VOCABULARY_TOOL} once with up to four slots. Skip retrieval only when the request has no descriptor slot at all, for example an identity-only or fixed-parameter-only request.
 - ${RESOLVE_VOCABULARY_TOOL}: pass names exactly as the user wrote them. \`resolved\` pins one identity; \`ambiguous\` returns candidates and you must not choose one yourself; \`unresolved\` means keep the user's text verbatim.
-- ${SEARCH_VOCABULARY_TOOL}: up to four slots per call, each with purpose and depth. Use \`avoid\` for ids or texts you already rejected so they are not repeated. Identity and NSFW categories are rejected; they are not searchable.
-- Candidate ids are the only vocabulary ids you may cite. A supplied row is an unverified community reference, never proof of model compatibility. No minimum usage quota exists; ignoring the library is a legitimate decision.
+- ${SEARCH_VOCABULARY_TOOL}: up to four slots per call, each with purpose and depth. \`query\` must be a short descriptive phrase copied or condensed from the user's request (for example \`warm tungsten light\`, \`wet cobblestones\`, \`85mm lens\`); never pass a category name or a slot id as the query, because a category name matches nothing. Use \`avoid\` for ids or texts you already rejected so they are not repeated. Identity and NSFW categories are rejected; they are not searchable.
+- Candidate ids are the only vocabulary ids you may cite. A supplied row is an unverified community reference, never proof of model compatibility. There is no quota: use a candidate only when it is accurate, and ignoring an unsuitable candidate is a legitimate decision.
 - Four strategies per slot: reuse (use a supplied term), adapt (anchor on supplied ids and add context), create (no suitable candidate, write your own), ignore (reject the candidates). Never invent ids.
 - Preserve the user's identity anchors, negations, fixed parameters and explicit selections. Do not expand a resolved name into an assumed appearance.
 - The current retrieval path is ${path}. When it is entity-only, no search is needed and creativity must not invent visual facts.
@@ -151,6 +169,7 @@ export async function runToolRetrieval(
     { role: "user", content: base.user },
   ];
   const entityOnly = options.routePlan?.path === "entity-only";
+  const contextTokens = options.input.systemPromptLayerContextSize ?? 8192;
   let content = "";
   let rounds = 0;
 
@@ -166,6 +185,14 @@ export async function runToolRetrieval(
       stage: finalTurn ? "compose" : "retrieval",
       round: round + 1,
     });
+    // The first turn forces one retrieval so a small local model cannot skip the
+// library silently; later turns return to `auto` and the model decides when
+// to stop. Identity-only requests need no search and keep `auto`.
+    // Keep forcing until one retrieval happened: a small local model sometimes
+    // ignores `required` on the first turn. Identity-only requests need no
+    // search and keep `auto`.
+    const forcedFirstTurn =
+      state.calls === 0 && !finalTurn && !entityOnly;
     const response = await completeWithTools({
       messages,
       tools,
@@ -177,9 +204,14 @@ export async function runToolRetrieval(
         : {}),
       // A tool-call turn normally returns a short JSON decision, but the model may
       // legitimately finish early; keep enough budget to avoid truncating a real
-      // composition. The final turn always gets the full output budget.
-      maxTokens: finalTurn ? 4096 : 2048,
-      toolChoice: finalTurn ? "none" : "auto",
+      // composition. The output share is capped by what the declared context
+      // still has room for, so a small local window cannot be overrun.
+      maxTokens: outputBudget(
+        messages,
+        contextTokens,
+        finalTurn ? 8192 : 4096,
+      ),
+      toolChoice: finalTurn ? "none" : forcedFirstTurn ? "required" : "auto",
       ...(finalTurn && options.onEvent
         ? { stream: createStreamCallbacks(options.onEvent) }
         : {}),

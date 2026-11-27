@@ -77,7 +77,8 @@ export interface PromptLlmToolRequest {
   /** Attached to the first user message only. */
   imageUrls?: string[];
   maxTokens?: number;
-  toolChoice?: "auto" | "none";
+  /** `required` forces at least one tool call; used for the first retrieval turn. */
+  toolChoice?: "auto" | "required" | "none";
   /** Streaming is only used on the final turn (no tool calls expected). */
   stream?: PromptLlmStreamCallbacks;
 }
@@ -198,7 +199,9 @@ function parseResponse(response: AITransportResponse): string {
   const choice: unknown = parsed.choices[0];
   if (!isRecord(choice)) throw new Error("Prompt LLM returned an empty choice");
   if (choice.finish_reason === "length") {
-    throw new Error("Prompt LLM output was truncated; increase maxTokens or context size");
+    throw new Error(
+      `Prompt LLM output was truncated; increase maxTokens or context size (${truncationExcerpt(choice)})`,
+    );
   }
   if (!isRecord(choice.message)) {
     throw new Error("Prompt LLM choice does not contain a message");
@@ -226,6 +229,14 @@ function parseToolCalls(message: Record<string, unknown>): PromptLlmToolCall[] {
   });
 }
 
+/** Keeps a truncated answer diagnosable without dumping the whole payload. */
+function truncationExcerpt(choice: Record<string, unknown>): string {
+  const message = isRecord(choice.message) ? choice.message : {};
+  const content = typeof message.content === "string" ? message.content : "";
+  const calls = Array.isArray(message.tool_calls) ? message.tool_calls.length : 0;
+  return `content ${content.length} chars, toolCalls ${calls}, head ${JSON.stringify(content.slice(0, 200))}`;
+}
+
 function parseToolResponse(response: AITransportResponse): PromptLlmToolResponse {
   if (!response.ok) throw new Error(providerError(response));
   let parsed: unknown;
@@ -242,7 +253,9 @@ function parseToolResponse(response: AITransportResponse): PromptLlmToolResponse
   const choice: unknown = parsed.choices[0];
   if (!isRecord(choice)) throw new Error("Prompt LLM returned an empty choice");
   if (choice.finish_reason === "length") {
-    throw new Error("Prompt LLM output was truncated; increase maxTokens or context size");
+    throw new Error(
+      `Prompt LLM output was truncated; increase maxTokens or context size (${truncationExcerpt(choice)})`,
+    );
   }
   if (!isRecord(choice.message)) {
     throw new Error("Prompt LLM choice does not contain a message");
@@ -500,7 +513,9 @@ export class OpenAiCompatiblePromptLlm implements PromptOrchestratorLlm {
         const choice = Array.isArray(parsed.choices) ? parsed.choices[0] : undefined;
         if (!isRecord(choice)) return;
         if (choice.finish_reason === "length") {
-          throw new Error("Prompt LLM output was truncated; increase maxTokens or context size");
+          throw new Error(
+      `Prompt LLM output was truncated; increase maxTokens or context size (${truncationExcerpt(choice)})`,
+    );
         }
         const delta = isRecord(choice.delta) ? choice.delta.content : undefined;
         if (typeof delta !== "string" || !delta) return;

@@ -15,6 +15,7 @@ export * from "./prompt-orchestrator";
 export * from "./prompt-writing-budget";
 export * from "./prompt-writing-presets";
 export * from "./prompt-alignment";
+export * from "./prompt-script-flow";
 export * from "./prompt-moss-layout";
 export * from "./prompt-moss-layout-assist";
 export * from "./prompt-orchestrator-llm";

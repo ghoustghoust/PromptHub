@@ -26,6 +26,9 @@ const OUTPUT_DIR = path.resolve(__dirname, "../../../../outputs/prompt-new-branc
 const OUTLINE = "A courier crosses a wet market street at midnight with a sealed envelope.";
 const OUTLINE_V2 = "A courier crosses a flooded market street at 2 a.m., envelope tucked inside the coat.";
 const SCRIPT = "INT. MARKET STREET - NIGHT\nRain on the awning. The courier stops, checks the envelope seal.";
+const SCRIPT_V2 = "INT. MARKET STREET - NIGHT\nRain hammers the awning. The courier checks the envelope seal.\nCOURIER: Still dry.";
+const STORYBOARD = Array.from({ length: 6 }, (_, index) => `分镜${index + 1}: wide, rain, courier walks`).join("\n");
+const UNIT = "0-3s wide: courier steps under the awning, rain. 3-8s medium: seal checked. Soundscape: rain, traffic.";
 
 test("script stages switch, keep versions and survive reload", async () => {
   test.setTimeout(600_000);
@@ -146,6 +149,73 @@ test("script stages switch, keep versions and survive reload", async () => {
     await expect(page.getByTestId("orchestrator-script-load-2")).toBeVisible();
     await expect(page.getByTestId("orchestrator-script-shot-count")).toHaveValue("9");
     report.persisted = true;
+
+    // Unit material branch: reach the unit stage, declare a first + last frame,
+    // and check the slots wait for an image instead of pretending one exists.
+    await page.getByTestId("orchestrator-script-stage-script").click();
+    await page.getByTestId("orchestrator-script-draft").fill(SCRIPT_V2);
+    await page.getByTestId("orchestrator-script-save").click();
+    await expect(page.getByTestId("orchestrator-script-stage-storyboard")).toHaveAttribute(
+      "data-status",
+      "next",
+    );
+    await page.getByTestId("orchestrator-script-stage-storyboard").click();
+    await page.getByTestId("orchestrator-script-draft").fill(STORYBOARD);
+    await page.getByTestId("orchestrator-script-save").click();
+    await expect(page.getByTestId("orchestrator-script-stage-unit")).toHaveAttribute(
+      "data-status",
+      "next",
+    );
+    await page.getByTestId("orchestrator-script-stage-unit").click();
+    await expect(page.getByTestId("orchestrator-unit-materials")).toBeVisible();
+    await page.getByTestId("orchestrator-unit-material-mode-first-last").click();
+    await expect(page.getByTestId("orchestrator-unit-material-status-first-frame-0")).toHaveAttribute(
+      "data-status",
+      "missing",
+    );
+    await expect(page.getByTestId("orchestrator-unit-material-status-last-frame-0")).toHaveAttribute(
+      "data-status",
+      "missing",
+    );
+    await expect(page.getByTestId("orchestrator-unit-material-fill-first-frame-0")).toBeVisible();
+    await page.getByTestId("orchestrator-script-draft").fill(UNIT);
+    await page.getByTestId("orchestrator-script-save").click();
+    const stored = await page.evaluate(async () => {
+      const reply = await window.api.promptOrchestrator.getScriptFlow();
+      return reply.ok === true ? reply.data : null;
+    });
+    report.unitVersionMaterials = stored?.versions?.unit?.[0]?.materials ?? null;
+    report.unitFlowMode = stored?.settings?.materials?.mode ?? null;
+
+    const materialsShot = await app.evaluate(async ({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      const image = await win.webContents.capturePage();
+      return image.toPNG().toString("base64");
+    });
+    fs.writeFileSync(
+      path.join(OUTPUT_DIR, "script-flow-unit-materials.png"),
+      Buffer.from(materialsShot, "base64"),
+    );
+
+    await page.waitForTimeout(1_000);
+    await page.reload();
+    await page.waitForLoadState("domcontentloaded");
+    const materialReentry = page.getByRole("button", { name: "Prompt Orchestrator", exact: true });
+    if ((await materialReentry.count()) > 0) await materialReentry.click();
+    await expect(page.getByTestId("orchestrator-script-flow-toggle")).toBeVisible({
+      timeout: 60_000,
+    });
+    await page.getByTestId("orchestrator-script-flow-toggle").click();
+    await page.getByTestId("orchestrator-script-stage-unit").click();
+    await expect(page.getByTestId("orchestrator-unit-material-mode-first-last")).toHaveAttribute(
+      "data-active",
+      "true",
+    );
+    await expect(page.getByTestId("orchestrator-unit-material-status-first-frame-0")).toHaveAttribute(
+      "data-status",
+      "missing",
+    );
+    report.unitMaterialsPersisted = true;
   } finally {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     fs.writeFileSync(

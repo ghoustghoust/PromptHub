@@ -189,6 +189,35 @@ constraints?: string[];
 /** A script is a linear task: outline → script → storyboard → unit. */
 export type PromptScriptStage = "outline" | "script" | "storyboard" | "unit";
 
+/**
+ * What a generation unit expects as input material. "text" needs no image;
+ * the frame and reference modes do, and a unit can be planned before the user
+ * has produced those images, so each slot carries its own state.
+ */
+export type PromptUnitMaterialMode = "text" | "first-frame" | "first-last" | "references";
+
+export type PromptUnitMaterialKind = "first-frame" | "last-frame" | "reference";
+
+export interface PromptUnitMaterialSlot {
+  kind: PromptUnitMaterialKind;
+  /** 1-based position for reference slots; absent for frame slots. */
+  index?: number;
+  /**
+   * File name inside the app images directory. Absent means the slot is still
+   * waiting for the user; the image itself is never sent by this feature.
+   */
+  fileName?: string;
+  /** Original file name, kept for display. */
+  label?: string;
+}
+
+export interface PromptUnitMaterials {
+  mode: PromptUnitMaterialMode;
+  /** Reference images the mode expects when mode is "references" (1–9). */
+  referenceCount?: number;
+  slots: PromptUnitMaterialSlot[];
+}
+
 export interface PromptScriptVersion {
   /** 1-based, monotonic per stage. */
   version: number;
@@ -196,6 +225,8 @@ export interface PromptScriptVersion {
   createdAt: string;
   /** Upstream stage versions this text was written against. */
   basedOn?: Partial<Record<PromptScriptStage, number>>;
+  /** Unit stage only: the material branch this version was planned for. */
+  materials?: PromptUnitMaterials;
 }
 
 export interface PromptScriptFlow {
@@ -211,6 +242,8 @@ export interface PromptScriptFlow {
 export interface PromptScriptSettings {
   /** Shots this scene's storyboard must produce (1–60). */
   shotCount?: number;
+  /** Material branch for the generation unit, with the state of each slot. */
+  materials?: PromptUnitMaterials;
 }
 
 export interface PromptOrchestrationInput {
@@ -226,6 +259,8 @@ export interface PromptOrchestrationInput {
   stage?: PromptScriptStage;
   /** Shots the storyboard stage must produce; wins over numbers in the intent. */
   shotCount?: number;
+  /** Material branch the unit stage is planned for; ignored by other stages. */
+  unitMaterials?: PromptUnitMaterials;
   mode?: PromptOrchestrationMode;
   /** Image model id used for applicable_models filtering. */
   modelId?: string;

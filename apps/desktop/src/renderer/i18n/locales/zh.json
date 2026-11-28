@@ -5761,8 +5761,28 @@
       "draftPlaceholder": "写下这一段内容，再保存为一个版本。",
       "save": "保存版本",
       "saving": "保存中…",
-      "versions": "{{count}} 个版本",
-      "useInStep": "带入本步骤"
+"versions": "{{count}} 个版本",
+      "useInStep": "带入本步骤",
+      "materials": {
+        "mode": "素材模式",
+        "modes": {
+          "text": "纯文本",
+          "first-frame": "首帧",
+          "first-last": "首尾帧",
+          "references": "多参考"
+        },
+        "referenceCount": "参考张数",
+        "slots": {
+          "first-frame": "首帧",
+          "last-frame": "尾帧",
+          "reference": "参考图 {{index}}"
+        },
+        "missing": "待回填",
+        "provided": "已回填",
+        "fill": "选择图片",
+        "clear": "清除",
+        "note": "只记录每个槽位需要哪张图，当前 {{count}} 项待回填；本次运行不会把图片发送给模型。"
+      }
     },
     "sharedFacts": {
       "title": "共享事实",

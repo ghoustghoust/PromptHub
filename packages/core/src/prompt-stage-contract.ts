@@ -1,6 +1,7 @@
 import type {
   PromptOrchestrationInput,
   PromptScriptStage,
+  PromptUnitMaterials,
 } from "@prompthub/shared/types";
 import {
   DEFAULT_SCRIPT_SHOT_COUNT,
@@ -102,12 +103,39 @@ function storyboardText(shotCount: number): string {
   ].join(" ");
 }
 
-function unitText(durationSeconds: number, shotCount: number): string {
+function unitText(
+  durationSeconds: number,
+  shotCount: number,
+  materials?: PromptUnitMaterials,
+): string {
   const count = shotCount > 0 ? shotCount : 4;
   return [
     `This stage produces a shot-ready prompt for ${durationSeconds} seconds, split into ${count} timed shots.`,
     "Give each shot an explicit time range, framing and action, then add the soundscape; keep the people, places and event order of the storyboard.",
+    ...unitMaterialText(materials),
   ].join(" ");
+}
+
+/** The material branch a unit is planned for changes what the prompt owes. */
+function unitMaterialText(materials: PromptUnitMaterials | undefined): string[] {
+  if (!materials) return [];
+  if (materials.mode === "first-frame") {
+    return [
+      "The first frame is already fixed: shot 1 must state in its own description that it continues from the supplied first frame, keeping its subject, framing, wardrobe and light.",
+    ];
+  }
+  if (materials.mode === "first-last") {
+    return [
+      "The first and last frames are already fixed: shot 1 must state that it continues from the supplied first frame, the final shot must state that it lands on the supplied last frame, and the motion between them stays continuous.",
+    ];
+  }
+  if (materials.mode === "references") {
+    const count = materials.referenceCount ?? materials.slots.length;
+    return [
+      `${count} reference images fix subject identity, wardrobe and palette: shot 1 must state which subjects follow them, and every shot stays consistent.`,
+    ];
+  }
+  return [];
 }
 
 /**
@@ -132,5 +160,5 @@ export function resolveStageContract(
   }
   const durationSeconds = input.video?.durationSeconds ?? 8;
   const shotCount = input.video?.shotCount ?? 0;
-  return { stage, system: unitText(durationSeconds, shotCount) };
+  return { stage, system: unitText(durationSeconds, shotCount, input.unitMaterials) };
 }

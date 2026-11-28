@@ -5763,8 +5763,28 @@
       "draftPlaceholder": "Write this stage, then save it as a version.",
       "save": "Save version",
       "saving": "Saving…",
-      "versions": "{{count}} versions",
-      "useInStep": "Use as step material"
+"versions": "{{count}} versions",
+      "useInStep": "Use as step material",
+      "materials": {
+        "mode": "Material mode",
+        "modes": {
+          "text": "Text only",
+          "first-frame": "First frame",
+          "first-last": "First + last frame",
+          "references": "Reference images"
+        },
+        "referenceCount": "Images",
+        "slots": {
+          "first-frame": "First frame",
+          "last-frame": "Last frame",
+          "reference": "Reference {{index}}"
+        },
+        "missing": "Waiting",
+        "provided": "Added",
+        "fill": "Add image",
+        "clear": "Clear",
+        "note": "Records which image each slot needs. {{count}} waiting. Images are not sent to the model by this run."
+      }
     },
     "sharedFacts": {
       "title": "Shared facts",

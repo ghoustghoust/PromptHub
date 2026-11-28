@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createScriptFlow,
+  createUnitMaterials,
+  missingUnitMaterialSlots,
   nextScriptStage,
   normalizeScriptShotCount,
   recordScriptStep,
+  scriptFlowMaterials,
   scriptFlowShotCount,
+  setScriptFlowMaterials,
   setScriptFlowShotCount,
   type PromptScriptFlow,
   type PromptScriptStage,
+  type PromptUnitMaterialKind,
+  type PromptUnitMaterialMode,
+  type PromptUnitMaterials,
 } from "@prompthub/core/prompt-script-flow";
 import { stageVersions } from "./script-flow-view";
 
@@ -21,6 +28,13 @@ export interface ScriptFlowState {
   /** Shots the storyboard stage must produce for this scene. */
   shotCount: number;
   setShotCount: (count: number) => void;
+  /** Material branch the generation unit is planned for, plus its slot state. */
+  materials: PromptUnitMaterials;
+  missingMaterialCount: number;
+  setMaterialMode: (mode: PromptUnitMaterialMode) => void;
+  setReferenceCount: (count: number) => void;
+  fillMaterialSlot: (kind: PromptUnitMaterialKind, index?: number) => Promise<void>;
+  clearMaterialSlot: (kind: PromptUnitMaterialKind, index?: number) => void;
   flow: PromptScriptFlow | null;
   stage: PromptScriptStage;
   draft: string;
@@ -44,6 +58,7 @@ export function useScriptFlow(): ScriptFlowState {
   const [draft, setDraft] = useState("");
   const [stepContext, setStepContext] = useState("");
   const [shotCount, setShotCountState] = useState(scriptFlowShotCount(null));
+  const [materials, setMaterialsState] = useState<PromptUnitMaterials>(scriptFlowMaterials(null));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const loaded = useRef(false);
@@ -54,6 +69,21 @@ export function useScriptFlow(): ScriptFlowState {
   const applyFlow = useCallback((next: PromptScriptFlow) => {
     flowRef.current = next;
     setFlow(next);
+  }, []);
+
+  const persistSoon = useCallback((next: PromptScriptFlow) => {
+    if (persistTimer.current) clearTimeout(persistTimer.current);
+    persistTimer.current = setTimeout(() => {
+      persistTimer.current = null;
+      void window.api.promptOrchestrator
+        .saveScriptFlow(next)
+        .then((reply) => {
+          if (reply.ok !== true) setError(reply.error.message);
+        })
+        .catch((cause: unknown) => {
+          setError(cause instanceof Error ? cause.message : String(cause));
+        });
+    }, SHOT_COUNT_PERSIST_MS);
   }, []);
 
   useEffect(() => {
@@ -68,6 +98,7 @@ export function useScriptFlow(): ScriptFlowState {
         setFlow(reply.data);
         if (reply.data) {
           setShotCountState(scriptFlowShotCount(reply.data));
+          setMaterialsState(scriptFlowMaterials(reply.data));
           setStage(nextScriptStage(reply.data) ?? "outline");
         }
       })
@@ -92,20 +123,87 @@ export function useScriptFlow(): ScriptFlowState {
       setShotCountState(next);
       const updated = setScriptFlowShotCount(flowRef.current ?? createScriptFlow(), next);
       applyFlow(updated);
-      if (persistTimer.current) clearTimeout(persistTimer.current);
-      persistTimer.current = setTimeout(() => {
-        persistTimer.current = null;
-        void window.api.promptOrchestrator
-          .saveScriptFlow(updated)
-          .then((reply) => {
-            if (reply.ok !== true) setError(reply.error.message);
-          })
-          .catch((cause: unknown) => {
-            setError(cause instanceof Error ? cause.message : String(cause));
-          });
-      }, SHOT_COUNT_PERSIST_MS);
+      persistSoon(updated);
     },
-    [applyFlow],
+    [applyFlow, persistSoon],
+  );
+
+  /** Writes the material branch and slot state, keeping versions intact. */
+  const applyMaterials = useCallback(
+    (next: PromptUnitMaterials) => {
+      setMaterialsState(next);
+      const updated = setScriptFlowMaterials(flowRef.current ?? createScriptFlow(), next);
+      applyFlow(updated);
+      persistSoon(updated);
+    },
+    [applyFlow, persistSoon],
+  );
+
+  const setMaterialMode = useCallback(
+    (mode: PromptUnitMaterialMode) => {
+      applyMaterials(createUnitMaterials(mode, materials.referenceCount));
+    },
+    [applyMaterials, materials.referenceCount],
+  );
+
+  const setReferenceCount = useCallback(
+    (count: number) => {
+      const next = createUnitMaterials("references", count);
+      // Rebuilding the slots must not drop images the user already added.
+      const previous = materials.slots;
+      applyMaterials({
+        ...next,
+        slots: next.slots.map(
+          (slot) =>
+            previous.find(
+              (item) =>
+                item.kind === "reference" && item.index === slot.index && item.fileName,
+            ) ?? slot,
+        ),
+      });
+    },
+    [applyMaterials, materials.slots],
+  );
+
+  const updateSlot = useCallback(
+    (
+      kind: PromptUnitMaterialKind,
+      index: number | undefined,
+      patch: { fileName?: string; label?: string },
+    ) => {
+      applyMaterials({
+        ...materials,
+        slots: materials.slots.map((slot) =>
+          slot.kind === kind && slot.index === index ? { ...slot, ...patch } : slot,
+        ),
+      });
+    },
+    [applyMaterials, materials],
+  );
+
+  const fillMaterialSlot = useCallback(
+    async (kind: PromptUnitMaterialKind, index?: number) => {
+      setError("");
+      const paths = await window.electron?.selectImage?.();
+      const path = paths?.[0];
+      if (!path) return;
+      const saved = await window.electron?.saveImage?.([path]);
+      const fileName = saved?.[0];
+      if (!fileName) {
+        setError("The image could not be stored");
+        return;
+      }
+      const label = path.split(/[\\/]/).pop() ?? fileName;
+      updateSlot(kind, index, { fileName, label });
+    },
+    [updateSlot],
+  );
+
+  const clearMaterialSlot = useCallback(
+    (kind: PromptUnitMaterialKind, index?: number) => {
+      updateSlot(kind, index, { fileName: undefined, label: undefined });
+    },
+    [updateSlot],
   );
 
   const saveVersion = useCallback(async () => {
@@ -127,6 +225,7 @@ export function useScriptFlow(): ScriptFlowState {
       }
       applyFlow(reply.data);
       setShotCountState(scriptFlowShotCount(reply.data));
+      setMaterialsState(scriptFlowMaterials(reply.data));
       setDraft("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -145,6 +244,12 @@ export function useScriptFlow(): ScriptFlowState {
     setStepContext,
     shotCount,
     setShotCount,
+    materials,
+    missingMaterialCount: missingUnitMaterialSlots(materials).length,
+    setMaterialMode,
+    setReferenceCount,
+    fillMaterialSlot,
+    clearMaterialSlot,
     flow,
     stage,
     draft,

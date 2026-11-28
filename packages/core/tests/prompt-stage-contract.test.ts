@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolveStageContract } from "../src/prompt-stage-contract";
 import { buildCompositionMessages } from "../src/prompt-orchestrator-composition";
+import { createUnitMaterials } from "../src/prompt-script-flow";
 import type { PromptOrchestrationInput } from "@prompthub/shared/types";
 
 function input(overrides: Partial<PromptOrchestrationInput> = {}): PromptOrchestrationInput {
@@ -83,6 +84,37 @@ describe("stage output contract", () => {
     );
     expect(contract?.system).toContain("8");
     expect(contract?.system).toMatch(/sound/i);
+  });
+
+  it("makes the unit contract speak to the declared material branch", () => {
+    const firstFrame = resolveStageContract(
+      input({ stage: "unit", unitMaterials: createUnitMaterials("first-frame") }),
+    );
+    expect(firstFrame?.system).toMatch(/first frame/i);
+
+    const firstLast = resolveStageContract(
+      input({ stage: "unit", unitMaterials: createUnitMaterials("first-last") }),
+    );
+    expect(firstLast?.system).toMatch(/first frame/i);
+    expect(firstLast?.system).toMatch(/last frame/i);
+
+    const references = resolveStageContract(
+      input({ stage: "unit", unitMaterials: createUnitMaterials("references", 3) }),
+    );
+    expect(references?.system).toMatch(/reference image/i);
+    expect(references?.system).toContain("3");
+
+    const textOnly = resolveStageContract(
+      input({ stage: "unit", unitMaterials: createUnitMaterials("text") }),
+    );
+    expect(textOnly?.system).not.toMatch(/first frame/i);
+  });
+
+  it("does not leak the material branch into other stages", () => {
+    const contract = resolveStageContract(
+      input({ stage: "script", unitMaterials: createUnitMaterials("first-frame") }),
+    );
+    expect(contract?.system).not.toMatch(/first frame/i);
   });
 
   it("adds nothing when no stage is declared", () => {

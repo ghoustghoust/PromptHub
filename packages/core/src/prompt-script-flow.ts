@@ -11,13 +11,29 @@ import type {
   PromptScriptFlow,
   PromptScriptStage,
   PromptScriptVersion,
+  PromptUnitMaterialKind,
+  PromptUnitMaterialMode,
+  PromptUnitMaterialSlot,
+  PromptUnitMaterials,
 } from "@prompthub/shared/types";
 
-export type { PromptScriptFlow, PromptScriptStage, PromptScriptVersion };
+export type {
+  PromptScriptFlow,
+  PromptScriptStage,
+  PromptScriptVersion,
+  PromptUnitMaterialKind,
+  PromptUnitMaterialMode,
+  PromptUnitMaterialSlot,
+  PromptUnitMaterials,
+};
 
 /** Shots per scene when the user has not set a number. */
 export const DEFAULT_SCRIPT_SHOT_COUNT = 6;
 export const MAX_SCRIPT_SHOT_COUNT = 60;
+
+/** Reference images a unit can expect at most, and how many a mode starts with. */
+export const MAX_UNIT_REFERENCE_IMAGES = 9;
+export const DEFAULT_UNIT_REFERENCE_IMAGES = 3;
 
 export const SCRIPT_STAGE_ORDER: readonly PromptScriptStage[] = [
   "outline",
@@ -84,6 +100,118 @@ export function setScriptFlowShotCount(
     ...flow,
     settings: { ...flow.settings, shotCount: normalizeScriptShotCount(count) },
   };
+}
+
+function clampReferenceCount(value: unknown): number {
+  if (typeof value !== "number" || !Number.isInteger(value)) return DEFAULT_UNIT_REFERENCE_IMAGES;
+  if (value < 1) return 1;
+  if (value > MAX_UNIT_REFERENCE_IMAGES) return MAX_UNIT_REFERENCE_IMAGES;
+  return value;
+}
+
+/**
+ * The slots a material mode owes. A unit planned before its frames exist still
+ * has the same slots, only without a file, so the missing list is stable.
+ */
+export function createUnitMaterials(
+  mode: PromptUnitMaterialMode,
+  referenceCount?: number,
+): PromptUnitMaterials {
+  if (mode === "first-frame") {
+    return { mode, slots: [{ kind: "first-frame" }] };
+  }
+  if (mode === "first-last") {
+    return { mode, slots: [{ kind: "first-frame" }, { kind: "last-frame" }] };
+  }
+  if (mode === "references") {
+    const count = clampReferenceCount(referenceCount);
+    return {
+      mode,
+      referenceCount: count,
+      slots: Array.from({ length: count }, (_, index) => ({
+        kind: "reference" as const,
+        index: index + 1,
+      })),
+    };
+  }
+  return { mode: "text", slots: [] };
+}
+
+/** A slot file name is a stored name, never a path the renderer supplied. */
+function isStoredImageName(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 200 &&
+    !value.includes("/") &&
+    !value.includes("\\") &&
+    !value.includes("..")
+  );
+}
+
+function slotKey(slot: PromptUnitMaterialSlot): string {
+  return slot.kind === "reference" ? `reference:${slot.index ?? 0}` : slot.kind;
+}
+
+/**
+ * Reads stored materials defensively: the slot skeleton always follows the
+ * mode, and only a stored file that matches an existing slot is carried over.
+ * An unknown mode degrades to text only instead of inventing material needs.
+ */
+export function normalizeUnitMaterials(value: unknown): PromptUnitMaterials {
+  if (!isRecord(value)) return createUnitMaterials("text");
+  const mode = value.mode;
+  const declared: PromptUnitMaterialMode =
+    mode === "first-frame" || mode === "first-last" || mode === "references" ? mode : "text";
+  const materials = createUnitMaterials(
+    declared,
+    typeof value.referenceCount === "number" ? value.referenceCount : undefined,
+  );
+  if (!Array.isArray(value.slots)) return materials;
+  const stored = new Map<string, PromptUnitMaterialSlot>();
+  for (const item of value.slots) {
+    if (!isRecord(item)) continue;
+    if (item.kind !== "first-frame" && item.kind !== "last-frame" && item.kind !== "reference") {
+      continue;
+    }
+    if (!isStoredImageName(item.fileName)) continue;
+    const slot: PromptUnitMaterialSlot = {
+      kind: item.kind,
+      ...(item.kind === "reference" && typeof item.index === "number"
+        ? { index: item.index }
+        : {}),
+      fileName: item.fileName,
+      ...(typeof item.label === "string" && item.label.trim()
+        ? { label: item.label.trim().slice(0, 200) }
+        : {}),
+    };
+    stored.set(slotKey(slot), slot);
+  }
+  return {
+    ...materials,
+    slots: materials.slots.map((slot) => stored.get(slotKey(slot)) ?? slot),
+  };
+}
+
+/** The flow's material branch, defaulting to text only. */
+export function scriptFlowMaterials(flow: PromptScriptFlow | null | undefined): PromptUnitMaterials {
+  return normalizeUnitMaterials(flow?.settings?.materials);
+}
+
+/** Stores the material branch and slot state on the flow. */
+export function setScriptFlowMaterials(
+  flow: PromptScriptFlow,
+  materials: PromptUnitMaterials,
+): PromptScriptFlow {
+  return {
+    ...flow,
+    settings: { ...flow.settings, materials: normalizeUnitMaterials(materials) },
+  };
+}
+
+/** Slots still waiting for the user, as a short readable list. */
+export function missingUnitMaterialSlots(materials: PromptUnitMaterials): PromptUnitMaterialSlot[] {
+  return materials.slots.filter((slot) => !slot.fileName);
 }
 
 function stageIndex(stage: PromptScriptStage): number {
@@ -157,11 +285,18 @@ function append(
   basedOn: Partial<Record<PromptScriptStage, number>>,
 ): RecordScriptStepResult {
   const list = flow.versions[input.stage];
+  // A unit version remembers which material branch it was planned for, so the
+  // dependency is auditable after the slot state changes.
+  const materials =
+    input.stage === "unit" && flow.settings?.materials
+      ? normalizeUnitMaterials(flow.settings.materials)
+      : undefined;
   const version: PromptScriptVersion = {
     version: (list[list.length - 1]?.version ?? 0) + 1,
     text,
     createdAt: (input.now ?? new Date()).toISOString(),
     ...(Object.keys(basedOn).length > 0 ? { basedOn } : {}),
+    ...(materials ? { materials } : {}),
   };
   return {
     flow: {
@@ -226,6 +361,9 @@ function parseVersion(value: unknown, stageIndex: number): PromptScriptVersion |
     text,
     createdAt,
     ...(Object.keys(basedOn).length > 0 ? { basedOn } : {}),
+    ...(stageIndex === SCRIPT_STAGE_ORDER.indexOf("unit") && isRecord(value.materials)
+      ? { materials: normalizeUnitMaterials(value.materials) }
+      : {}),
   };
 }
 
@@ -252,10 +390,22 @@ export function parseScriptFlow(value: unknown): PromptScriptFlow | null {
 }
 
 /** Stored settings are kept only when they are usable; the default fills in. */
-function settingsFrom(value: unknown): { shotCount?: number } | undefined {
+function settingsFrom(
+  value: unknown,
+): { shotCount?: number; materials?: PromptUnitMaterials } | undefined {
   if (!isRecord(value)) return undefined;
+  const settings: { shotCount?: number; materials?: PromptUnitMaterials } = {};
   const shotCount = value.shotCount;
-  if (typeof shotCount !== "number" || !Number.isInteger(shotCount)) return undefined;
-  if (shotCount < 1 || shotCount > MAX_SCRIPT_SHOT_COUNT) return undefined;
-  return { shotCount };
+  if (
+    typeof shotCount === "number" &&
+    Number.isInteger(shotCount) &&
+    shotCount >= 1 &&
+    shotCount <= MAX_SCRIPT_SHOT_COUNT
+  ) {
+    settings.shotCount = shotCount;
+  }
+  if (isRecord(value.materials)) {
+    settings.materials = normalizeUnitMaterials(value.materials);
+  }
+  return Object.keys(settings).length > 0 ? settings : undefined;
 }

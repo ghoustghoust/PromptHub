@@ -125,6 +125,13 @@ export function registerPromptOrchestratorIPC(
     IPC_CHANNELS.PROMPT_ORCHESTRATOR_FEEDBACK,
     (_, input: unknown) => reply(() => service.submitFeedback(input)),
   );
+  ipcMain.handle(IPC_CHANNELS.PROMPT_ORCHESTRATOR_SCRIPT_FLOW_GET, () =>
+    reply(() => service.getScriptFlow()),
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.PROMPT_ORCHESTRATOR_SCRIPT_FLOW_SAVE,
+    (_, input: unknown) => reply(() => service.saveScriptFlow(input)),
+  );
   ipcMain.handle(IPC_CHANNELS.PROMPT_ORCHESTRATOR_STATE_GET, () =>
     reply(() => service.getWorkspaceState()),
   );

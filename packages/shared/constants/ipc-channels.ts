@@ -40,6 +40,8 @@ export const IPC_CHANNELS = {
   PROMPT_ORCHESTRATOR_FEEDBACK: "prompt:orchestrator:feedback",
   PROMPT_ORCHESTRATOR_STATE_GET: "prompt:orchestrator:state:get",
   PROMPT_ORCHESTRATOR_STATE_SAVE: "prompt:orchestrator:state:save",
+  PROMPT_ORCHESTRATOR_SCRIPT_FLOW_GET: "prompt:orchestrator:script-flow:get",
+  PROMPT_ORCHESTRATOR_SCRIPT_FLOW_SAVE: "prompt:orchestrator:script-flow:save",
   PROMPT_ORCHESTRATOR_LAYER_BUDGET: "prompt:orchestrator:layerBudget",
   PROMPT_ORCHESTRATOR_STREAM_EVENT: "prompt:orchestrator:stream",
   PROMPT_ORCHESTRATOR_CANCEL: "prompt:orchestrator:cancel",

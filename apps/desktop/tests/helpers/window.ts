@@ -62,6 +62,8 @@ function createWindowApiDefaults() {
       submitFeedback: vi.fn().mockResolvedValue({ ok: true, data: {} }),
       getWorkspaceState: vi.fn().mockResolvedValue({ ok: true, data: null }),
       saveWorkspaceState: vi.fn().mockResolvedValue({ ok: true, data: {} }),
+      getScriptFlow: vi.fn().mockResolvedValue({ ok: true, data: null }),
+      saveScriptFlow: vi.fn().mockResolvedValue({ ok: true, data: {} }),
       getLayerBudget: vi.fn().mockResolvedValue({
         ok: true,
         data: {

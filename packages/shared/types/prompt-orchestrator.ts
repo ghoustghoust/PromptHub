@@ -183,7 +183,24 @@ export interface PromptSharedSemantics {
   lighting?: string;
   palette?: string;
   continuity?: string;
-  constraints?: string[];
+constraints?: string[];
+}
+
+/** A script is a linear task: outline → script → storyboard → unit. */
+export type PromptScriptStage = "outline" | "script" | "storyboard" | "unit";
+
+export interface PromptScriptVersion {
+  /** 1-based, monotonic per stage. */
+  version: number;
+  text: string;
+  createdAt: string;
+  /** Upstream stage versions this text was written against. */
+  basedOn?: Partial<Record<PromptScriptStage, number>>;
+}
+
+export interface PromptScriptFlow {
+  /** One version chain per stage; old versions stay in place. */
+  versions: Record<PromptScriptStage, PromptScriptVersion[]>;
 }
 
 export interface PromptOrchestrationInput {

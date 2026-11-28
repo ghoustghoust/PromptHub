@@ -5741,6 +5741,21 @@
       "flexible": "合理推导",
       "optional": "创意建议"
     },
+    "scriptFlow": {
+      "title": "剧本流程",
+      "hint": "大纲、剧本、分镜、生成单元是线性的：上游存在后才能保存下一段。每次保存新增一个版本，旧版本保留在列表中。",
+      "stages": {
+        "outline": "大纲",
+        "script": "剧本",
+        "storyboard": "分镜",
+        "unit": "生成单元"
+      },
+      "draftPlaceholder": "写下这一段内容，再保存为一个版本。",
+      "save": "保存版本",
+      "saving": "保存中…",
+      "versions": "{{count}} 个版本",
+      "loadToIntent": "用作意图"
+    },
     "sharedFacts": {
       "title": "共享事实",
       "hint": "本步骤中所有目标模型共用的既成事实。已填字段只编译一次并跨模型保持一致，空字段忽略。",

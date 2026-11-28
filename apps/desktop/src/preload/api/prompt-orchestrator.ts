@@ -14,6 +14,7 @@ import type {
   PromptOrchestratorStreamEnvelope,
   PromptOrchestratorStreamEvent,
   PromptOrchestratorWorkspaceState,
+  PromptScriptFlow,
   PromptResultFeedbackRecord,
   PromptSkillDraft,
   PromptVocabularyBrowseInput,
@@ -102,6 +103,15 @@ export const promptOrchestratorApi = {
       IPC_CHANNELS.PROMPT_ORCHESTRATOR_STATE_SAVE,
       state,
     ) as Promise<PromptOrchestratorIPCReply<PromptOrchestratorWorkspaceState>>,
+  getScriptFlow: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROMPT_ORCHESTRATOR_SCRIPT_FLOW_GET) as Promise<
+      PromptOrchestratorIPCReply<PromptScriptFlow | null>
+    >,
+  saveScriptFlow: (flow: PromptScriptFlow) =>
+    ipcRenderer.invoke(
+      IPC_CHANNELS.PROMPT_ORCHESTRATOR_SCRIPT_FLOW_SAVE,
+      flow,
+    ) as Promise<PromptOrchestratorIPCReply<PromptScriptFlow>>,
   getLayerBudget: (request: DesktopPromptWritingBudgetRequest) =>
     ipcRenderer.invoke(
       IPC_CHANNELS.PROMPT_ORCHESTRATOR_LAYER_BUDGET,

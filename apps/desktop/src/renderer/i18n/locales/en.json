@@ -5743,6 +5743,21 @@
       "flexible": "Reasoned inference",
       "optional": "Creative suggestion"
     },
+    "scriptFlow": {
+      "title": "Script flow",
+      "hint": "Outline, script, storyboard and generation unit are linear: a stage can be saved once its upstream exists. Saving adds a version; earlier versions stay in the list.",
+      "stages": {
+        "outline": "Outline",
+        "script": "Script",
+        "storyboard": "Storyboard",
+        "unit": "Generation unit"
+      },
+      "draftPlaceholder": "Write this stage, then save it as a version.",
+      "save": "Save version",
+      "saving": "Saving…",
+      "versions": "{{count}} versions",
+      "loadToIntent": "Use as intent"
+    },
     "sharedFacts": {
       "title": "Shared facts",
       "hint": "Facts reused by every target model in this step. Filled fields are compiled once and kept identical across models; empty fields are ignored.",

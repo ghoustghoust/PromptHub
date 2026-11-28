@@ -28,6 +28,7 @@ import { PromptReferenceImageInput } from "./PromptReferenceImageInput";
 import { PromptVideoFields } from "./PromptVideoFields";
 import { PromptTermPicker } from "./PromptTermPicker";
 import { SharedFactsPanel } from "./SharedFactsPanel";
+import { ScriptFlowPanel } from "./ScriptFlowPanel";
 import { PromptMossLayoutCanvas } from "./PromptMossLayoutCanvas";
 import { PromptWritingLayerPanel } from "./PromptWritingLayerPanel";
 import { PromptReferencePicker } from "./PromptReferencePicker";
@@ -758,13 +759,14 @@ export function PromptOrchestratorWorkbench() {
           data-testid="orchestrator-workspace"
         >
           <div className={humanLed ? "flex min-h-0 flex-1 flex-col" : "space-y-4"}>
+            <ScriptFlowPanel state={state.scriptFlow} disabled={state.isRunning} />
             <div
               className={
                 humanLed
                   ? `${pickerExpanded ? "hidden" : "block"} shrink-0 space-y-2 border-b border-border/60 bg-muted/10 p-3`
                   : "space-y-4"
-              }
-              data-testid="orchestrator-intent-panel"
+}
+          data-testid="orchestrator-intent-panel"
             >
               {humanLed && (
                 <button

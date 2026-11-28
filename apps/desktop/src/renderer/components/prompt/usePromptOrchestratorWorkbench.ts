@@ -34,6 +34,7 @@ import {
   downscaleImageToDataUrl,
 } from "../../utils/image-downscale";
 import { findKnowledgeSkillConflict } from "./knowledge-skill-conflict";
+import { useScriptFlow } from "./useScriptFlow";
 import { useSettingsStore } from "../../stores/settings.store";
 import { LOCAL_LLAMA_MODEL_ID } from "../../stores/settings/settings-ai-actions";
 import { usePromptStore } from "../../stores/prompt.store";
@@ -182,6 +183,7 @@ export function usePromptOrchestratorWorkbench() {
   const [allowAdult, setAllowAdult] = useState(false);
   /** Upstream scene facts shared by every target model in this step. */
   const [sharedSemantics, setSharedSemantics] = useState<PromptSharedSemantics>({});
+  const scriptFlow = useScriptFlow(setPrompt);
   const [referenceError, setReferenceError] = useState("");
   const [knowledgeError, setKnowledgeError] = useState("");
   const knowledgeLoading = useRef(new Set<string>());
@@ -1484,6 +1486,7 @@ export function usePromptOrchestratorWorkbench() {
     referenceItems, selectedReferenceItems, referenceItemIds, toggleReferenceItem, referenceTokens, referenceError,
     allowAdult, setAllowAdult,
     sharedSemantics, setSharedSemantics,
+    scriptFlow,
     toggleKnowledgePack, toggleKnowledgeModule,
     importKnowledgePack, deleteKnowledgePack,
     layerContextTokens, setLayerContextTokens,

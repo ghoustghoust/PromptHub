@@ -3,10 +3,12 @@ import {
   PromptOrchestrator,
   PromptSkillGenerator,
   coreAIConfigService,
+  parseScriptFlow,
   resolveSystemPromptLayerBudget,
   type CoreAIModelConfig,
+  type PromptScriptFlow,
 } from "@prompthub/core";
-import { PromptFeedbackDB, PromptOrchestratorStateDB, PromptVocabDB } from "@prompthub/db";
+import { PromptFeedbackDB, PromptOrchestratorStateDB, PromptScriptFlowDB, PromptVocabDB } from "@prompthub/db";
 import type Database from "@prompthub/db/adapter";
 import type {
   DesktopPromptFeedbackRequest,
@@ -516,11 +518,13 @@ export class DesktopPromptOrchestratorService {
   private readonly vocabulary: PromptVocabDB;
   private readonly feedback: PromptFeedbackDB;
   private readonly workspace: PromptOrchestratorStateDB;
+  private readonly scriptFlow: PromptScriptFlowDB;
 
   constructor(db: Database.Database) {
     this.vocabulary = new PromptVocabDB(db);
     this.feedback = new PromptFeedbackDB(db);
     this.workspace = new PromptOrchestratorStateDB(db);
+    this.scriptFlow = new PromptScriptFlowDB(db);
   }
 
   getWorkspaceState(): PromptOrchestratorWorkspaceState | null {
@@ -532,6 +536,19 @@ export class DesktopPromptOrchestratorService {
       console.warn("Ignoring corrupted orchestrator workspace state", error);
       return null;
     }
+  }
+
+  getScriptFlow(): PromptScriptFlow | null {
+    return parseScriptFlow(this.scriptFlow.get());
+  }
+
+  saveScriptFlow(value: unknown): PromptScriptFlow {
+    const parsed = parseScriptFlow(value);
+    if (!parsed) {
+      throw new Error("script flow must be an object with a versions map");
+    }
+    this.scriptFlow.save(parsed);
+    return parsed;
   }
 
   saveWorkspaceState(value: unknown): PromptOrchestratorWorkspaceState {

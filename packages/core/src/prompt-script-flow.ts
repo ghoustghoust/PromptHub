@@ -7,7 +7,13 @@
  * upstream version are reported as stale instead of being silently reused.
  */
 
-export type PromptScriptStage = "outline" | "script" | "storyboard" | "unit";
+import type {
+  PromptScriptFlow,
+  PromptScriptStage,
+  PromptScriptVersion,
+} from "@prompthub/shared/types";
+
+export type { PromptScriptFlow, PromptScriptStage, PromptScriptVersion };
 
 export const SCRIPT_STAGE_ORDER: readonly PromptScriptStage[] = [
   "outline",
@@ -30,20 +36,6 @@ export class PromptScriptFlowError extends Error {
     this.name = "PromptScriptFlowError";
     this.code = code;
   }
-}
-
-export interface PromptScriptVersion {
-  /** 1-based, monotonic per stage. */
-  version: number;
-  text: string;
-  createdAt: string;
-  /** Upstream stage version this text was written against. */
-  basedOn?: Partial<Record<PromptScriptStage, number>>;
-}
-
-export interface PromptScriptFlow {
-  /** Insertion order is the linear order; old versions stay in place. */
-  versions: Record<PromptScriptStage, PromptScriptVersion[]>;
 }
 
 export interface RecordScriptStepInput {
@@ -174,4 +166,54 @@ export function nextScriptStage(flow: PromptScriptFlow): PromptScriptStage | nul
     if (!currentScriptVersion(flow, stage) || stale.has(stage)) return stage;
   }
   return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseVersion(value: unknown, stageIndex: number): PromptScriptVersion | null {
+  if (!isRecord(value)) return null;
+  const version = value.version;
+  const text = value.text;
+  const createdAt = value.createdAt;
+  if (typeof version !== "number" || !Number.isInteger(version) || version < 1) return null;
+  if (typeof text !== "string" || !text.trim()) return null;
+  if (typeof createdAt !== "string" || !createdAt.trim()) return null;
+  const basedOn: Partial<Record<PromptScriptStage, number>> = {};
+  if (isRecord(value.basedOn)) {
+    // Only earlier stages can be upstream; anything else is foreign data.
+    for (let index = 0; index < stageIndex; index += 1) {
+      const upstream = value.basedOn[SCRIPT_STAGE_ORDER[index]];
+      if (typeof upstream === "number" && Number.isInteger(upstream) && upstream >= 1) {
+        basedOn[SCRIPT_STAGE_ORDER[index]] = upstream;
+      }
+    }
+  }
+  return {
+    version,
+    text,
+    createdAt,
+    ...(Object.keys(basedOn).length > 0 ? { basedOn } : {}),
+  };
+}
+
+/**
+ * Reads a stored flow. A malformed version is dropped, not fatal: the rest of
+ * the history stays usable, matching how a corrupted workspace row is handled.
+ * Only a value that is not a flow object returns null.
+ */
+export function parseScriptFlow(value: unknown): PromptScriptFlow | null {
+  if (!isRecord(value)) return null;
+  const versions = value.versions;
+  if (!isRecord(versions)) return null;
+  const flow = createScriptFlow();
+  SCRIPT_STAGE_ORDER.forEach((stage, stageIndex) => {
+    const list = versions[stage];
+    if (!Array.isArray(list)) return;
+    flow.versions[stage] = list
+      .map((item) => parseVersion(item, stageIndex))
+      .filter((item): item is PromptScriptVersion => item !== null);
+  });
+  return flow;
 }

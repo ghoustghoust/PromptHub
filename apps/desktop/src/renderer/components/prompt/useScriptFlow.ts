@@ -12,6 +12,9 @@ export interface ScriptFlowState {
   /** Upstream material for this run: the selected version or typed text. */
   stepContext: string;
   setStepContext: (text: string) => void;
+  /** Shots the storyboard stage must produce for this scene. */
+  shotCount: number;
+  setShotCount: (count: number) => void;
   flow: PromptScriptFlow | null;
   stage: PromptScriptStage;
   draft: string;
@@ -33,6 +36,7 @@ export function useScriptFlow(): ScriptFlowState {
   const [stage, setStage] = useState<PromptScriptStage>("outline");
   const [draft, setDraft] = useState("");
   const [stepContext, setStepContext] = useState("");
+  const [shotCount, setShotCount] = useState(6);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const loaded = useRef(false);
@@ -84,6 +88,8 @@ export function useScriptFlow(): ScriptFlowState {
   return {
     stepContext,
     setStepContext,
+    shotCount,
+    setShotCount,
     flow,
     stage,
     draft,

@@ -1072,7 +1072,7 @@ export function usePromptOrchestratorWorkbench() {
       ...(allowAdult ? { allowAdult: true } : {}),
       ...(scriptFlow.stepContext.trim() ? { stepContext: scriptFlow.stepContext } : {}),
       // Only a run that belongs to the script flow owes a stage output shape.
-      ...(scriptFlow.flow || scriptFlow.stepContext.trim() ? { stage: scriptFlow.stage } : {}),
+      ...(scriptFlow.flow || scriptFlow.stepContext.trim() ? { stage: scriptFlow.stage, shotCount: scriptFlow.shotCount } : {}),
       ...(Object.keys(sharedSemantics).length > 0 ? { sharedSemantics } : {}),
       series: series || undefined,
       ...(domain === "all" ? {} : { domain }),

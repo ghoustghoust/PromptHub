@@ -19,7 +19,7 @@ describe("stage output contract", () => {
     expect(contract?.system).toMatch(/scene heading/i);
     expect(contract?.system).toMatch(/INT\./);
     expect(contract?.system).toMatch(/dialogue/i);
-    expect(contract?.system).toMatch(/one or two lines/i);
+    expect(contract?.system).toMatch(/one or two spoken lines/i);
     // The caption one-paragraph shape must not flatten a script page.
     expect(contract?.system).toMatch(/not apply/i);
   });
@@ -36,6 +36,24 @@ describe("stage output contract", () => {
     ).toBe(12);
     expect(
       resolveStageContract(input({ stage: "storyboard", prompt: "拆成分镜" }))?.requiredShotCount,
+    ).toBe(6);
+  });
+
+  it("prefers the explicit shot count over the intent text", () => {
+    const contract = resolveStageContract(
+      input({ stage: "storyboard", prompt: "拆成六个分镜", shotCount: 9 }),
+    );
+    expect(contract?.requiredShotCount).toBe(9);
+    expect(contract?.system).toContain("exactly 9");
+  });
+
+  it("falls back when the explicit shot count is out of range", () => {
+    expect(
+      resolveStageContract(input({ stage: "storyboard", prompt: "拆成六个分镜", shotCount: 0 }))
+        ?.requiredShotCount,
+    ).toBe(6);
+    expect(
+      resolveStageContract(input({ stage: "storyboard", shotCount: 99 }))?.requiredShotCount,
     ).toBe(6);
   });
 

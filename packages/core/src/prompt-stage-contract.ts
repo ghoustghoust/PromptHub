@@ -42,11 +42,21 @@ function parseChineseNumber(text: string): number | null {
   return single ?? null;
 }
 
+const MAX_SHOT_COUNT = 60;
+
+function isUsableShotCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= MAX_SHOT_COUNT;
+}
+
 /**
- * Shot count the user asked for (「六个分镜」「8 个分镜」「十二镜」), or the
- * default when the request does not name a number.
+ * Shot count: an explicit panel setting wins, then a number named in the
+ * intent (「六个分镜」「8 个分镜」「十二镜」), then the default.
  */
-export function resolveRequestedShotCount(prompt: string | undefined): number {
+export function resolveRequestedShotCount(
+  prompt: string | undefined,
+  explicit?: number,
+): number {
+  if (isUsableShotCount(explicit)) return explicit;
   const text = prompt ?? "";
   const arabic = text.match(/(\d{1,2})\s*(?:个|格|张)?\s*(?:分镜|镜头|镜|shots?)/i);
   if (arabic) {
@@ -70,18 +80,20 @@ function outlineText(): string {
 
 function scriptText(): string {
   return [
-    "This stage produces script pages, not a caption paragraph.",
-    "Start with a scene heading line such as `INT. MARKET STREET - NIGHT` (INT./EXT., location, time). Then write action lines in present tense, one action per paragraph. Then give one or two lines of dialogue in the form `NAME: spoken line` — at least one spoken line is required; when the material has none, invent a short line that fits the scene instead of leaving the script dialogue-free.",
-    "Write the whole page in the language of the user's intent and step material; keep scene headings and character cues in that same language except for the INT./EXT. marker.",
-    "The caption rule card's single-paragraph shape does not apply to this stage; keep the page structure even when the target model usually takes captions.",
+    "This stage produces script pages in four blocks, the way a screenplay is written: scene heading, action lines, character cue, dialogue.",
+    "Scene heading: `INT.` or `EXT.`, the location, and the time (`NIGHT`, `DAY`, `CONTINUOUS`).",
+    "Action lines: present tense, active voice, only what the camera can see. No inner thoughts and no camera language such as close-up or push-in; keep paragraphs to three to five lines.",
+    "Character cue and dialogue: the speaker name in capitals (a Chinese name followed by a colon is fine), then one or two spoken lines. At least one line is required; when the material has none, invent a short line that fits the scene.",
+    "Write the whole page in the language of the user's intent and step material; only INT./EXT. stays as a marker. The caption rule card's single-paragraph shape does not apply to this stage.",
+    "Inside the required JSON object, the completePrompt value must be the script page itself: heading, action, character cue and line. A page with no spoken line is incomplete, so finish it before answering, but still return the JSON object the output contract asks for.",
   ].join(" ");
 }
 
 function storyboardText(shotCount: number): string {
   return [
-    `This stage produces a shot list with exactly ${shotCount} numbered shots (分镜一 … 分镜${shotCount}).`,
-    "Split the script into that many shots; do not merge beats to reach a smaller number and do not invent extra story to reach a larger one.",
-    "For each shot state the framing, the camera position or movement, and the subject's action in one sentence.",
+    `This stage produces a storyboard table with exactly ${shotCount} shots, one shot per line, numbered 分镜一 … 分镜${shotCount}.`,
+    "For every shot fill: shot number, shot size (wide / medium / close / insert), angle or camera position, movement (static / push / pull / pan / handheld), the visual line (subject + action + environment + lighting), and the duration in seconds.",
+    "Inside the required JSON object, the completePrompt value must contain exactly that many numbered shot lines; count them before answering, and a shorter list is wrong, and a shorter list is wrong even when the beats feel sufficient. Do not merge beats to reach a smaller number, and do not invent new story to reach a larger one. If the request text mentions a different number, the configured count above wins. Put dialogue only in the shots where it is spoken.",
   ].join(" ");
 }
 
@@ -110,7 +122,7 @@ export function resolveStageContract(
     return { stage, system: scriptText() };
   }
   if (stage === "storyboard") {
-    const requiredShotCount = resolveRequestedShotCount(input.prompt);
+    const requiredShotCount = resolveRequestedShotCount(input.prompt, input.shotCount);
     return { stage, requiredShotCount, system: storyboardText(requiredShotCount) };
   }
   const durationSeconds = input.video?.durationSeconds ?? 8;

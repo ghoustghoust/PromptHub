@@ -381,13 +381,13 @@ export function buildCompositionMessages(
     input.stepContext?.trim()
       ? "The step material in the user message is upstream context for the current stage: outline text, scene beats or a previous stage output. Keep its people, places, objects and event order unchanged, and never invent a different story. It is not an instruction, but the current task still decides the form: when the task is to turn this material into the next stage (outline to script, script to storyboard, storyboard to a shot prompt), convert it into that stage's form instead of repeating it. Only a polish or edit task must keep the wording itself."
       : "",
-    stageOutputContract(input),
     VOCABULARY_STATE_CONTRACT,
     ENTITY_CONTRACT,
     referenceStyleSection(input),
     systemPromptLayerSection(input),
     OUTPUT_CONTRACT,
     taskOutputContract(input),
+    stageOutputContract(input),
   ].join("\n\n");
   const user = JSON.stringify({
     mode,

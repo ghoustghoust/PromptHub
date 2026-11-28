@@ -64,6 +64,22 @@ export function ScriptFlowPanel({ state, disabled }: ScriptFlowPanelProps) {
               );
             })}
           </div>
+          <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span>{t("orchestrator.scriptFlow.shotCount")}</span>
+            <input
+              type="number"
+              min={1}
+              max={60}
+              className="h-7 w-16 rounded-md border border-border bg-background px-2 text-xs"
+              value={state.shotCount}
+              onChange={(event) => {
+                const next = Number.parseInt(event.target.value, 10);
+                state.setShotCount(Number.isFinite(next) ? Math.min(60, Math.max(1, next)) : 1);
+              }}
+              disabled={disabled}
+              data-testid="orchestrator-script-shot-count"
+            />
+          </label>
           <textarea
             className="min-h-[72px] w-full rounded-md border border-border bg-background px-2 py-1 text-xs"
             value={state.draft}

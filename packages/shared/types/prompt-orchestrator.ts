@@ -214,6 +214,8 @@ export interface PromptOrchestrationInput {
   stepContext?: string;
   /** Which script stage produced this run; drives the stage output contract. */
   stage?: PromptScriptStage;
+  /** Shots the storyboard stage must produce; wins over numbers in the intent. */
+  shotCount?: number;
   mode?: PromptOrchestrationMode;
   /** Image model id used for applicable_models filtering. */
   modelId?: string;

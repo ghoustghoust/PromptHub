@@ -5212,6 +5212,7 @@
     },
     "workspace": {
       "picker": "Vocabulary",
+      "gallery": "Asset gallery",
       "canvas": "Layout canvas",
       "layoutHint": "Exact placement: draw the boxes, then write locked terms into the selected box.",
       "lockedHint": "{{count}} locked term(s) ready to insert:",
@@ -5797,6 +5798,22 @@
         "visual": "Frame",
         "duration": "Duration"
       }
+    },
+    "assetLibrary": {
+      "kinds": {
+        "all": "All",
+        "costume": "Costume",
+        "hair": "Hair",
+        "portrait": "Portrait",
+        "pose": "Pose"
+      },
+      "searchPlaceholder": "Search titles and tags",
+      "hint": "Read-only browsing: pictures stay in the source folder, and nothing here joins the prompt yet.",
+      "empty": "No assets indexed yet.",
+      "emptyHint": "Import the 014 libraries before browsing; importing stays a separate step.",
+      "close": "Close",
+      "prev": "Previous",
+      "next": "Next"
     },
     "sharedFacts": {
       "title": "Shared facts",

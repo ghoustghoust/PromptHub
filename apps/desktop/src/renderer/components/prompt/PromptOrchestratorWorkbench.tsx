@@ -27,6 +27,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { PromptReferenceImageInput } from "./PromptReferenceImageInput";
 import { PromptVideoFields } from "./PromptVideoFields";
 import { PromptTermPicker } from "./PromptTermPicker";
+import { PromptAssetGallery } from "./PromptAssetGallery";
 import { SharedFactsPanel } from "./SharedFactsPanel";
 import { ScriptFlowPanel } from "./ScriptFlowPanel";
 import { StepContextPanel } from "./StepContextPanel";
@@ -367,7 +368,7 @@ export function PromptOrchestratorWorkbench() {
   const [resultOpen, setResultOpen] = useState(false);
   const [pickerExpanded, setPickerExpanded] = useState(false);
   const [intentCollapsed, setIntentCollapsed] = useState(false);
-  const [workspaceTab, setWorkspaceTab] = useState<"picker" | "canvas">("picker");
+  const [workspaceTab, setWorkspaceTab] = useState<"picker" | "canvas" | "gallery">("picker");
   const [resultWidth, setResultWidth] = useState(520);
   const [wideLayout, setWideLayout] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(min-width: 1440px)").matches,
@@ -408,9 +409,12 @@ export function PromptOrchestratorWorkbench() {
     }
   }, [humanLed]);
   // Exact-placement work belongs on the canvas; word picking belongs on the picker.
+  // Browsing the asset library is a deliberate choice, so switching modals keeps it.
   useEffect(() => {
     if (!humanLed) return;
-    setWorkspaceTab(layoutMode ? "canvas" : "picker");
+    setWorkspaceTab((current) =>
+      current === "gallery" ? "gallery" : layoutMode ? "canvas" : "picker",
+    );
   }, [humanLed, layoutMode]);
   const usablePrefabTerms = state.prefabTerms.filter((term) => term.state !== "excluded");
   const lockTermsIntoBox = () => {
@@ -897,34 +901,39 @@ export function PromptOrchestratorWorkbench() {
             </div>
             {humanLed && (
               <>
-                {layoutMode && (
-                  <div
-                    className="flex shrink-0 items-center gap-1 border-b border-border/60 px-3 py-1.5"
-                    role="tablist"
-                    data-testid="orchestrator-workspace-tabs"
-                  >
-                    {(["picker", "canvas"] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        role="tab"
-                        aria-selected={workspaceTab === tab}
-                        onClick={() => setWorkspaceTab(tab)}
-                        className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                          workspaceTab === tab
-                            ? "bg-primary/10 text-primary"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                        }`}
-                        data-testid={`orchestrator-workspace-tab-${tab}`}
-                      >
-                        {t(`orchestrator.workspace.${tab}`)}
-                      </button>
-                    ))}
-                    <span className="ml-auto truncate text-[11px] text-muted-foreground">
-                      {t("orchestrator.workspace.layoutHint")}
-                    </span>
-                  </div>
-                )}
+                <div
+                  className="flex shrink-0 items-center gap-1 border-b border-border/60 px-3 py-1.5"
+                  role="tablist"
+                  data-testid="orchestrator-workspace-tabs"
+                >
+                  {(layoutMode
+                    ? (["picker", "gallery", "canvas"] as const)
+                    : (["picker", "gallery"] as const)
+                  ).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      role="tab"
+                      aria-selected={workspaceTab === tab}
+                      onClick={() => setWorkspaceTab(tab)}
+                      className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                        workspaceTab === tab
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                      data-testid={`orchestrator-workspace-tab-${tab}`}
+                    >
+                      {t(`orchestrator.workspace.${tab}`)}
+                    </button>
+                  ))}
+                  <span className="ml-auto truncate text-[11px] text-muted-foreground">
+                    {workspaceTab === "gallery"
+                      ? t("orchestrator.assetLibrary.hint")
+                      : layoutMode
+                        ? t("orchestrator.workspace.layoutHint")
+                        : ""}
+                  </span>
+                </div>
                 <div className="flex min-h-0 flex-1 flex-col">
                   {layoutMode && workspaceTab === "canvas" ? (
                     <>
@@ -973,6 +982,8 @@ export function PromptOrchestratorWorkbench() {
                         />
                       </div>
                     </>
+                  ) : workspaceTab === "gallery" ? (
+                    <PromptAssetGallery disabled={state.isRunning} />
                   ) : (
                     <div className="min-h-0 flex-1 p-3">
                       <PromptTermPicker

@@ -5210,6 +5210,7 @@
     },
     "workspace": {
       "picker": "词条选材",
+      "gallery": "素材图库",
       "canvas": "版面画布",
       "layoutHint": "精确排版：先在画布定框，再把锁定词条写进选中框。",
       "lockedHint": "已锁定 {{count}} 条，可写入选中框：",
@@ -5795,6 +5796,22 @@
         "visual": "画面",
         "duration": "时长"
       }
+    },
+    "assetLibrary": {
+      "kinds": {
+        "all": "全部",
+        "costume": "服装",
+        "hair": "发型",
+        "portrait": "人像",
+        "pose": "姿势"
+      },
+      "searchPlaceholder": "搜索标题与标签",
+      "hint": "只读浏览：图片留在源目录，本批次不会把素材加入提示词。",
+      "empty": "还没有索引任何素材。",
+      "emptyHint": "先导入 014 的四库素材；导入入口是单独一步。",
+      "close": "关闭",
+      "prev": "上一页",
+      "next": "下一页"
     },
     "sharedFacts": {
       "title": "共享事实",

@@ -24,6 +24,7 @@ import { mcpApi } from "./api/mcp";
 import { pluginApi } from "./api/plugin";
 import { promptApi } from "./api/prompt";
 import { promptOrchestratorApi } from "./api/prompt-orchestrator";
+import { promptAssetApi } from "./api/prompt-asset";
 import { promptKnowledgeApi } from "./api/prompt-knowledge";
 import { promptReferenceApi } from "./api/prompt-reference";
 import { promptWritingPresetsApi } from "./api/prompt-writing-presets";
@@ -115,6 +116,7 @@ const api = {
   promptOrchestrator: promptOrchestratorApi,
   promptKnowledge: promptKnowledgeApi,
   promptReference: promptReferenceApi,
+  promptAsset: promptAssetApi,
   promptWritingPresets: promptWritingPresetsApi,
   promptWorkspaceRecovery: promptWorkspaceRecoveryApi,
   agent: agentApi,

@@ -99,6 +99,11 @@ function createWindowApiDefaults() {
       list: vi.fn().mockResolvedValue({ ok: true, data: [] }),
       remove: vi.fn().mockResolvedValue({ ok: true, data: { removed: false } }),
     },
+    promptAsset: {
+      list: vi.fn().mockResolvedValue({ ok: true, data: { items: [], total: 0 } }),
+      countByKind: vi.fn().mockResolvedValue({ ok: true, data: [] }),
+      thumbnail: vi.fn().mockResolvedValue({ ok: true, data: null }),
+    },
     localLlama: {
       getConfig: vi.fn(),
       saveConfig: vi.fn(),

@@ -67,3 +67,8 @@ export interface PromptAssetKindCount {
   kind: string;
   count: number;
 }
+
+/** Reply shape for the read-only asset channel; same union as the other IPC APIs. */
+export type PromptAssetIPCReply<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string } };

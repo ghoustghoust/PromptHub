@@ -17,6 +17,7 @@ import {
   getElectronLaunchArgs,
   getElectronLaunchEnvironment,
   isElectronHeaded,
+  resolveDesktopTestRoot,
 } from "./electron-launch-options";
 
 export interface LaunchedElectronApp {
@@ -69,11 +70,11 @@ function buildMainSettingsPatch(
 }
 
 function getMainEntry() {
-  return path.join(process.cwd(), "out/main/index.js");
+  return path.join(resolveDesktopTestRoot(), "out/main/index.js");
 }
 
 function getSeedPath(seedFileName: string) {
-  return path.join(process.cwd(), "tests/e2e/fixtures", seedFileName);
+  return path.join(resolveDesktopTestRoot(), "tests/e2e/fixtures", seedFileName);
 }
 
 async function waitForRendererReady(page: Page): Promise<void> {

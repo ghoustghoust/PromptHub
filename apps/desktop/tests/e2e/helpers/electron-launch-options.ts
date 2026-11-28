@@ -1,9 +1,30 @@
+import fs from "node:fs";
 import path from "node:path";
 
-const isolatedKeyringPreload = path.join(
-  process.cwd(),
-  "tests/e2e/helpers/isolated-keyring.cjs",
-);
+/**
+ * Playwright may be started from the repository root or from `apps/desktop`.
+ * Resolving these paths from the working directory alone used to hand Electron
+ * a preload or entry that does not exist, so the app died in the main process
+ * instead of starting the test window.
+ */
+export function resolveDesktopTestRoot(): string {
+  const candidateRoots = [
+    process.cwd(),
+    path.join(process.cwd(), "apps", "desktop"),
+  ];
+  for (const root of candidateRoots) {
+    if (fs.existsSync(path.join(root, "tests", "e2e", "helpers", "isolated-keyring.cjs"))) {
+      return root;
+    }
+  }
+  throw new Error(
+    "PromptHub E2E fixtures were not found; run Playwright from the repository root or from apps/desktop",
+  );
+}
+
+function resolveIsolatedKeyringPreload(): string {
+  return path.join(resolveDesktopTestRoot(), "tests", "e2e", "helpers", "isolated-keyring.cjs");
+}
 
 export const nativeWindowTestTag = "@native-window";
 
@@ -72,7 +93,7 @@ export function getElectronLaunchArgs(
       : [mainEntry];
   return [
     "-r",
-    isolatedKeyringPreload,
+    resolveIsolatedKeyringPreload(),
     ...args,
     ...(showWindow ? [] : ["--hidden"]),
   ];

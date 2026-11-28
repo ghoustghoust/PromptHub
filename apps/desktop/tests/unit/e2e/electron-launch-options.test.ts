@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import fs from "node:fs";
 import path from "node:path";
 import {
   getElectronLaunchArgs,
@@ -12,6 +13,11 @@ describe("Electron E2E launch options", () => {
     "-r",
     expect.stringMatching(/[/\\]helpers[/\\]isolated-keyring\.cjs$/),
   ];
+  it("hands Electron a keyring preload that exists on disk", () => {
+    const args = getElectronLaunchArgs("/app/main.js", "win32", false, false);
+    const preload = args[args.indexOf("-r") + 1];
+    expect(fs.existsSync(preload)).toBe(true);
+  });
   it("isolates home and data roots without inheriting native account configuration", () => {
     const profile = path.resolve("isolated-profile");
     const env = getElectronLaunchEnvironment(

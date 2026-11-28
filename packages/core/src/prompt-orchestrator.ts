@@ -165,6 +165,22 @@ function validateStringArray(
   value.forEach((entry, index) => requireText(entry, `${label}[${index}]`));
 }
 
+const DEFAULT_REVERSE_INSTRUCTION =
+  "Describe the supplied image as a ready-to-use generation prompt: state what is visible first, then only clearly supported inferences, and keep the subject unchanged.";
+
+/**
+ * Reverse with an image but no text still needs an instruction; otherwise the
+ * model receives an empty intent and may stall or answer with nothing.
+ */
+function applyReverseDefaultPrompt(
+  input: PromptOrchestrationInput,
+): { input: PromptOrchestrationInput; applied: boolean } {
+  if (input.prompt?.trim()) return { input, applied: false };
+  if ((input.mode ?? "expand") !== "reverse") return { input, applied: false };
+  if ((input.imageUrls?.length ?? 0) === 0) return { input, applied: false };
+  return { input: { ...input, prompt: DEFAULT_REVERSE_INSTRUCTION }, applied: true };
+}
+
 function validateInput(input: PromptOrchestrationInput): void {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     throw new PromptOrchestratorError(
@@ -808,9 +824,15 @@ export class PromptOrchestrator {
     // before validation, so a stray video/layout payload cannot either reach
     // the model or fail a request the user never intended to make.
     const applied = applyPromptTaskContract(rawInput);
-    const input = applied.input;
+    const reverseDefault = applyReverseDefaultPrompt(applied.input);
+    const input = reverseDefault.input;
     const contract = applied.contract;
-    const contractWarnings = taskContractWarnings(contract);
+    const contractWarnings = [
+      ...taskContractWarnings(contract),
+      ...(reverseDefault.applied
+        ? ["No text prompt was given; Core used a standard reverse instruction."]
+        : []),
+    ];
     validateInput(input);
     throwIfCancelled(this.options.signal);
     this.options.onEvent?.({ type: "phase", stage: "planning", round: 0 });

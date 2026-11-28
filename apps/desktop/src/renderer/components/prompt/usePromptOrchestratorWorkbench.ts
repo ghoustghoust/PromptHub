@@ -28,6 +28,10 @@ import { supportsReferenceImages } from "@prompthub/shared/types";
 import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
 import { buildReferenceStyleText } from "@prompthub/shared/utils/prompt-reference";
 import { resolvePromptTaskContract } from "@prompthub/shared/utils/prompt-task-contract";
+import {
+  base64ToBlob,
+  downscaleImageToDataUrl,
+} from "../../utils/image-downscale";
 import { useSettingsStore } from "../../stores/settings.store";
 import { LOCAL_LLAMA_MODEL_ID } from "../../stores/settings/settings-ai-actions";
 import { usePromptStore } from "../../stores/prompt.store";
@@ -96,15 +100,6 @@ function validCanvas(width: string, height: string): boolean {
   return [Number(width), Number(height)].every(
     (value) => Number.isInteger(value) && value > 0 && value % 16 === 0,
   );
-}
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error("Unable to read image"));
-    reader.readAsDataURL(file);
-  });
 }
 
 export function usePromptOrchestratorWorkbench() {
@@ -876,12 +871,12 @@ export function usePromptOrchestratorWorkbench() {
     }
     try {
       const selected = files.slice(0, remaining);
-      if (selected.some((file) => file.size > 10 * 1024 * 1024)) {
+      if (selected.some((file) => file.size > 64 * 1024 * 1024)) {
         throw new Error(t("orchestrator.imageTooLarge"));
       }
       const images = await Promise.all(selected.map(async (file) => ({
         fileName: file.name || `pasted-image-${Date.now()}.png`,
-        dataUrl: await fileToDataUrl(file),
+        dataUrl: await downscaleImageToDataUrl(file),
       })));
       addReferenceImages(images);
     } catch (cause) {
@@ -896,9 +891,10 @@ export function usePromptOrchestratorWorkbench() {
       if (!readClipboard) throw new Error(t("orchestrator.imageBridgeUnavailable"));
       const image = await readClipboard();
       if (!image) throw new Error(t("orchestrator.clipboardImageUnavailable"));
+      const blob = base64ToBlob(image.base64, image.mimeType);
       addReferenceImages([{
         fileName: image.fileName,
-        dataUrl: `data:${image.mimeType};base64,${image.base64}`,
+        dataUrl: await downscaleImageToDataUrl(blob),
       }]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -1270,7 +1266,7 @@ export function usePromptOrchestratorWorkbench() {
     const runId = crypto.randomUUID();
     setAssistRunId(runId);
     try {
-      const dataUrl = await fileToDataUrl(file);
+      const dataUrl = await downscaleImageToDataUrl(file);
       const reply = await window.api.promptOrchestrator.reverseLayout({
         runId,
         images: [dataUrl],

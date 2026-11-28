@@ -5569,6 +5569,7 @@
       "model": "No usable text model is selected",
       "layerBudget": "The writing layer exceeds the context budget by {{over}} tokens",
       "contractGroup": "Choose a contract group (script, storyboard or novel) for the selected knowledge pack",
+      "knowledgeSkillConflict": "Contract group \"{{group}}\" is provided by {{packs}}; keep one primary skill for this group",
       "canvasSize": "Canvas width and height must be positive multiples of 16",
       "prompt": "The overall scene description is empty",
       "boxEmpty": "The canvas has no boxes yet",

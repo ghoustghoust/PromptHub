@@ -133,6 +133,7 @@ export class PromptOrchestratorError extends Error {
       | "INVALID_INPUT"
       | "MODEL_PROFILE_NOT_FOUND"
       | "SYSTEM_PROMPT_LAYER_OVER_BUDGET"
+      | "KNOWLEDGE_SKILL_CONFLICT"
       | "CANCELLED",
     message: string,
   ) {
@@ -187,7 +188,36 @@ function applyReverseDefaultPrompt(
   return { input: { ...input, prompt: DEFAULT_REVERSE_INSTRUCTION }, applied: true };
 }
 
+/**
+ * A contract group may be driven by exactly one pack. Two packs that both claim
+ * the same group are competing primary skills; merging them silently would let
+ * two incompatible structures run at once.
+ */
+function validatePrimaryKnowledgeSkill(input: PromptOrchestrationInput): void {
+  const owners = new Map<string, Map<string, string>>();
+  for (const module of input.knowledgeModules ?? []) {
+    if (module.role !== "contract") continue;
+    const groups = module.contractGroups ?? [];
+    if (groups.length === 0) continue;
+    const packKey = module.packId ?? module.packName ?? module.id;
+    const label = module.packName ?? module.packId ?? module.id;
+    for (const group of groups) {
+      const packs = owners.get(group) ?? new Map<string, string>();
+      packs.set(packKey, label);
+      owners.set(group, packs);
+    }
+  }
+  for (const [group, packs] of owners) {
+    if (packs.size <= 1) continue;
+    throw new PromptOrchestratorError(
+      "KNOWLEDGE_SKILL_CONFLICT",
+      `Contract group "${group}" is claimed by multiple skills: ${[...packs.values()].join(", ")}. Select one primary skill for this group; skills are never merged automatically.`,
+    );
+  }
+}
+
 function validateInput(input: PromptOrchestrationInput): void {
+  validatePrimaryKnowledgeSkill(input);
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     throw new PromptOrchestratorError(
       "INVALID_INPUT",

@@ -5567,6 +5567,7 @@
       "model": "尚未选择可用的文本模型",
       "layerBudget": "写作层超出上下文预算 {{over}} token",
       "contractGroup": "请为所选知识包选择项目类型（只写剧本 / 只做分镜 / 只写小说）",
+      "knowledgeSkillConflict": "契约组「{{group}}」同时由 {{packs}} 提供；同一流程只能保留一个主导 Skill",
       "canvasSize": "画布宽高必须是 16 的正整数倍",
       "prompt": "整体画面描述为空",
       "boxEmpty": "画布上还没有任何框",

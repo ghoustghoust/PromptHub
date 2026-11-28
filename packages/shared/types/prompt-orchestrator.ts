@@ -7,7 +7,11 @@ import type {
   PromptMossLayoutDraft,
   PromptMossLayoutResult,
 } from "./prompt-moss-layout";
-import type { PromptKnowledgeContractGroup, PromptKnowledgeModuleLayer } from "./prompt-knowledge";
+import type {
+  PromptKnowledgeContractGroup,
+  PromptKnowledgeModuleLayer,
+  PromptKnowledgeModuleRole,
+} from "./prompt-knowledge";
 import type { PromptTaskContract } from "./prompt-task-contract";
 
 export type PromptOrchestrationMode =
@@ -170,6 +174,18 @@ export interface PromptVideoOrchestrationInput {
   continuity?: string;
 }
 
+/** Upstream facts every target model shares; compiled once per run. */
+export interface PromptSharedSemantics {
+  subject?: string;
+  action?: string;
+  setting?: string;
+  composition?: string;
+  lighting?: string;
+  palette?: string;
+  continuity?: string;
+  constraints?: string[];
+}
+
 export interface PromptOrchestrationInput {
   /** User intent, source prompt, or textual reference for reverse mode. */
   prompt?: string;
@@ -243,6 +259,8 @@ export interface PromptOrchestrationInput {
   /** Estimated automatic-vocabulary budget; explicit user selections are retained. */
   vocabularyTokenBudget?: number;
   video?: PromptVideoOrchestrationInput;
+  /** Shared scene facts; when present they are compiled ahead of the rule card. */
+  sharedSemantics?: PromptSharedSemantics;
 }
 
 /**
@@ -256,6 +274,10 @@ export interface PromptKnowledgeModuleSelection {
   moduleKey: string;
   title: string;
   layer?: PromptKnowledgeModuleLayer;
+  /** Contract modules declare which project group they drive. */
+  role?: PromptKnowledgeModuleRole;
+  /** Present when role is `contract`; one group may have one primary pack. */
+  contractGroups?: PromptKnowledgeContractGroup[];
   /** Estimated tokens from the import preview; the orchestrator re-checks. */
   tokens?: number;
   content: string;

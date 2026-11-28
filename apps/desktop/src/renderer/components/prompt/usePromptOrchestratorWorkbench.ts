@@ -32,6 +32,7 @@ import {
   base64ToBlob,
   downscaleImageToDataUrl,
 } from "../../utils/image-downscale";
+import { findKnowledgeSkillConflict } from "./knowledge-skill-conflict";
 import { useSettingsStore } from "../../stores/settings.store";
 import { LOCAL_LLAMA_MODEL_ID } from "../../stores/settings/settings-ai-actions";
 import { usePromptStore } from "../../stores/prompt.store";
@@ -421,6 +422,10 @@ export function usePromptOrchestratorWorkbench() {
   );
   const contractTokens = useMemo(
     () => contractModules.reduce((sum, module) => sum + module.tokens, 0),
+    [contractModules],
+  );
+  const knowledgeSkillConflict = useMemo(
+    () => findKnowledgeSkillConflict(contractModules),
     [contractModules],
   );
   const activeKnowledgeModules = useMemo(() => {
@@ -909,6 +914,14 @@ export function usePromptOrchestratorWorkbench() {
     if (hasGroupedContracts && !knowledgeContractGroup) {
       blockers.push(t("orchestrator.blocker.contractGroup"));
     }
+    if (knowledgeSkillConflict) {
+      blockers.push(
+        t("orchestrator.blocker.knowledgeSkillConflict", {
+          group: knowledgeSkillConflict.group,
+          packs: knowledgeSkillConflict.packs.join(", "),
+        }),
+      );
+    }
     const writingLayerTokens =
       estimatePromptTokens(systemLayer) + knowledgeTokens + contractTokens;
     if (
@@ -1040,6 +1053,8 @@ export function usePromptOrchestratorWorkbench() {
               moduleKey: module.moduleKey,
               title: module.title,
               ...(module.layer ? { layer: module.layer } : {}),
+              role: module.role,
+              ...(module.contractGroups ? { contractGroups: module.contractGroups } : {}),
               tokens: module.tokens,
               content: module.content,
             })),

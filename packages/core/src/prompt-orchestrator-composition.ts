@@ -11,6 +11,7 @@ import type {
 import { isVideoOrchestrationMode } from "@prompthub/shared/types";
 import { buildReferenceStyleText } from "@prompthub/shared/utils/prompt-reference";
 import { getPromptRuleCard } from "./prompt-orchestrator-rule-cards";
+import { compileModelPrompt } from "./prompt-model-compiler";
 import { compileMossLayout, serializeMossLayout } from "./prompt-moss-layout";
 
 export interface PromptCompositionMessages {
@@ -360,7 +361,11 @@ export function buildCompositionMessages(
   const system = [
     "You are PromptHub's knowledge-driven visual prompt orchestrator.",
     MODE_INSTRUCTIONS[mode],
-    getPromptRuleCard(input.skill, { allowAdult: input.allowAdult }),
+    input.sharedSemantics
+      ? compileModelPrompt(input.sharedSemantics, input.skill, {
+          allowAdult: input.allowAdult,
+        }).text
+      : getPromptRuleCard(input.skill, { allowAdult: input.allowAdult }),
     input.guidanceMode === "human-led"
       ? "Human-led mode: the user's searched vocabulary is organized by state. locked terms must be kept verbatim; recommended terms must appear but their wording may be adjusted to fit the sentence; reference terms are optional material that may be reused, adapted or ignored. Preserve the user's structure, make only restrained coherence/polish changes, and do not add automatic vocabulary or unrelated entities. Put any nonessential creative idea only in optional fields, never merge it into the final prompt without user approval."
       : "Agent-led mode: guide the initial idea actively while respecting the selected rule card and the user's fixed facts. Useful creative additions must remain explicitly optional.",

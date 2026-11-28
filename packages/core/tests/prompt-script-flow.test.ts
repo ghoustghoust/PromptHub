@@ -3,7 +3,10 @@ import {
   createScriptFlow,
   currentScriptVersion,
   nextScriptStage,
+  normalizeScriptShotCount,
   recordScriptStep,
+  scriptFlowShotCount,
+  setScriptFlowShotCount,
   staleScriptStages,
   type PromptScriptFlow,
 } from "../src/prompt-script-flow";
@@ -80,5 +83,39 @@ describe("script flow", () => {
     expect(flow.versions.outline).toHaveLength(0);
     expect(result.flow.versions.outline).toHaveLength(1);
     expect(result.flow).not.toBe(flow);
+  });
+});
+
+describe("script flow settings", () => {
+  it("defaults the scene shot count and keeps a usable setting", () => {
+    expect(scriptFlowShotCount(null)).toBe(6);
+    expect(scriptFlowShotCount(createScriptFlow())).toBe(6);
+    const flow = setScriptFlowShotCount(createScriptFlow(), 9);
+    expect(scriptFlowShotCount(flow)).toBe(9);
+    expect(flow.settings).toEqual({ shotCount: 9 });
+  });
+
+  it("falls back to the default instead of storing an unusable count", () => {
+    expect(normalizeScriptShotCount(0)).toBe(6);
+    expect(normalizeScriptShotCount(99)).toBe(6);
+    expect(normalizeScriptShotCount(4.5)).toBe(6);
+    expect(normalizeScriptShotCount("9")).toBe(6);
+    expect(normalizeScriptShotCount(1)).toBe(1);
+    expect(normalizeScriptShotCount(60)).toBe(60);
+  });
+
+  it("keeps the shot count when a stage version is appended", () => {
+    const withSetting = setScriptFlowShotCount(createScriptFlow(), 8);
+    const result = recordScriptStep(withSetting, { stage: "outline", text: "outline" });
+    expect(scriptFlowShotCount(result.flow)).toBe(8);
+    // The input flow is not mutated by the caller's setting either.
+    expect(withSetting.versions.outline).toHaveLength(0);
+  });
+
+  it("does not disturb the version chains when the count changes", () => {
+    const filled = fillThrough(["outline", "script"]);
+    const updated = setScriptFlowShotCount(filled, 12);
+    expect(updated.versions).toEqual(filled.versions);
+    expect(filled.settings).toBeUndefined();
   });
 });

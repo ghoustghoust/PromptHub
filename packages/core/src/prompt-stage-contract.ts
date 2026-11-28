@@ -2,6 +2,10 @@ import type {
   PromptOrchestrationInput,
   PromptScriptStage,
 } from "@prompthub/shared/types";
+import {
+  DEFAULT_SCRIPT_SHOT_COUNT,
+  MAX_SCRIPT_SHOT_COUNT,
+} from "./prompt-script-flow";
 
 export interface PromptStageContract {
   stage: PromptScriptStage;
@@ -10,8 +14,6 @@ export interface PromptStageContract {
   /** System-prompt text for this stage; empty string means no extra rules. */
   system: string;
 }
-
-const DEFAULT_SHOT_COUNT = 6;
 
 const CN_DIGIT: Record<string, number> = {
   一: 1,
@@ -42,10 +44,13 @@ function parseChineseNumber(text: string): number | null {
   return single ?? null;
 }
 
-const MAX_SHOT_COUNT = 60;
-
 function isUsableShotCount(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= MAX_SHOT_COUNT;
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= MAX_SCRIPT_SHOT_COUNT
+  );
 }
 
 /**
@@ -68,7 +73,7 @@ export function resolveRequestedShotCount(
     const value = parseChineseNumber(chinese[1]);
     if (value && value >= 1 && value <= 60) return value;
   }
-  return DEFAULT_SHOT_COUNT;
+  return DEFAULT_SCRIPT_SHOT_COUNT;
 }
 
 function outlineText(): string {
@@ -93,7 +98,7 @@ function storyboardText(shotCount: number): string {
   return [
     `This stage produces a storyboard table with exactly ${shotCount} shots, one shot per line, numbered 分镜一 … 分镜${shotCount}.`,
     "For every shot fill: shot number, shot size (wide / medium / close / insert), angle or camera position, movement (static / push / pull / pan / handheld), the visual line (subject + action + environment + lighting), and the duration in seconds.",
-    "Inside the required JSON object, the completePrompt value must contain exactly that many numbered shot lines; count them before answering, and a shorter list is wrong, and a shorter list is wrong even when the beats feel sufficient. Do not merge beats to reach a smaller number, and do not invent new story to reach a larger one. If the request text mentions a different number, the configured count above wins. Put dialogue only in the shots where it is spoken.",
+    "Inside the required JSON object, the completePrompt value must contain exactly that many numbered shot lines; count them before answering, and a shorter list is wrong even when the beats feel sufficient. Do not merge beats to reach a smaller number, and do not invent new story to reach a larger one. If the request text mentions a different number, the configured count above wins. Put dialogue only in the shots where it is spoken.",
   ].join(" ");
 }
 

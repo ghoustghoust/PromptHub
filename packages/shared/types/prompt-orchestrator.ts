@@ -201,6 +201,16 @@ export interface PromptScriptVersion {
 export interface PromptScriptFlow {
   /** One version chain per stage; old versions stay in place. */
   versions: Record<PromptScriptStage, PromptScriptVersion[]>;
+  /**
+   * Scene settings that belong to the flow rather than to one version, so a
+   * reload keeps them. Absent means the defaults apply.
+   */
+  settings?: PromptScriptSettings;
+}
+
+export interface PromptScriptSettings {
+  /** Shots this scene's storyboard must produce (1–60). */
+  shotCount?: number;
 }
 
 export interface PromptOrchestrationInput {

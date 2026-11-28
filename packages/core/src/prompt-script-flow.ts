@@ -15,6 +15,10 @@ import type {
 
 export type { PromptScriptFlow, PromptScriptStage, PromptScriptVersion };
 
+/** Shots per scene when the user has not set a number. */
+export const DEFAULT_SCRIPT_SHOT_COUNT = 6;
+export const MAX_SCRIPT_SHOT_COUNT = 60;
+
 export const SCRIPT_STAGE_ORDER: readonly PromptScriptStage[] = [
   "outline",
   "script",
@@ -53,6 +57,32 @@ export interface RecordScriptStepResult {
 export function createScriptFlow(): PromptScriptFlow {
   return {
     versions: { outline: [], script: [], storyboard: [], unit: [] },
+  };
+}
+
+/**
+ * A shot count out of range is clamped to a usable one instead of being
+ * written as-is: 0 or 99 would otherwise reach the stage contract verbatim.
+ */
+export function normalizeScriptShotCount(value: unknown): number {
+  if (typeof value !== "number" || !Number.isInteger(value)) return DEFAULT_SCRIPT_SHOT_COUNT;
+  if (value < 1 || value > MAX_SCRIPT_SHOT_COUNT) return DEFAULT_SCRIPT_SHOT_COUNT;
+  return value;
+}
+
+/** The flow's scene shot count, defaulting when it was never set. */
+export function scriptFlowShotCount(flow: PromptScriptFlow | null | undefined): number {
+  return normalizeScriptShotCount(flow?.settings?.shotCount);
+}
+
+/** Stores the scene shot count on the flow; versions are untouched. */
+export function setScriptFlowShotCount(
+  flow: PromptScriptFlow,
+  count: unknown,
+): PromptScriptFlow {
+  return {
+    ...flow,
+    settings: { ...flow.settings, shotCount: normalizeScriptShotCount(count) },
   };
 }
 
@@ -135,6 +165,7 @@ function append(
   };
   return {
     flow: {
+      ...flow,
       versions: { ...flow.versions, [input.stage]: [...list, version] },
     },
     version,
@@ -215,5 +246,16 @@ export function parseScriptFlow(value: unknown): PromptScriptFlow | null {
       .map((item) => parseVersion(item, stageIndex))
       .filter((item): item is PromptScriptVersion => item !== null);
   });
-  return flow;
+  return settingsFrom(value.settings) !== undefined
+    ? { ...flow, settings: settingsFrom(value.settings) }
+    : flow;
+}
+
+/** Stored settings are kept only when they are usable; the default fills in. */
+function settingsFrom(value: unknown): { shotCount?: number } | undefined {
+  if (!isRecord(value)) return undefined;
+  const shotCount = value.shotCount;
+  if (typeof shotCount !== "number" || !Number.isInteger(shotCount)) return undefined;
+  if (shotCount < 1 || shotCount > MAX_SCRIPT_SHOT_COUNT) return undefined;
+  return { shotCount };
 }

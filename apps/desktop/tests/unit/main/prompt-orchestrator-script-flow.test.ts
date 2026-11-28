@@ -93,4 +93,18 @@ describe("script flow persistence", () => {
     const service = new DesktopPromptOrchestratorService(rawDb);
     expect(service.getScriptFlow()).toBeNull();
   });
+
+  it("keeps the scene shot count across a reload", () => {
+    const service = new DesktopPromptOrchestratorService(rawDb);
+    service.saveScriptFlow({ versions: { outline: [outline] }, settings: { shotCount: 8 } });
+    const reopened = new DesktopPromptOrchestratorService(rawDb);
+    expect(reopened.getScriptFlow()?.settings?.shotCount).toBe(8);
+    expect(reopened.getScriptFlow()?.versions.outline).toHaveLength(1);
+  });
+
+  it("ignores an out-of-range stored shot count", () => {
+    const service = new DesktopPromptOrchestratorService(rawDb);
+    service.saveScriptFlow({ versions: { outline: [outline] }, settings: { shotCount: 99 } });
+    expect(service.getScriptFlow()?.settings).toBeUndefined();
+  });
 });

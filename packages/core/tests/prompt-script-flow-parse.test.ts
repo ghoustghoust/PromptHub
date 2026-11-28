@@ -73,4 +73,25 @@ describe("parseScriptFlow", () => {
     });
     expect(parsed?.versions.script[0].basedOn).toEqual({ outline: 1 });
   });
+
+  it("reads a stored shot count back with the flow", () => {
+    const parsed = parseScriptFlow({
+      versions: { outline: [version()] },
+      settings: { shotCount: 8 },
+    });
+    expect(parsed?.settings?.shotCount).toBe(8);
+  });
+
+  it("drops an unusable stored shot count instead of trusting it", () => {
+    for (const shotCount of [0, 99, 4.5, "8", null]) {
+      const parsed = parseScriptFlow({
+        versions: { outline: [version()] },
+        settings: { shotCount },
+      });
+      expect(parsed?.settings).toBeUndefined();
+      expect(parsed?.versions.outline).toHaveLength(1);
+    }
+    expect(parseScriptFlow({ versions: { outline: [version()] }, settings: "8" })?.settings)
+      .toBeUndefined();
+  });
 });

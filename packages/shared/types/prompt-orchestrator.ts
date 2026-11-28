@@ -212,6 +212,8 @@ export interface PromptOrchestrationInput {
    * not rewrite it unless the task explicitly asks to revise that text.
    */
   stepContext?: string;
+  /** Which script stage produced this run; drives the stage output contract. */
+  stage?: PromptScriptStage;
   mode?: PromptOrchestrationMode;
   /** Image model id used for applicable_models filtering. */
   modelId?: string;

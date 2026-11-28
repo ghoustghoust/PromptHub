@@ -24,6 +24,8 @@ import {
   taskContractWarnings,
 } from "@prompthub/shared/utils/prompt-task-contract";
 import { buildRunEvidence } from "./prompt-run-evidence";
+import { buildRunLoad } from "./prompt-run-load";
+import { estimatePromptTokens } from "./prompt-token-budget";
 import {
   buildCompositionMessages,
   buildFallbackComposition,
@@ -119,6 +121,10 @@ interface CompositionRun {
   warnings: string[];
   termDecisions?: PromptTermDecision[];
   retrievalSummary?: PromptRetrievalSummary;
+  /** Tool-loop cost: calls made and tokens spent on intermediate turns. */
+  usage?: { toolCalls: number; historyTokens: number };
+  /** Dynamic-polish planning turn cost. */
+  planTokens?: number;
 }
 
 export class PromptOrchestratorError extends Error {
@@ -824,6 +830,7 @@ export class PromptOrchestrator {
     // before validation, so a stray video/layout payload cannot either reach
     // the model or fail a request the user never intended to make.
     const applied = applyPromptTaskContract(rawInput);
+    const startedAt = Date.now();
     const reverseDefault = applyReverseDefaultPrompt(applied.input);
     const input = reverseDefault.input;
     const contract = applied.contract;
@@ -969,6 +976,16 @@ const writingLayerText = buildWritingLayerText(input);
           : {}),
         layoutCompiled: composition.layout !== undefined,
       });
+      const load = buildRunLoad({
+        input,
+        contract,
+        completionTokens: tokenMetrics.completePromptTokens,
+        ...(completed.retrievalSummary ? { retrieval: completed.retrievalSummary } : {}),
+        historyTokens: (completed.usage?.historyTokens ?? 0) + (completed.planTokens ?? 0),
+        toolCalls: completed.usage?.toolCalls ?? 0,
+        elapsedMs: Date.now() - startedAt,
+        vocabularyTokens: estimatePromptTokens(JSON.stringify(completed.selectedTerms)),
+      });
       const warnings = this.warnings(
         input,
         [...routingWarnings, ...completed.warnings, ...runEvidence.warnings],
@@ -1010,6 +1027,7 @@ const writingLayerText = buildWritingLayerText(input);
         taskContract: contract,
         assembly: runEvidence.assembly,
         evidence: runEvidence.evidence,
+        load,
       };
     } catch (error) {
       throwIfCancelled(this.options.signal);
@@ -1100,6 +1118,13 @@ const writingLayerText = buildWritingLayerText(input);
         taskContract: contract,
         assembly: runEvidence.assembly,
         evidence: runEvidence.evidence,
+        load: buildRunLoad({
+          input,
+          contract,
+          completionTokens: tokenMetrics.completePromptTokens,
+          elapsedMs: Date.now() - startedAt,
+          toolCalls: 0,
+        }),
       };
     }
   }

@@ -29,6 +29,7 @@ import {
   buildSearchTraceEntries,
   PromptRetrievalTraceCollector,
 } from "./prompt-retrieval-trace";
+import { estimatePromptTokens } from "@prompthub/shared/utils/prompt-token-estimate";
 import {
   assertNoConflicts,
   availableTerms,
@@ -57,6 +58,8 @@ interface DynamicPolishOptions {
 
 export interface DynamicPolishResult {
   composition: PromptComposition;
+  /** Prompt tokens spent on the planning turn before composing. */
+  planTokens: number;
   selectedTerms: PromptSelectedTerm[];
   termDecisions: PromptTermDecision[];
   retrievalSummary: PromptRetrievalSummary;
@@ -254,10 +257,13 @@ export async function runDynamicPolish(
     }
   }
   const entityOnly = options.routePlan?.path === "entity-only";
+  let planTokens = 0;
   const initialQueries: RetrievalQuery[] = [];
   if (!entityOnly) {
+    const planRequest = planMessages(options);
+    planTokens = estimatePromptTokens(`${planRequest.system}\n${planRequest.user}`);
     const plan = await options.llm.complete({
-      messages: planMessages(options),
+      messages: planRequest,
       mode: "polish",
       maxTokens: 1600,
     });
@@ -331,6 +337,7 @@ export async function runDynamicPolish(
   };
   return {
     composition,
+    planTokens,
     selectedTerms: [...selected.values()],
     termDecisions: parsed.decisions,
     retrievalSummary,

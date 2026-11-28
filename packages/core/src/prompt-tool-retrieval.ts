@@ -108,6 +108,8 @@ export interface ToolRetrievalOptions {
 
 export interface ToolRetrievalResult {
   composition: PromptComposition;
+  /** Intermediate turns Core paid for before the final answer. */
+  usage: { toolCalls: number; historyTokens: number };
   selectedTerms: PromptSelectedTerm[];
   termDecisions: PromptTermDecision[];
   retrievalSummary: PromptRetrievalSummary;
@@ -334,8 +336,15 @@ export async function runToolRetrieval(
   for (const term of parsed.usedTerms) {
     if (!selected.has(term.id)) selected.set(term.id, term);
   }
+  const historyTokens = estimatePromptTokens(
+    messages
+      .slice(2)
+      .map((message) => `${message.role}: ${message.content ?? ""}`)
+      .join("\n"),
+  );
   return {
     composition,
+    usage: { toolCalls: state.calls, historyTokens },
     selectedTerms: [...selected.values()],
     termDecisions: parsed.decisions,
     retrievalTrace: state.trace.snapshot(),

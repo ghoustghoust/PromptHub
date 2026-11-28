@@ -840,6 +840,8 @@ export interface PromptOrchestrationResult {
   assembly?: PromptAssemblyReport;
   /** Observed actions and model claims, kept separate on purpose. */
   evidence?: PromptEvidenceLedger;
+  /** Layer-by-layer token estimate for this run. */
+  load?: PromptRunLoad;
 }
 
 /**
@@ -871,6 +873,30 @@ export interface PromptEvidenceLedger {
   modelClaims: number;
   /** Kept empty on purpose: one run cannot attribute downstream quality. */
   effectInferences: string[];
+}
+
+/** Where one run's context actually went; estimates, not tokenizer counts. */
+export interface PromptRunLoad {
+  method: "estimate";
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  breakdown: {
+    ruleCard: number;
+    contract: number;
+    writingLayer: number;
+    knowledge: number;
+    reference: number;
+    vocabulary: number;
+    images: number;
+    history: number;
+  };
+  rounds: number;
+  toolCalls: number;
+  candidates: number;
+  elapsedMs: number;
+  taskKind: string;
+  modelTools: boolean;
 }
 
 export function isVideoOrchestrationMode(

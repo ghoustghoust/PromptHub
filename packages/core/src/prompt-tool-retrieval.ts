@@ -43,6 +43,37 @@ const MAX_TOOL_ROUNDS = 4;
 const MAX_TOOL_CALLS = 6;
 
 /**
+ * Descriptor words that map the user's request to a searchable category.
+ * Used only when the model answers without calling any tool: Core then runs
+ * one retrieval itself instead of silently skipping the library.
+ */
+const SLOT_KEYWORDS: Array<{ category: string; words: string[] }> = [
+  { category: "lighting", words: ["light", "lamp", "backlight", "rim light", "glow", "shadow", "光", "灯"] },
+  { category: "camera", words: ["lens", "camera", "angle", "close-up", "macro", "wide", "镜头", "构图"] },
+  { category: "environment", words: ["studio", "street", "forest", "city", "landscape", "背景", "场景"] },
+  { category: "clothing", words: ["coat", "dress", "jacket", "uniform", "outfit", "服装", "外套"] },
+  { category: "pose", words: ["pose", "standing", "sitting", "kneeling", "姿势"] },
+  { category: "style", words: ["style", "anime", "watercolor", "风格"] },
+];
+
+function coreFallbackQueries(prompt: string): Array<Record<string, unknown>> {
+  const text = prompt.toLowerCase();
+  const queries: Array<Record<string, unknown>> = [];
+  for (const group of SLOT_KEYWORDS) {
+    if (!group.words.some((word) => text.includes(word))) continue;
+    queries.push({
+      slotId: group.category,
+      category: group.category,
+      query: prompt.slice(0, 160),
+      purpose: "compare",
+      depth: "focused",
+    });
+    if (queries.length >= 3) break;
+  }
+  return queries;
+}
+
+/**
  * Output tokens the remaining context can still hold. A 4096-token answer on
  * top of a long tool conversation overruns an 8K window and is cut off, which
  * then looks like a provider failure; this keeps the answer inside the window.
@@ -216,6 +247,38 @@ export async function runToolRetrieval(
         ? { stream: createStreamCallbacks(options.onEvent) }
         : {}),
     });
+    // The model answered without retrieving. If the request names descriptor
+    // slots, Core performs one retrieval itself so the library is never
+    // silently skipped; the model then composes with those candidates.
+    if (!finalTurn && response.toolCalls.length === 0 && state.calls === 0 && !entityOnly) {
+      const queries = coreFallbackQueries(options.input.prompt ?? "");
+      if (queries.length > 0) {
+        const callId = `core-retrieval-${round}`;
+        state.warnings.push(
+          "Core performed one retrieval because the model answered without calling a tool.",
+        );
+        messages.push({
+          role: "assistant",
+          content: "",
+          toolCalls: [
+            {
+              id: callId,
+              name: SEARCH_VOCABULARY_TOOL,
+              arguments: JSON.stringify({ queries }),
+            },
+          ],
+        });
+        state.calls += 1;
+        const outcome = executeVocabularyTool(
+          SEARCH_VOCABULARY_TOOL,
+          JSON.stringify({ queries }),
+          state,
+        );
+        messages.push(toolResultMessage(callId, outcome.content));
+        rounds += 1;
+        continue;
+      }
+    }
     if (!finalTurn && response.toolCalls.length > 0) {
       rounds += 1;
       messages.push({

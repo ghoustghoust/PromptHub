@@ -363,16 +363,35 @@ describe("tool-assisted retrieval", () => {
     ]);
   });
 
-  it("allows a final answer without any tool call", async () => {
+  it("allows a final answer without any tool call when no slot is present", async () => {
     const { llm } = scriptedLlm([{ content: finalJson([decision({ termIds: [], strategy: "create" })]) }]);
-    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(input());
+    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(
+      input({ prompt: "ganyu (genshin impact)" }),
+    );
     expect(result.status).toBe("complete");
     expect(result.retrievalSummary).toEqual({ rounds: 0, queryCount: 0, candidateCount: 0 });
   });
 
-  it("accepts zero decisions when the model legitimately makes no retrieval", async () => {
+  it("performs one retrieval itself when the model answers without calling a tool", async () => {
+    const { llm, requests } = scriptedLlm([
+      { content: finalJson([decision({ termIds: [], strategy: "create" })]) },
+      { content: finalJson([decision({ termIds: [], strategy: "create" })]) },
+    ]);
+    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(
+      input({ prompt: "soft light on a wet street at night" }),
+    );
+    expect(requests).toHaveLength(2);
+    expect(requests[1].messages.some((message) => message.role === "tool")).toBe(true);
+    expect(result.status).toBe("complete");
+    expect(result.retrievalSummary?.queryCount).toBeGreaterThan(0);
+    expect(result.warnings.join(" ")).toContain("Core performed one retrieval");
+  });
+
+  it("accepts zero decisions when the request has no descriptor slot", async () => {
     const { llm } = scriptedLlm([{ content: finalJson([]) }]);
-    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(input());
+    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(
+      input({ prompt: "ganyu (genshin impact)" }),
+    );
     expect(result.status).toBe("complete");
     expect(result.termDecisions).toEqual([]);
     expect(result.retrievalSummary).toEqual({ rounds: 0, queryCount: 0, candidateCount: 0 });
@@ -382,11 +401,13 @@ describe("tool-assisted retrieval", () => {
     const { llm } = scriptedLlm([
       { content: JSON.stringify({
         initialPrompt: "source",
-        completePrompt: "ganyu (genshin impact) in soft light",
+        completePrompt: "ganyu (genshin impact)",
         fields: [],
       }) },
     ]);
-    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(input());
+    const result = await new PromptOrchestrator({ vocabulary, llm }).orchestrate(
+      input({ prompt: "ganyu (genshin impact)" }),
+    );
     expect(result.status).toBe("complete");
     expect(result.warnings.join(" ")).not.toContain("Tool retrieval failed");
     expect(result.termDecisions).toEqual([]);

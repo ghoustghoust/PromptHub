@@ -24,8 +24,8 @@ const SOURCE_DB = path.join(
 const IMAGE = path.join(
   "G:\\program\\3.prompt-forge",
   "prompt",
-  "new",
-  "【014】加载图库节点+服装、发型、姿势、人像等6000套素材",
+  "library",
+  "image-library",
   "models",
   "GHIL",
   "portrait",

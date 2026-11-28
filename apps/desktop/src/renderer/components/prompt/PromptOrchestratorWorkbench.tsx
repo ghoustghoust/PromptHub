@@ -763,21 +763,32 @@ export function PromptOrchestratorWorkbench() {
           } ${resultExpanded ? "hidden" : ""}`}
           data-testid="orchestrator-workspace"
         >
-          <div className={humanLed ? "flex min-h-0 flex-1 flex-col" : "space-y-4"}>
-            <ScriptFlowPanel state={state.scriptFlow} disabled={state.isRunning} />
-          <StepContextPanel
-            value={state.scriptFlow.stepContext}
-            onChange={state.scriptFlow.setStepContext}
-            disabled={state.isRunning}
-          />
+          <div className="min-h-0 flex-1 overflow-y-auto" data-testid="orchestrator-workspace-scroll">
+          <div className={humanLed ? "flex h-full min-h-0 flex-col" : "space-y-4"}>
+            {/* The picker must keep a usable height: the panels above scroll on
+                their own instead of pushing the grid out of view. */}
             <div
               className={
                 humanLed
-                  ? `${pickerExpanded ? "hidden" : "block"} shrink-0 space-y-2 border-b border-border/60 bg-muted/10 p-3`
+                  ? "max-h-[32vh] min-h-0 shrink-0 space-y-2 overflow-y-auto border-b border-border/60 pb-2"
                   : "space-y-4"
-}
-          data-testid="orchestrator-intent-panel"
+              }
+              data-testid="orchestrator-flow-stack"
             >
+              <ScriptFlowPanel state={state.scriptFlow} disabled={state.isRunning} />
+              <StepContextPanel
+                value={state.scriptFlow.stepContext}
+                onChange={state.scriptFlow.setStepContext}
+                disabled={state.isRunning}
+              />
+              <div
+                className={
+                  humanLed
+                    ? `${pickerExpanded ? "hidden" : "block"} shrink-0 space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3`
+                    : "space-y-4"
+                }
+                data-testid="orchestrator-intent-panel"
+              >
               {humanLed && (
                 <button
                   type="button"
@@ -898,6 +909,7 @@ export function PromptOrchestratorWorkbench() {
                   onClear={() => state.setReferenceImages([])}
                 />
               )}
+              </div>
             </div>
             {humanLed && (
               <>
@@ -934,7 +946,7 @@ export function PromptOrchestratorWorkbench() {
                         : ""}
                   </span>
                 </div>
-                <div className="flex min-h-0 flex-1 flex-col">
+                <div className="flex min-h-[420px] flex-1 flex-col">
                   {layoutMode && workspaceTab === "canvas" ? (
                     <>
                       {usablePrefabTerms.length > 0 && (
@@ -1007,6 +1019,7 @@ export function PromptOrchestratorWorkbench() {
                 </div>
               </>
             )}
+          </div>
           </div>
           <div
             className={

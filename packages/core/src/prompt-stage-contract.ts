@@ -97,9 +97,11 @@ function scriptText(): string {
 
 function storyboardText(shotCount: number): string {
   return [
-    `This stage produces a storyboard table with exactly ${shotCount} shots, one shot per line, numbered 分镜一 … 分镜${shotCount}.`,
-    "For every shot fill: shot number, shot size (wide / medium / close / insert), angle or camera position, movement (static / push / pull / pan / handheld), the visual line (subject + action + environment + lighting), and the duration in seconds.",
-    "Inside the required JSON object, the completePrompt value must contain exactly that many numbered shot lines; count them before answering, and a shorter list is wrong even when the beats feel sufficient. Do not merge beats to reach a smaller number, and do not invent new story to reach a larger one. If the request text mentions a different number, the configured count above wins. Put dialogue only in the shots where it is spoken.",
+    `This stage produces a storyboard of exactly ${shotCount} shots, one shot per line, numbered 分镜1 … 分镜${shotCount}.`,
+    "Each line carries exactly six fields in this fixed order, separated by a pipe with one space on each side (` | `): shot number, shot size (wide / medium / close / insert), camera position or angle, camera movement (static / push / pull / pan / handheld), the visual line (subject + action + environment + lighting), and the duration in seconds. A line looks like `分镜1 | 大远景 | 平视 | 固定 | 雨夜市场街，信使走入，雨打铁皮棚 | 2.5s`.",
+    "No header row, no `---` separator row, no blank lines between shots, and no markdown table: only the shot lines. All six fields are mandatory on every line; when a value is unknown, write `—` in that field instead of dropping it. Write the field values in the language of the user's intent; the pipe and the 分镜 numbering stay the same.",
+    "Put dialogue only in the shot where it is spoken, at the end of the visual line as `角色：台词`. Never add a seventh field for it.",
+    "Inside the required JSON object, the completePrompt value must contain exactly that many shot lines; count them before answering, and a shorter list is wrong even when the beats feel sufficient. When the material looks too short for the count, split existing actions into more shots instead of writing fewer lines: a ${shotCount}-shot storyboard is written as ${shotCount} lines. Before returning, count the shot lines; if the count is below ${shotCount}, add the missing shots by splitting the same actions more finely and count again. Do not merge beats to reach a smaller number, and do not invent new story to reach a larger one. If the request text mentions a different number, the configured count above wins.",
   ].join(" ");
 }
 

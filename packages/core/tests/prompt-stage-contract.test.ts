@@ -66,6 +66,24 @@ describe("stage output contract", () => {
     expect(contract?.system).toMatch(/do not merge/i);
   });
 
+  it("fixes the storyboard to six pipe-separated fields per shot line", () => {
+    const contract = resolveStageContract(
+      input({ stage: "storyboard", prompt: "拆成六个分镜" }),
+    );
+    const system = contract?.system ?? "";
+    expect(system).toMatch(/exactly six fields/i);
+    expect(system).toContain("|");
+    expect(system).toMatch(/no header row/i);
+    expect(system).toMatch(/no `---` separator/i);
+    // The six columns are named in order, not left to the model to pick.
+    const order = ["shot number", "shot size", "camera position", "camera movement", "visual line", "duration in seconds"];
+    const positions = order.map((label) => system.indexOf(label));
+    expect(positions.every((position) => position >= 0)).toBe(true);
+    expect([...positions].sort((left, right) => left - right)).toEqual(positions);
+    // Dialogue rides inside the visual line instead of adding a seventh field.
+    expect(system).toMatch(/never add a seventh field/i);
+  });
+
   it("leaves outline length and ending open to the story", () => {
     const contract = resolveStageContract(input({ stage: "outline" }));
     expect(contract?.system).toMatch(/do not compress/i);

@@ -168,6 +168,31 @@ describe("prompt task contract", () => {
     });
   });
 
+  it("publishes one resource whitelist row per task", () => {
+    const rows: Array<{
+      label: string;
+      input: Partial<PromptOrchestrationInput>;
+      expect: Record<string, boolean>;
+    }> = [
+      { label: "expand", input: { mode: "expand" }, expect: { vocabulary: true, vocabularyRetrieval: true, images: false, layout: false, video: false } },
+      { label: "polish", input: { mode: "polish" }, expect: { vocabulary: true, vocabularyRetrieval: true, layout: false } },
+      { label: "reverse-text", input: { mode: "reverse" }, expect: { vocabularyRetrieval: true, images: true, layout: false } },
+      { label: "reverse-image", input: { mode: "reverse", imageUrls: ["data:image/png;base64,x"] }, expect: { vocabularyRetrieval: false, images: true } },
+      { label: "video", input: { mode: "video-text", skill: "minimaxH3", outputFormat: "h3" }, expect: { video: true, layout: false, vocabularyRetrieval: false, images: false } },
+      { label: "layout", input: { mode: "expand", outputFormat: "layout" }, expect: { layout: true, vocabularyRetrieval: false } },
+      { label: "random", input: { mode: "random" }, expect: { vocabularyRetrieval: false, layout: false } },
+    ];
+    for (const row of rows) {
+      const contract = resolvePromptTaskContract(baseInput(row.input));
+      for (const [resource, allowed] of Object.entries(row.expect)) {
+        expect(
+          contract.resources[resource as keyof typeof contract.resources].allowed,
+          `${row.label} -> ${resource}`,
+        ).toBe(allowed);
+      }
+    }
+  });
+
   it("produces a stable signature that changes with the contract, not the prompt body", () => {
     const left = resolvePromptTaskContract(baseInput({ prompt: "one scene" }));
     const right = resolvePromptTaskContract(baseInput({ prompt: "another scene" }));

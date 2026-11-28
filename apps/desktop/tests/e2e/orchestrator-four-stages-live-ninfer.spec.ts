@@ -80,9 +80,9 @@ const STAGES: StageRun[] = [
   },
   {
     stage: "storyboard",
-    intent: "把剧本拆成六个分镜，每个分镜写景别、机位、主体动作。",
+    intent: "把剧本拆成分镜，每个分镜写景别、机位、主体动作。",
     input: {
-      prompt: "把剧本拆成六个分镜，每个分镜写景别、机位、主体动作。",
+      prompt: "把剧本拆成分镜，每个分镜写景别、机位、主体动作。",
       mode: "expand",
       skill: "k2",
       outputFormat: "caption",
@@ -149,6 +149,8 @@ test("all four script stages run on the real engine and chain their versions", a
 
     await page.getByTestId("orchestrator-script-flow-toggle").click();
     await page.getByTestId("orchestrator-step-context-toggle").click();
+    await page.getByTestId("orchestrator-script-shot-count").fill("8");
+    await expect(page.getByTestId("orchestrator-script-shot-count")).toHaveValue("8");
 
     let previousOutput: string | null = null;
     for (const [index, stage] of STAGES.entries()) {
@@ -168,16 +170,32 @@ test("all four script stages run on the real engine and chain their versions", a
       }, {
         ...stage.input,
         stage: stage.stage,
+        shotCount: 8,
         stepContext: previousOutput ?? undefined,
         knowledgeModules: [module],
       });
       const elapsedMs = Date.now() - started;
       if (!reply.ok) throw new Error(JSON.stringify(reply.error));
 
-      expect(reply.status).toBe("complete");
-      expect(reply.output.length).toBeGreaterThan(60);
       const lowered = reply.output.toLowerCase();
       const hits = stage.expect.filter((word) => lowered.includes(word));
+      // Record before asserting so a failed check still leaves evidence.
+      report.runs.push({
+        iteration: index + 1,
+        stage: stage.stage,
+        skill: stage.input.skill,
+        mode: stage.input.mode,
+        intent: stage.intent,
+        stepContextLength: previousOutput?.length ?? 0,
+        elapsedMs,
+        status: reply.status,
+        outputLength: reply.output.length,
+        facts: hits,
+        warnings: reply.warnings,
+        output: reply.output,
+      });
+      expect(reply.status).toBe("complete");
+      expect(reply.output.length).toBeGreaterThan(60);
       expect(hits.length).toBeGreaterThanOrEqual(1);
       const leaks = [PACK_TITLE, PACK_NAME, "module-script-structure", "layer: H"].filter(
         (token) => reply.output.includes(token),
@@ -192,7 +210,7 @@ test("all four script stages run on the real engine and chain their versions", a
       }
       if (stage.stage === "storyboard") {
         const shots = (reply.output.match(/分镜[一二三四五六七八九十\d]+/g) ?? []).length;
-        expect(shots).toBe(6);
+        expect(shots).toBe(8);
       }
       if (stage.stage === "script") {
         // A script page needs a heading and spoken lines, not one caption paragraph.
@@ -218,29 +236,6 @@ test("all four script stages run on the real engine and chain their versions", a
         await page.getByTestId(`orchestrator-script-stage-${stage.stage}`).click();
       }
 
-      report.runs.push({
-        iteration: index + 1,
-        stage: stage.stage,
-        skill: stage.input.skill,
-        mode: stage.input.mode,
-        intent: stage.intent,
-        stepContextLength: previousOutput?.length ?? 0,
-        elapsedMs,
-        status: reply.status,
-        outputLength: reply.output.length,
-        facts: hits,
-        warnings: reply.warnings,
-        output: reply.output,
-      });
-      console.log(
-        JSON.stringify({
-          stage: stage.stage,
-          elapsedMs,
-          length: reply.output.length,
-          facts: hits,
-          stepContextLength: previousOutput?.length ?? 0,
-        }),
-      );
       previousOutput = reply.output;
     }
 

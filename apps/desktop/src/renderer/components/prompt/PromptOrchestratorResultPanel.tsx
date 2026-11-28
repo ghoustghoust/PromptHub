@@ -18,6 +18,7 @@ import { Textarea } from "../ui/Textarea";
 import { PromptComparisonView } from "./PromptComparisonView";
 import { PromptSkillDraftPanel } from "./PromptSkillDraftPanel";
 import { PromptMossLayoutResultView } from "./PromptMossLayoutResultView";
+import { PromptStoryboardTableView } from "./PromptStoryboardTableView";
 import { PromptTermDecisionPanel } from "./PromptTermDecisionPanel";
 import { PromptTaskContractPanel } from "./PromptTaskContractPanel";
 import { PromptEvidencePanel } from "./PromptEvidencePanel";
@@ -443,11 +444,14 @@ export function PromptOrchestratorResultPanel({
             {result.layout ? (
               <PromptMossLayoutResultView result={result} />
             ) : (
-              <PromptComparisonView
-                source={sourcePrompt}
-                generated={result.completePrompt}
-                alignment={result.alignment}
-              />
+              <>
+                <PromptStoryboardTableView text={result.completePrompt} />
+                <PromptComparisonView
+                  source={sourcePrompt}
+                  generated={result.completePrompt}
+                  alignment={result.alignment}
+                />
+              </>
             )}
             {result.payload !== undefined && (
               <section className="space-y-2">

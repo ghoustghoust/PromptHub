@@ -26,6 +26,8 @@ import {
 import { buildRunEvidence } from "./prompt-run-evidence";
 import { buildRunLoad } from "./prompt-run-load";
 import { estimatePromptTokens } from "./prompt-token-budget";
+import { resolveRequestedShotCount } from "./prompt-stage-contract";
+import { inspectStoryboardShape } from "./prompt-storyboard-shape";
 import {
   buildCompositionMessages,
   buildFallbackComposition,
@@ -720,8 +722,19 @@ export class PromptOrchestrator {
     input: PromptOrchestrationInput,
     selectionWarnings: string[],
     metrics: PromptTokenMetrics,
+    completePrompt?: string,
   ): string[] {
     const warnings = [...selectionWarnings];
+    // A storyboard owes one six-column line per shot; report any drift instead
+    // of rewriting the model's text.
+    if (input.stage === "storyboard" && completePrompt?.trim()) {
+      warnings.push(
+        ...inspectStoryboardShape(
+          completePrompt,
+          resolveRequestedShotCount(input.prompt, input.shotCount),
+        ).issues,
+      );
+    }
     if (input.skill === "moss" && input.outputFormat !== "layout") {
       warnings.push(...mossBudgetWarnings(metrics.completePromptTokens));
     }
@@ -1020,6 +1033,7 @@ const writingLayerText = buildWritingLayerText(input);
         input,
         [...routingWarnings, ...completed.warnings, ...runEvidence.warnings],
         tokenMetrics,
+        composition.completePrompt,
       );
       const pendingCaptions = composition.layout?.pendingCaptions ?? [];
       if (pendingCaptions.length > 0) {
@@ -1124,6 +1138,7 @@ const writingLayerText = buildWritingLayerText(input);
             input,
             [...routingWarnings, ...runEvidence.warnings],
             tokenMetrics,
+            composition.completePrompt,
           ),
           `LLM composition failed; deterministic fallback used: ${errorMessage(error)}`,
         ],

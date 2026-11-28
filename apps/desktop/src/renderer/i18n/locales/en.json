@@ -5786,6 +5786,18 @@
         "note": "Records which image each slot needs. {{count}} waiting. Images are not sent to the model by this run."
       }
     },
+    "storyboardTable": {
+      "title": "Storyboard · {{count}} shots",
+      "hint": "Table view of the six-column text; the text itself is unchanged.",
+      "columns": {
+        "shot": "Shot",
+        "size": "Size",
+        "angle": "Position",
+        "movement": "Move",
+        "visual": "Frame",
+        "duration": "Duration"
+      }
+    },
     "sharedFacts": {
       "title": "Shared facts",
       "hint": "Facts reused by every target model in this step. Filled fields are compiled once and kept identical across models; empty fields are ignored.",

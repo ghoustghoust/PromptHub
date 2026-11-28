@@ -23,6 +23,7 @@ import type {
   PromptResultFeedbackInput,
   PromptResultFeedbackRecord,
   PromptSkillDraft,
+  PromptSharedSemantics,
   PromptVocabularyBrowseInput,
   PromptVocabularyBrowseResult,
   PromptVocabularySearchInput,
@@ -375,6 +376,7 @@ function parseWorkspaceState(
     throw new Error("referenceItemIds must contain at most 3 ids");
   }
   const allowAdult = optionalBoolean(value.allowAdult, "allowAdult");
+  const sharedSemantics = workspaceSharedSemantics(value.sharedSemantics);
   return {
     prefabTerms,
     modelId: typeof value.modelId === "string"
@@ -390,6 +392,7 @@ function parseWorkspaceState(
     ...(knowledgeContractGroup ? { knowledgeContractGroup } : {}),
     ...(referenceItemIds.length > 0 ? { referenceItemIds } : {}),
     ...(allowAdult !== undefined ? { allowAdult } : {}),
+    ...(sharedSemantics ? { sharedSemantics } : {}),
   };
 }
 
@@ -408,6 +411,36 @@ function workspaceContractGroup(
   if (value === undefined || value === null) return undefined;
   if (value === "script" || value === "storyboard" || value === "novel") return value;
   throw new Error("knowledgeContractGroup must be script, storyboard or novel");
+}
+
+/** Shared scene facts persisted with the workspace; every field is optional. */
+function workspaceSharedSemantics(
+  value: unknown,
+): PromptSharedSemantics | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!isRecord(value)) throw new Error("sharedSemantics must be an object");
+  const text = (key: string): string | undefined =>
+    optionalWorkspaceText(value[key], `sharedSemantics.${key}`, 2000);
+  const constraintsRaw = value.constraints;
+  let constraints: string[] | undefined;
+  if (constraintsRaw !== undefined && constraintsRaw !== null) {
+    if (!Array.isArray(constraintsRaw) || constraintsRaw.length > 20) {
+      throw new Error("sharedSemantics.constraints must be an array of at most 20 items");
+    }
+    constraints = constraintsRaw.map((item, index) =>
+      workspaceText(item, `sharedSemantics.constraints[${index}]`, 500));
+  }
+  const parsed: PromptSharedSemantics = {
+    ...(text("subject") ? { subject: text("subject") } : {}),
+    ...(text("action") ? { action: text("action") } : {}),
+    ...(text("setting") ? { setting: text("setting") } : {}),
+    ...(text("composition") ? { composition: text("composition") } : {}),
+    ...(text("lighting") ? { lighting: text("lighting") } : {}),
+    ...(text("palette") ? { palette: text("palette") } : {}),
+    ...(text("continuity") ? { continuity: text("continuity") } : {}),
+    ...(constraints && constraints.length > 0 ? { constraints } : {}),
+  };
+  return Object.keys(parsed).length > 0 ? parsed : undefined;
 }
 
 const MAX_KNOWLEDGE_SELECTION_IDS = 200;

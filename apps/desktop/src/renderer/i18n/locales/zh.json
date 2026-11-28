@@ -5741,6 +5741,19 @@
       "flexible": "合理推导",
       "optional": "创意建议"
     },
+    "sharedFacts": {
+      "title": "共享事实",
+      "hint": "本步骤中所有目标模型共用的既成事实。已填字段只编译一次并跨模型保持一致，空字段忽略。",
+      "count": "已填 {{count}} 项",
+      "subject": "主体",
+      "action": "动作",
+      "setting": "场景",
+      "composition": "构图",
+      "lighting": "光线",
+      "palette": "调色",
+      "continuity": "连续性",
+      "constraints": "约束（逗号分隔）"
+    },
     "contentRange": {
       "allowAdult": "允许成人内容",
       "hint": "只改变内容范围：可以满足明确的成人请求，但所有主体必须明确为成年人。"

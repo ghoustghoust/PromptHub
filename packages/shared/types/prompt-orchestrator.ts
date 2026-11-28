@@ -713,6 +713,8 @@ export interface PromptOrchestratorWorkspaceState {
   referenceItemIds?: string[];
   /** Content range switch; absent or false keeps the all-ages default. */
   allowAdult?: boolean;
+  /** Upstream facts shared by every target model, persisted with the workspace. */
+  sharedSemantics?: PromptSharedSemantics;
   updatedAt?: string;
 }
 

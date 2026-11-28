@@ -4,6 +4,7 @@ import type {
   PromptArtistPipeline,
   PromptGuidanceMode,
   PromptKnowledgeContractGroup,
+  PromptSharedSemantics,
   PromptKnowledgeImportCommitResult,
   PromptKnowledgeImportPreview,
   PromptKnowledgeModule,
@@ -179,6 +180,8 @@ export function usePromptOrchestratorWorkbench() {
   const [referenceItemIds, setReferenceItemIds] = useState<string[]>([]);
   /** Content range of the rule card; false keeps the all-ages default. */
   const [allowAdult, setAllowAdult] = useState(false);
+  /** Upstream scene facts shared by every target model in this step. */
+  const [sharedSemantics, setSharedSemantics] = useState<PromptSharedSemantics>({});
   const [referenceError, setReferenceError] = useState("");
   const [knowledgeError, setKnowledgeError] = useState("");
   const knowledgeLoading = useRef(new Set<string>());
@@ -267,6 +270,7 @@ export function usePromptOrchestratorWorkbench() {
           setKnowledgeContractGroup(reply.data.knowledgeContractGroup);
           setReferenceItemIds(reply.data.referenceItemIds ?? []);
           setAllowAdult(reply.data.allowAdult === true);
+          setSharedSemantics(reply.data.sharedSemantics ?? {});
         }
       })
       .catch((cause: unknown) => {
@@ -574,6 +578,7 @@ export function usePromptOrchestratorWorkbench() {
           ...(knowledgeContractGroup ? { knowledgeContractGroup } : {}),
           referenceItemIds,
           allowAdult,
+          ...(Object.keys(sharedSemantics).length > 0 ? { sharedSemantics } : {}),
         })
         .then((reply) => {
           if (reply.ok !== true) {
@@ -603,6 +608,7 @@ export function usePromptOrchestratorWorkbench() {
     knowledgeContractGroup,
     referenceItemIds,
     allowAdult,
+    sharedSemantics,
     workspaceHydrated,
   ]);
 
@@ -1062,6 +1068,7 @@ export function usePromptOrchestratorWorkbench() {
         : {}),
       ...(referenceStyles.length > 0 ? { referenceStyles } : {}),
       ...(allowAdult ? { allowAdult: true } : {}),
+      ...(Object.keys(sharedSemantics).length > 0 ? { sharedSemantics } : {}),
       series: series || undefined,
       ...(domain === "all" ? {} : { domain }),
       outputFormat,
@@ -1476,6 +1483,7 @@ export function usePromptOrchestratorWorkbench() {
     knowledgeModules: activeKnowledgeModules, knowledgeError,
     referenceItems, selectedReferenceItems, referenceItemIds, toggleReferenceItem, referenceTokens, referenceError,
     allowAdult, setAllowAdult,
+    sharedSemantics, setSharedSemantics,
     toggleKnowledgePack, toggleKnowledgeModule,
     importKnowledgePack, deleteKnowledgePack,
     layerContextTokens, setLayerContextTokens,

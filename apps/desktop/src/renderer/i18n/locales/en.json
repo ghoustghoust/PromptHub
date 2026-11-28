@@ -5743,6 +5743,19 @@
       "flexible": "Reasoned inference",
       "optional": "Creative suggestion"
     },
+    "sharedFacts": {
+      "title": "Shared facts",
+      "hint": "Facts reused by every target model in this step. Filled fields are compiled once and kept identical across models; empty fields are ignored.",
+      "count": "{{count}} filled",
+      "subject": "Subject",
+      "action": "Action",
+      "setting": "Setting",
+      "composition": "Composition",
+      "lighting": "Lighting",
+      "palette": "Palette",
+      "continuity": "Continuity",
+      "constraints": "Constraints (comma separated)"
+    },
     "contentRange": {
       "allowAdult": "Allow adult content",
       "hint": "Only the content range changes: an explicit adult request may be honored, and every subject must be clearly an adult."

@@ -27,6 +27,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { PromptReferenceImageInput } from "./PromptReferenceImageInput";
 import { PromptVideoFields } from "./PromptVideoFields";
 import { PromptTermPicker } from "./PromptTermPicker";
+import { SharedFactsPanel } from "./SharedFactsPanel";
 import { PromptMossLayoutCanvas } from "./PromptMossLayoutCanvas";
 import { PromptWritingLayerPanel } from "./PromptWritingLayerPanel";
 import { PromptReferencePicker } from "./PromptReferencePicker";
@@ -520,6 +521,11 @@ export function PromptOrchestratorWorkbench() {
             </div>
             <p className="text-[11px] text-muted-foreground">{t("orchestrator.shared.hint")}</p>
           </div>
+          <SharedFactsPanel
+            value={state.sharedSemantics}
+            onChange={state.setSharedSemantics}
+            disabled={state.isRunning}
+          />
           <SelectControl
             label={t("orchestrator.mode")}
             value={state.mode}
@@ -792,6 +798,7 @@ export function PromptOrchestratorWorkbench() {
                   onChange={(event) => state.setPrompt(event.target.value)}
                   rows={humanLed ? 3 : layoutMode ? 4 : videoTask ? 6 : 10}
                   className={humanLed ? "min-h-[80px] py-2" : undefined}
+                  data-testid="orchestrator-intent"
                 />
               )}
               {(!humanLed || !intentCollapsed) && state.promptOrigin === "result" && (

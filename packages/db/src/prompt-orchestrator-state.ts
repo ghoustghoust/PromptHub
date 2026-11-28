@@ -3,6 +3,7 @@ import type {
   PromptMossLayoutDraft,
   PromptOrchestratorWorkspaceState,
   PromptOrchestratorWorkspaceTerm,
+  PromptSharedSemantics,
 } from "@prompthub/shared/types";
 import { MAX_WRITING_LAYER_CHARS } from "@prompthub/shared/utils/prompt-orchestrator-limits";
 
@@ -52,6 +53,28 @@ function sectionIds(value: unknown): string[] | undefined {
 /** Knowledge selections use the same bounded string-list shape as sections. */
 function knowledgeIds(value: unknown): string[] | undefined {
   return sectionIds(value);
+}
+
+/** Shared scene facts are a fixed set of optional strings plus bounded constraints. */
+function sharedFacts(value: unknown): PromptSharedSemantics | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  const text = (key: string): string | undefined => {
+    const item = record[key];
+    return typeof item === "string" && item.trim() ? item : undefined;
+  };
+  const parsed: PromptSharedSemantics = {
+    ...(text("subject") ? { subject: text("subject") } : {}),
+    ...(text("action") ? { action: text("action") } : {}),
+    ...(text("setting") ? { setting: text("setting") } : {}),
+    ...(text("composition") ? { composition: text("composition") } : {}),
+    ...(text("lighting") ? { lighting: text("lighting") } : {}),
+    ...(text("palette") ? { palette: text("palette") } : {}),
+    ...(text("continuity") ? { continuity: text("continuity") } : {}),
+  };
+  const constraints = sectionIds(record.constraints)?.slice(0, 20);
+  if (constraints && constraints.length > 0) parsed.constraints = constraints;
+  return Object.keys(parsed).length > 0 ? parsed : undefined;
 }
 
 /**
@@ -138,6 +161,9 @@ export class PromptOrchestratorStateDB {
         ? { referenceItemIds: knowledgeIds(value.referenceItemIds)?.slice(0, 3) }
         : {}),
       ...(typeof value.allowAdult === "boolean" ? { allowAdult: value.allowAdult } : {}),
+      ...(sharedFacts(value.sharedSemantics) !== undefined
+        ? { sharedSemantics: sharedFacts(value.sharedSemantics) }
+        : {}),
       updatedAt: new Date(row.updated_at).toISOString(),
     };
   }
@@ -175,6 +201,9 @@ export class PromptOrchestratorStateDB {
         ? { referenceItemIds: state.referenceItemIds.slice(0, 3) }
         : {}),
       ...(state.allowAdult !== undefined ? { allowAdult: state.allowAdult } : {}),
+      ...(state.sharedSemantics !== undefined
+        ? { sharedSemantics: state.sharedSemantics }
+        : {}),
     };
     const json = JSON.stringify(base);
     if (json.length > MAX_STATE_CHARS) {

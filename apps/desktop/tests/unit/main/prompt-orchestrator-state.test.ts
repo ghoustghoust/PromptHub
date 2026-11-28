@@ -352,4 +352,52 @@ describe("orchestrator workspace state", () => {
     expect(restored?.modelId).toBe("moss-base");
     expect(restored?.mossLayout).toBeUndefined();
   });
+
+  it("round-trips shared facts and drops them when every field is empty", () => {
+    const service = new DesktopPromptOrchestratorService(rawDb);
+    const sharedSemantics = {
+      subject: "a courier",
+      action: "crossing the street",
+      setting: "midnight market street",
+      composition: "wide, subject left",
+      lighting: "one warm practical",
+      palette: "teal and amber",
+      continuity: "same coat as shot 2",
+      constraints: ["no text", "keep face visible"],
+    };
+    const saved = service.saveWorkspaceState({ ...state(), sharedSemantics });
+    expect(saved.sharedSemantics).toEqual(sharedSemantics);
+    expect(service.getWorkspaceState()?.sharedSemantics).toEqual(sharedSemantics);
+
+    service.saveWorkspaceState({
+      ...state(),
+      sharedSemantics: { subject: "  ", constraints: [] },
+    });
+    expect(service.getWorkspaceState()?.sharedSemantics).toBeUndefined();
+  });
+
+  it("rejects malformed shared facts instead of storing them", () => {
+    const service = new DesktopPromptOrchestratorService(rawDb);
+    expect(() =>
+      service.saveWorkspaceState({ ...state(), sharedSemantics: "a courier" as never }),
+    ).toThrow("sharedSemantics must be an object");
+    expect(() =>
+      service.saveWorkspaceState({
+        ...state(),
+        sharedSemantics: { constraints: Array.from({ length: 21 }, () => "x") },
+      }),
+    ).toThrow("at most 20 items");
+    expect(() =>
+      service.saveWorkspaceState({
+        ...state(),
+        sharedSemantics: { constraints: ["x".repeat(501)] },
+      }),
+    ).toThrow("constraints[0]");
+    expect(() =>
+      service.saveWorkspaceState({
+        ...state(),
+        sharedSemantics: { subject: "x".repeat(2001) },
+      }),
+    ).toThrow("length limit");
+  });
 });

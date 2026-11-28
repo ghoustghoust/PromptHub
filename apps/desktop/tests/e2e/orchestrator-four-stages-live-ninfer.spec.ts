@@ -100,7 +100,7 @@ const STAGES: StageRun[] = [
       skill: "minimaxH3",
       outputFormat: "h3",
       guidanceMode: "agent-led",
-      video: { durationSeconds: 8, shotCount: 1 },
+      video: { durationSeconds: 8, shotCount: 3 },
       systemPromptLayerContextSize: 32768,
     },
     expect: ["courier", "信使", "rain", "雨"],
@@ -167,6 +167,7 @@ test("all four script stages run on the real engine and chain their versions", a
         };
       }, {
         ...stage.input,
+        stage: stage.stage,
         stepContext: previousOutput ?? undefined,
         knowledgeModules: [module],
       });
@@ -190,8 +191,15 @@ test("all four script stages run on the real engine and chain their versions", a
         expect(reply.output.length).toBeGreaterThan(previousOutput.length);
       }
       if (stage.stage === "storyboard") {
-        const shots = (reply.output.match(/分镜|shot/gi) ?? []).length;
-        expect(shots).toBeGreaterThanOrEqual(3);
+        const shots = (reply.output.match(/分镜[一二三四五六七八九十\d]+/g) ?? []).length;
+        expect(shots).toBe(6);
+      }
+      if (stage.stage === "script") {
+        // A script page needs a heading and spoken lines, not one caption paragraph.
+        expect(reply.output).toMatch(/INT\.|EXT\.|内景|外景/);
+        expect(reply.output).toMatch(/[:：“"「]/);
+        expect(reply.output.length).toBeGreaterThan(120);
+        expect(reply.output).toMatch(/[\u4e00-\u9fa5]/);
       }
 
       // Save the produced text as this stage's version through the panel.

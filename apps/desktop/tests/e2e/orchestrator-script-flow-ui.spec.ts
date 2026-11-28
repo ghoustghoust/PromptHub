@@ -21,7 +21,7 @@ const SOURCE_DB = path.join(
   "data",
   "prompthub.db",
 );
-const OUTPUT_DIR = path.resolve(__dirname, "../../../../outputs/prompt-new-branch1j-20261127");
+const OUTPUT_DIR = path.resolve(__dirname, "../../../../outputs/prompt-new-branch1k-20261128");
 
 const OUTLINE = "A courier crosses a wet market street at midnight with a sealed envelope.";
 const OUTLINE_V2 = "A courier crosses a flooded market street at 2 a.m., envelope tucked inside the coat.";
@@ -33,6 +33,7 @@ test("script stages switch, keep versions and survive reload", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "prompthub-script-flow-"));
   const profile = path.join(root, "profile");
   const report: Record<string, unknown> = {};
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   let app: Awaited<ReturnType<typeof launchPromptHub>>["app"] | null = null;
   try {
     const initialized = await launchPromptHub(null, { userDataDir: profile });
@@ -72,6 +73,11 @@ test("script stages switch, keep versions and survive reload", async () => {
       "data-status",
       "empty",
     );
+
+    // The scene shot count is a flow setting: it must come back after a reload
+    // instead of resetting to the default.
+    await page.getByTestId("orchestrator-script-shot-count").fill("9");
+    await expect(page.getByTestId("orchestrator-script-shot-count")).toHaveValue("9");
 
     await page.getByTestId("orchestrator-script-draft").fill(OUTLINE);
     await page.getByTestId("orchestrator-script-save").click();
@@ -138,6 +144,7 @@ test("script stages switch, keep versions and survive reload", async () => {
     );
     await page.getByTestId("orchestrator-script-stage-outline").click();
     await expect(page.getByTestId("orchestrator-script-load-2")).toBeVisible();
+    await expect(page.getByTestId("orchestrator-script-shot-count")).toHaveValue("9");
     report.persisted = true;
   } finally {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });

@@ -37,84 +37,84 @@ function parseUser(messages: { user: string }): Record<string, unknown> {
 }
 
 describe("package logic vs current-step text", () => {
-  it("puts package rules in the system prompt with their module header", () => {
+  it("injects package rules into system without module identity", () => {
     const messages = buildCompositionMessages(input({ knowledgeModules: [module] }), [], []);
     expect(messages.system).toContain(PACKAGE_RULE);
-    expect(messages.system).toContain("[Knowledge module: 剧本结构方法");
-    expect(messages.system).toContain("pack: Skill-Film");
+    expect(messages.system).not.toContain("剧本结构方法");
+    expect(messages.system).not.toContain("Skill-Film");
+    expect(messages.system).not.toContain("[Knowledge module");
     expect(parseUser(messages).intent).toBe("写第 3 场剧本");
-    expect(parseUser(messages).intent).not.toContain(PACKAGE_RULE);
   });
 
-  it("keeps current-step text in the user message only, never in system", () => {
-    const messages = buildCompositionMessages(input({ prompt: STEP_TEXT }), [], []);
-    expect(messages.system).not.toContain("雨落在雨棚上");
-    expect(parseUser(messages).intent).toBe(STEP_TEXT);
-    expect(messages.system).not.toContain("[Knowledge module:");
-  });
-
-  it("keeps the two paths separate when both are present", () => {
-    const messages = buildCompositionMessages(
-      input({ prompt: STEP_TEXT, knowledgeModules: [module] }),
-      [],
-      [],
-    );
-    expect(messages.system).toContain(PACKAGE_RULE);
-    expect(messages.system).not.toContain("雨落在雨棚上");
-    expect(parseUser(messages).intent).toBe(STEP_TEXT);
-    expect(parseUser(messages).intent).not.toContain("每场必须");
-  });
-
-  it("counts package rules against the writing layer but not step text", () => {
-    const packageOnly = buildWritingLayerText(input({ knowledgeModules: [module] }));
-    const both = buildWritingLayerText(
-      input({ knowledgeModules: [module], prompt: STEP_TEXT }),
-    );
-    expect(packageOnly).toContain(PACKAGE_RULE);
-    expect(packageOnly).not.toContain("雨落在雨棚上");
-    expect(both).toBe(packageOnly);
-  });
-
-  it("sends package rules once per system prompt, not once per stage", () => {
+  it("dedupes the same module passed twice", () => {
     const messages = buildCompositionMessages(
       input({ knowledgeModules: [module, module] }),
       [],
       [],
     );
-    const occurrences = messages.system.split(PACKAGE_RULE).length - 1;
-    expect(occurrences).toBe(2);
+    expect(messages.system.split(PACKAGE_RULE).length - 1).toBe(1);
     expect(buildWritingLayerText(input({ knowledgeModules: [module, module] }))
-      .split(PACKAGE_RULE).length - 1).toBe(2);
+      .split(PACKAGE_RULE).length - 1).toBe(1);
   });
 
-  it("charges both paths the same tokens even though their roles differ", () => {
-    const packageOnly = buildCompositionMessages(input({ knowledgeModules: [module] }), [], []);
-    const stepOnly = buildCompositionMessages(input({ prompt: STEP_TEXT }), [], []);
-    const packageTokens = estimatePromptTokens(packageOnly.system) + estimatePromptTokens(packageOnly.user);
-    const stepTokens = estimatePromptTokens(stepOnly.system) + estimatePromptTokens(stepOnly.user);
-    expect(packageTokens).toBeGreaterThan(stepTokens);
-    expect(estimatePromptTokens(stepOnly.system)).toBeLessThan(estimatePromptTokens(packageOnly.system));
+  it("sends current-step text as its own user field, never as intent", () => {
+    const messages = buildCompositionMessages(
+      input({ prompt: "写第 3 场剧本", stepContext: STEP_TEXT }),
+      [],
+      [],
+    );
+    expect(messages.system).not.toContain("雨落在雨棚上");
+    const user = parseUser(messages);
+    expect(user.stepContext).toBe(STEP_TEXT);
+    expect(user.intent).toBe("写第 3 场剧本");
   });
 
-  it("has no contract resource for current-step text", () => {
-    const contract = resolvePromptTaskContract(input({ prompt: STEP_TEXT }));
+  it("keeps step text out of the intent slot in a rewrite task", () => {
+    const messages = buildCompositionMessages(
+      input({ mode: "polish", prompt: "润色这一段", stepContext: STEP_TEXT }),
+      [],
+      [],
+    );
+    const user = parseUser(messages);
+    expect(user.intent).toBe("润色这一段");
+    expect(user.stepContext).toBe(STEP_TEXT);
+    expect(messages.system).toContain("step material");
+  });
+
+  it("declares stepContext as a contract resource", () => {
+    const contract = resolvePromptTaskContract(input({ stepContext: STEP_TEXT }));
+    expect(contract.resources.stepContext).toMatchObject({
+      allowed: true,
+      source: "explicit",
+      reason: "pipeline-upstream-context",
+    });
+  });
+
+  it("does not count step text against the writing layer", () => {
+    const packageOnly = buildWritingLayerText(input({ knowledgeModules: [module] }));
+    const both = buildWritingLayerText(
+      input({ knowledgeModules: [module], stepContext: STEP_TEXT }),
+    );
+    expect(both).toBe(packageOnly);
+    expect(both).not.toContain("雨落在雨棚上");
+  });
+
+  it("keeps the two paths separate and chargeable when both are present", () => {
+    const messages = buildCompositionMessages(
+      input({ prompt: STEP_TEXT, stepContext: "OUTLINE: 信使在雨夜送信。", knowledgeModules: [module] }),
+      [],
+      [],
+    );
+    expect(messages.system).toContain(PACKAGE_RULE);
+    expect(messages.system).not.toContain("雨落在雨棚上");
+    expect(parseUser(messages).intent).toBe(STEP_TEXT);
+    expect(parseUser(messages).stepContext).toBe("OUTLINE: 信使在雨夜送信。");
+    expect(estimatePromptTokens(messages.system)).toBeGreaterThan(0);
+  });
+
+  it("applies package rules only when the pack declares the stage", () => {
+    const contract = resolvePromptTaskContract(input({ mode: "video-text" }));
     expect(contract.resources.knowledge.allowed).toBe(true);
-    expect(contract.resources.systemPromptLayer.allowed).toBe(true);
-    expect(Object.keys(contract.resources)).not.toContain("stepText");
-    expect(Object.keys(contract.resources)).not.toContain("stepContext");
-  });
-
-  it("applies package rules to every task kind without a stage gate", () => {
-    const kinds: PromptOrchestrationInput["mode"][] = [
-      "expand",
-      "polish",
-      "video-text",
-      "video-short-drama",
-    ];
-    for (const mode of kinds) {
-      const contract = resolvePromptTaskContract(input({ mode }));
-      expect(contract.resources.knowledge.allowed).toBe(true);
-      expect(contract.resources.knowledge.source).toBe("explicit");
-    }
+    expect(contract.resources.knowledge.source).toBe("explicit");
   });
 });

@@ -27,6 +27,7 @@ export type PromptTaskKind =
  */
 export type PromptTaskResourceKey =
   | "systemPromptLayer"
+  | "stepContext"
   | "knowledge"
   | "reference"
   | "vocabulary"
@@ -43,6 +44,7 @@ export type PromptTaskContractReason =
   | "layout-deterministic-compile"
   | "video-single-pass"
   | "explicit-user-resource"
+  | "pipeline-upstream-context"
   | "resource-not-consumed";
 
 export type PromptTaskRejectionReason =

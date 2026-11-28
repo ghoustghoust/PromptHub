@@ -60,11 +60,13 @@ describe("knowledge modules in the writing layer", () => {
     });
 
     expect(text.indexOf("Prefer muted palettes.")).toBeLessThan(
-      text.indexOf("Action choreography"),
+      text.indexOf("Break every fight into spatial beats"),
     );
-    expect(text).toContain("Skill-Film");
     expect(text).toContain("Break every fight into spatial beats");
     expect(text).toContain("Cut on the beat.");
+    // Method text only: titles and pack names never reach the model.
+    expect(text).not.toContain("Action choreography");
+    expect(text).not.toContain("Skill-Film");
   });
 
   it("counts module content against the same layer budget", () => {
@@ -89,9 +91,10 @@ describe("knowledge modules in the writing layer", () => {
       [],
       [],
     );
-    expect(messages.system).toContain("Action choreography");
     expect(messages.system).toContain("Break every fight into spatial beats");
-    expect(messages.system).toMatch(/knowledge module/i);
+    expect(messages.system).not.toContain("Action choreography");
+    expect(messages.system).not.toContain("Skill-Film");
+    expect(messages.system).toMatch(/methodology notes/i);
   });
 
   it("rejects an over-budget module set instead of truncating it", async () => {
@@ -154,6 +157,6 @@ describe("knowledge modules in the writing layer", () => {
       outcome: "injected",
       origin: "user",
     });
-    expect(result.systemPromptLayerMetrics?.tokens).toBeGreaterThan(20);
+    expect(result.systemPromptLayerMetrics?.tokens).toBeGreaterThan(10);
   });
 });

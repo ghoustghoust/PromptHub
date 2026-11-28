@@ -164,6 +164,7 @@ export function resolvePromptTaskContract(
 
   const resources: Record<PromptTaskResourceKey, PromptTaskResourceRule> = {
     systemPromptLayer: rule(true, "explicit", "explicit-user-resource"),
+    stepContext: rule(true, "explicit", "pipeline-upstream-context"),
     knowledge: rule(true, "explicit", "explicit-user-resource"),
     reference: rule(true, "explicit", "explicit-user-resource"),
     vocabulary: rule(automatic, "automatic", reasonBase),

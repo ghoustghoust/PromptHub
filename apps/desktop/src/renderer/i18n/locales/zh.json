@@ -5051,6 +5051,7 @@
         "knowledge": "知识包",
         "reference": "色卡",
         "systemPromptLayer": "写作层",
+      "stepContext": "当前步骤材料",
         "images": "图片",
         "layout": "布局",
         "video": "视频",
@@ -5741,6 +5742,13 @@
       "flexible": "合理推导",
       "optional": "创意建议"
     },
+    "stepContext": {
+      "title": "当前步骤材料",
+      "hint": "本次运行的上游材料：大纲、场景或上一阶段产物。它是既成材料而非指令，除任务明确要求改写外不会被重写。",
+      "placeholder": "粘贴大纲或上一阶段产物。",
+      "clear": "清空",
+      "count": "{{count}} 字"
+    },
     "scriptFlow": {
       "title": "剧本流程",
       "hint": "大纲、剧本、分镜、生成单元是线性的：上游存在后才能保存下一段。每次保存新增一个版本，旧版本保留在列表中。",
@@ -5754,7 +5762,7 @@
       "save": "保存版本",
       "saving": "保存中…",
       "versions": "{{count}} 个版本",
-      "loadToIntent": "用作意图"
+      "useInStep": "带入本步骤"
     },
     "sharedFacts": {
       "title": "共享事实",

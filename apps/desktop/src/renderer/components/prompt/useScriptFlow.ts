@@ -9,6 +9,9 @@ import {
 import { stageVersions } from "./script-flow-view";
 
 export interface ScriptFlowState {
+  /** Upstream material for this run: the selected version or typed text. */
+  stepContext: string;
+  setStepContext: (text: string) => void;
   flow: PromptScriptFlow | null;
   stage: PromptScriptStage;
   draft: string;
@@ -25,10 +28,11 @@ export interface ScriptFlowState {
  * Script stages are stored on their own: a saved version stays available while
  * the workbench prompt keeps being edited for the current step.
  */
-export function useScriptFlow(loadPrompt: (text: string) => void): ScriptFlowState {
+export function useScriptFlow(): ScriptFlowState {
   const [flow, setFlow] = useState<PromptScriptFlow | null>(null);
   const [stage, setStage] = useState<PromptScriptStage>("outline");
   const [draft, setDraft] = useState("");
+  const [stepContext, setStepContext] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const loaded = useRef(false);
@@ -72,14 +76,14 @@ export function useScriptFlow(loadPrompt: (text: string) => void): ScriptFlowSta
     }
   }, [draft, flow, stage]);
 
-  const loadVersion = useCallback(
-    (text: string) => {
-      loadPrompt(text);
-    },
-    [loadPrompt],
-  );
+  const loadVersion = useCallback((text: string) => {
+    // A stage version is context for the next run, not a new instruction.
+    setStepContext(text);
+  }, []);
 
   return {
+    stepContext,
+    setStepContext,
     flow,
     stage,
     draft,

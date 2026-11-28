@@ -183,7 +183,7 @@ export function usePromptOrchestratorWorkbench() {
   const [allowAdult, setAllowAdult] = useState(false);
   /** Upstream scene facts shared by every target model in this step. */
   const [sharedSemantics, setSharedSemantics] = useState<PromptSharedSemantics>({});
-  const scriptFlow = useScriptFlow(setPrompt);
+  const scriptFlow = useScriptFlow();
   const [referenceError, setReferenceError] = useState("");
   const [knowledgeError, setKnowledgeError] = useState("");
   const knowledgeLoading = useRef(new Set<string>());
@@ -405,10 +405,10 @@ export function usePromptOrchestratorWorkbench() {
       for (const module of knowledgeModulesByPack[packId] ?? []) {
         if (module.role !== "contract") continue;
         const groups = module.contractGroups ?? [];
-        if (
-          groups.length > 0 &&
-          (!knowledgeContractGroup || !groups.includes(knowledgeContractGroup))
-        ) {
+        // A contract only auto-applies when it declares this stage. A contract
+        // without groups cannot prove it belongs here, so it stays out instead
+        // of leaking into every task.
+        if (!knowledgeContractGroup || !groups.includes(knowledgeContractGroup)) {
           continue;
         }
         contracts.push({
@@ -1070,6 +1070,7 @@ export function usePromptOrchestratorWorkbench() {
         : {}),
       ...(referenceStyles.length > 0 ? { referenceStyles } : {}),
       ...(allowAdult ? { allowAdult: true } : {}),
+      ...(scriptFlow.stepContext.trim() ? { stepContext: scriptFlow.stepContext } : {}),
       ...(Object.keys(sharedSemantics).length > 0 ? { sharedSemantics } : {}),
       series: series || undefined,
       ...(domain === "all" ? {} : { domain }),

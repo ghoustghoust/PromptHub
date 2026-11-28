@@ -29,6 +29,7 @@ import { PromptVideoFields } from "./PromptVideoFields";
 import { PromptTermPicker } from "./PromptTermPicker";
 import { SharedFactsPanel } from "./SharedFactsPanel";
 import { ScriptFlowPanel } from "./ScriptFlowPanel";
+import { StepContextPanel } from "./StepContextPanel";
 import { PromptMossLayoutCanvas } from "./PromptMossLayoutCanvas";
 import { PromptWritingLayerPanel } from "./PromptWritingLayerPanel";
 import { PromptReferencePicker } from "./PromptReferencePicker";
@@ -760,6 +761,11 @@ export function PromptOrchestratorWorkbench() {
         >
           <div className={humanLed ? "flex min-h-0 flex-1 flex-col" : "space-y-4"}>
             <ScriptFlowPanel state={state.scriptFlow} disabled={state.isRunning} />
+          <StepContextPanel
+            value={state.scriptFlow.stepContext}
+            onChange={state.scriptFlow.setStepContext}
+            disabled={state.isRunning}
+          />
             <div
               className={
                 humanLed

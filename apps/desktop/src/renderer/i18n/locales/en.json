@@ -5053,6 +5053,7 @@
         "knowledge": "Knowledge",
         "reference": "Color cards",
         "systemPromptLayer": "Writing layer",
+      "stepContext": "Step material",
         "images": "Images",
         "layout": "Layout",
         "video": "Video",
@@ -5743,6 +5744,13 @@
       "flexible": "Reasoned inference",
       "optional": "Creative suggestion"
     },
+    "stepContext": {
+      "title": "Step material",
+      "hint": "Upstream context for this run: the outline, a scene, or the previous stage. It is fixed material, not an instruction, and is not rewritten unless the task asks for it.",
+      "placeholder": "Paste the outline or the previous stage here.",
+      "clear": "Clear",
+      "count": "{{count}} chars"
+    },
     "scriptFlow": {
       "title": "Script flow",
       "hint": "Outline, script, storyboard and generation unit are linear: a stage can be saved once its upstream exists. Saving adds a version; earlier versions stay in the list.",
@@ -5756,7 +5764,7 @@
       "save": "Save version",
       "saving": "Saving…",
       "versions": "{{count}} versions",
-      "loadToIntent": "Use as intent"
+      "useInStep": "Use as step material"
     },
     "sharedFacts": {
       "title": "Shared facts",

@@ -11,6 +11,7 @@ const RESOURCE_ORDER: PromptTaskResourceKey[] = [
   "knowledge",
   "reference",
   "systemPromptLayer",
+  "stepContext",
   "images",
   "layout",
   "video",

@@ -206,6 +206,12 @@ export interface PromptScriptFlow {
 export interface PromptOrchestrationInput {
   /** User intent, source prompt, or textual reference for reverse mode. */
   prompt?: string;
+  /**
+   * Material from the previous step or the current stage (outline text, scene
+   * beats, upstream output). It is context, not an instruction: the model must
+   * not rewrite it unless the task explicitly asks to revise that text.
+   */
+  stepContext?: string;
   mode?: PromptOrchestrationMode;
   /** Image model id used for applicable_models filtering. */
   modelId?: string;

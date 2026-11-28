@@ -100,7 +100,19 @@ test("script stages switch, keep versions and survive reload", async () => {
     );
 
     await page.getByTestId("orchestrator-script-load-2").click();
-    await expect(page.getByTestId("orchestrator-intent")).toHaveValue(OUTLINE_V2);
+    await page.getByTestId("orchestrator-step-context-toggle").click();
+    await expect(page.getByTestId("orchestrator-step-context-input")).toHaveValue(OUTLINE_V2);
+    await expect(page.getByTestId("orchestrator-intent")).not.toHaveValue(OUTLINE_V2);
+// Playwright's CDP screenshot can stall on this window; capture natively.
+    const panelShot = await app.evaluate(async ({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      const image = await win.webContents.capturePage();
+      return image.toPNG().toString("base64");
+    });
+    fs.writeFileSync(
+      path.join(OUTPUT_DIR, "script-flow-panel.png"),
+      Buffer.from(panelShot, "base64"),
+    );
     report.versionsAfterEdit = 2;
 
     await page.waitForTimeout(1_000);

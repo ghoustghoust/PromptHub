@@ -106,7 +106,7 @@ export function ScriptFlowPanel({ state, disabled }: ScriptFlowPanelProps) {
                     disabled={disabled}
                     data-testid={`orchestrator-script-load-${item.version}`}
                   >
-                    {t("orchestrator.scriptFlow.loadToIntent")}
+                    {t("orchestrator.scriptFlow.useInStep")}
                   </button>
                 </li>
               ))}

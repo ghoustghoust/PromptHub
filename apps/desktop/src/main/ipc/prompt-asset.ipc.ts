@@ -1,6 +1,7 @@
 import fs from "node:fs";
-import { ipcMain, nativeImage } from "electron";
-import { PromptAssetDB } from "@prompthub/db";
+import path from "node:path";
+import { app, ipcMain, nativeImage } from "electron";
+import { PromptAssetDB, SettingsDB } from "@prompthub/db";
 import type Database from "@prompthub/db/adapter";
 import { IPC_CHANNELS } from "@prompthub/shared/constants/ipc-channels";
 import type {
@@ -9,10 +10,13 @@ import type {
   PromptAssetQuery,
   PromptAssetQueryResult,
 } from "@prompthub/shared/types";
+import { commitAssetImport, previewAssetLibrary } from "../services/prompt-asset-service";
 
 const THUMBNAIL_WIDTH = 320;
 const MAX_SOURCE_BYTES = 64 * 1024 * 1024;
 const CACHE_LIMIT = 300;
+const LIBRARY_ROOT_SETTING = "promptAssetLibraryRoot";
+const LIBRARY_FOLDER = path.join("library", "image-library", "models", "GHIL");
 
 async function reply<T>(
   operation: () => T | Promise<T>,
@@ -58,7 +62,76 @@ function renderThumbnail(assetPath: string): string | null {
 
 export function registerPromptAssetIPC(db: Database.Database): void {
   const assets = new PromptAssetDB(db);
+  const settings = new SettingsDB(db);
   const cache = new Map<string, string>();
+
+  /**
+   * The default picture library lives outside the database: a folder the user
+   * can replace or download. Saved root wins, then the app data folder, then the
+   * checkout this desktop build runs from.
+   */
+  const isLibraryRoot = (folder: string): boolean =>
+    fs.existsSync(path.join(folder, "costume", "data", "costume-zh.json"));
+  /** A checkout can be launched from `out/main`, `apps/desktop` or the root. */
+  const findInCheckout = (start: string): string | null => {
+    let current = path.resolve(start);
+    for (let depth = 0; depth < 6; depth += 1) {
+      const candidate = path.join(current, "prompt", LIBRARY_FOLDER);
+      if (fs.existsSync(candidate) && isLibraryRoot(candidate)) return candidate;
+      const parent = path.dirname(current);
+      if (parent === current) break;
+      current = parent;
+    }
+    return null;
+  };
+  const resolveDefaultRoot = (): string | null => {
+    const saved = settings.get(LIBRARY_ROOT_SETTING);
+    const candidates = [
+      ...(typeof saved === "string" && saved.trim() ? [saved.trim()] : []),
+      path.join(app.getPath("userData"), LIBRARY_FOLDER),
+      findInCheckout(app.getAppPath()),
+      findInCheckout(process.cwd()),
+    ].filter((folder): folder is string => Boolean(folder));
+    return candidates.find((folder) => fs.existsSync(folder) && isLibraryRoot(folder)) ?? null;
+  };
+
+  ipcMain.handle(IPC_CHANNELS.PROMPT_ASSET_DEFAULT_ROOT, () =>
+    reply<string | null>(() => resolveDefaultRoot()),
+  );
+  // Scanning only writes the index; pictures stay where they are, and the same
+  // folder can be rescanned without duplicating rows.
+  ipcMain.handle(IPC_CHANNELS.PROMPT_ASSET_IMPORT, (_, input: unknown) => {
+    return reply<{
+      root: string;
+      counts: Record<string, number>;
+      inserted: number;
+      updated: number;
+      skipped: number;
+      conflicts: number;
+    }>(() => {
+      const requested =
+        input && typeof input === "object" && typeof (input as { root?: unknown }).root === "string"
+          ? ((input as { root: string }).root ?? "").trim()
+          : "";
+      const root = requested || resolveDefaultRoot();
+      if (!root) throw new Error("No image library folder was found; choose one first.");
+      if (!isLibraryRoot(root)) {
+        throw new Error("That folder does not contain the four indexed libraries.");
+      }
+      const preview = previewAssetLibrary(root);
+      const result = commitAssetImport(assets, preview);
+      settings.set({ [LIBRARY_ROOT_SETTING]: root });
+      cache.clear();
+      return {
+        root,
+        counts: preview.counts,
+        inserted: result.inserted,
+        updated: result.updated,
+        skipped: preview.skipped.length,
+        conflicts: preview.conflicts.length,
+      };
+    });
+  });
 
   ipcMain.handle(IPC_CHANNELS.PROMPT_ASSET_LIST, (_, input: unknown) =>
     reply<PromptAssetQueryResult>(() => assets.list(readAssetQuery(input))),

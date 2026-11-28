@@ -21,4 +21,19 @@ export const promptAssetApi = {
     ipcRenderer.invoke(IPC_CHANNELS.PROMPT_ASSET_THUMBNAIL, assetId) as Promise<
       PromptAssetIPCReply<string | null>
     >,
+  defaultRoot: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROMPT_ASSET_DEFAULT_ROOT) as Promise<
+      PromptAssetIPCReply<string | null>
+    >,
+  importLibrary: (root?: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROMPT_ASSET_IMPORT, root ? { root } : {}) as Promise<
+      PromptAssetIPCReply<{
+        root: string;
+        counts: Record<string, number>;
+        inserted: number;
+        updated: number;
+        skipped: number;
+        conflicts: number;
+      }>
+    >,
 };

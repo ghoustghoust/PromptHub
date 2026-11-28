@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   PromptAssetKindCount,
@@ -29,7 +29,68 @@ export function PromptAssetGallery({ disabled }: { disabled?: boolean }) {
   const [selected, setSelected] = useState<PromptSourceAsset | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [defaultRoot, setDefaultRoot] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanNote, setScanNote] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const thumbnailsRef = useRef<Record<string, string>>({});
+
+  const loadCounts = useCallback(async () => {
+    const reply = await window.api.promptAsset.countByKind();
+    if (reply.ok === true) setCounts(reply.data);
+    return reply.ok === true ? reply.data : [];
+  }, []);
+
+  const runScan = useCallback(
+    async (root?: string) => {
+      setScanning(true);
+      setScanNote("");
+      try {
+        const reply = await window.api.promptAsset.importLibrary(root);
+        if (reply.ok !== true) {
+          setScanNote(reply.error.message);
+          return;
+        }
+        const total = Object.values(reply.data.counts).reduce((sum, value) => sum + value, 0);
+        setScanNote(
+          t("orchestrator.assetLibrary.scanDone", {
+            count: total,
+            inserted: reply.data.inserted,
+          }),
+        );
+        setDefaultRoot(reply.data.root);
+        await loadCounts();
+        setReloadKey((value) => value + 1);
+      } catch (cause) {
+        setScanNote(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        setScanning(false);
+      }
+    },
+    [loadCounts, t],
+  );
+
+  // The default library is a folder, not a per-user import dialog: index it the
+  // first time the gallery is opened, and rescan on demand afterwards.
+  const bootstrapped = useRef(false);
+  useEffect(() => {
+    if (bootstrapped.current) return;
+    bootstrapped.current = true;
+    let active = true;
+    void (async () => {
+      const rootReply = await window.api.promptAsset.defaultRoot();
+      if (!active) return;
+      const root = rootReply.ok === true ? rootReply.data : null;
+      setDefaultRoot(root);
+      const kinds = await loadCounts();
+      if (!active) return;
+      const total = kinds.reduce((sum, entry) => sum + entry.count, 0);
+      if (total === 0 && root) await runScan();
+    })();
+    return () => {
+      active = false;
+    };
+  }, [loadCounts, runScan]);
 
   useEffect(() => {
     const timer = setTimeout(() => setQuery(queryInput.trim()), 300);
@@ -39,20 +100,6 @@ export function PromptAssetGallery({ disabled }: { disabled?: boolean }) {
   useEffect(() => {
     setPage(0);
   }, [kind, query]);
-
-  useEffect(() => {
-    let active = true;
-    void window.api.promptAsset
-      .countByKind()
-      .then((reply) => {
-        if (!active) return;
-        if (reply.ok === true) setCounts(reply.data);
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -83,7 +130,7 @@ export function PromptAssetGallery({ disabled }: { disabled?: boolean }) {
     return () => {
       active = false;
     };
-  }, [kind, query, page]);
+  }, [kind, query, page, reloadKey]);
 
   const items = result?.items ?? [];
 
@@ -147,11 +194,31 @@ export function PromptAssetGallery({ disabled }: { disabled?: boolean }) {
           disabled={disabled}
           data-testid="orchestrator-asset-search"
         />
+        <button
+          type="button"
+          className="h-7 shrink-0 rounded-md border border-border px-2 text-[11px] disabled:opacity-40"
+          onClick={() => void runScan()}
+          disabled={disabled || scanning}
+          data-testid="orchestrator-asset-rescan"
+        >
+          {scanning
+            ? t("orchestrator.assetLibrary.scanning")
+            : t("orchestrator.assetLibrary.scan")}
+        </button>
       </div>
 
       <p className="shrink-0 px-3 pt-2 text-[11px] text-muted-foreground">
         {t("orchestrator.assetLibrary.hint")}
       </p>
+      {(scanNote || defaultRoot) && (
+        <p
+          className="shrink-0 truncate px-3 text-[11px] text-muted-foreground"
+          title={defaultRoot ?? undefined}
+          data-testid="orchestrator-asset-root"
+        >
+          {scanNote || `${t("orchestrator.assetLibrary.rootLabel")}: ${defaultRoot}`}
+        </p>
+      )}
 
       {selected && (
         <div
@@ -209,6 +276,22 @@ export function PromptAssetGallery({ disabled }: { disabled?: boolean }) {
             <p className="text-[11px] text-muted-foreground">
               {t("orchestrator.assetLibrary.emptyHint")}
             </p>
+            {!defaultRoot && (
+              <button
+                type="button"
+                className="mt-2 rounded-md border border-border px-2 py-1 text-[11px] disabled:opacity-40"
+                disabled={disabled || scanning}
+                onClick={() => {
+                  void (async () => {
+                    const folder = await window.electron?.selectFolder?.();
+                    if (folder) await runScan(folder);
+                  })();
+                }}
+                data-testid="orchestrator-asset-choose-folder"
+              >
+                {t("orchestrator.assetLibrary.chooseFolder")}
+              </button>
+            )}
           </div>
         )}
         <ul className="grid grid-cols-[repeat(auto-fill,minmax(148px,1fr))] gap-2">

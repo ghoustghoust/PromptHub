@@ -55,6 +55,8 @@ export const IPC_CHANNELS = {
   PROMPT_ASSET_LIST: "prompt:asset:list",
   PROMPT_ASSET_KIND_COUNTS: "prompt:asset:kindCounts",
   PROMPT_ASSET_THUMBNAIL: "prompt:asset:thumbnail",
+  PROMPT_ASSET_DEFAULT_ROOT: "prompt:asset:defaultRoot",
+  PROMPT_ASSET_IMPORT: "prompt:asset:import",
   PROMPT_WRITING_PRESET_LIST: "prompt:writingPresets:list",
   PROMPT_WRITING_PRESET_GET: "prompt:writingPresets:get",
   PROMPT_WRITING_PRESET_SAVE: "prompt:writingPresets:save",

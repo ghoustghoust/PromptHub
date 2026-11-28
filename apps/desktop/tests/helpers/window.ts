@@ -103,6 +103,11 @@ function createWindowApiDefaults() {
       list: vi.fn().mockResolvedValue({ ok: true, data: { items: [], total: 0 } }),
       countByKind: vi.fn().mockResolvedValue({ ok: true, data: [] }),
       thumbnail: vi.fn().mockResolvedValue({ ok: true, data: null }),
+      defaultRoot: vi.fn().mockResolvedValue({ ok: true, data: null }),
+      importLibrary: vi.fn().mockResolvedValue({
+        ok: true,
+        data: { root: "", counts: {}, inserted: 0, updated: 0, skipped: 0, conflicts: 0 },
+      }),
     },
     localLlama: {
       getConfig: vi.fn(),

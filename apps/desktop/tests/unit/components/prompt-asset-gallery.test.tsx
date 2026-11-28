@@ -33,12 +33,17 @@ const thumbnail = vi.fn(async () => ({
   ok: true as const,
   data: "data:image/jpeg;base64,AAAA",
 }));
+const defaultRoot = vi.fn(async () => ({ ok: true as const, data: null }));
+const importLibrary = vi.fn(async () => ({
+  ok: true as const,
+  data: { root: "", counts: {}, inserted: 0, updated: 0, skipped: 0, conflicts: 0 },
+}));
 
 beforeEach(() => {
   vi.clearAllMocks();
   Object.defineProperty(window, "api", {
     configurable: true,
-    value: { promptAsset: { list, countByKind, thumbnail } },
+    value: { promptAsset: { list, countByKind, thumbnail, defaultRoot, importLibrary } },
   });
 });
 
@@ -47,7 +52,9 @@ describe("PromptAssetGallery", () => {
     await renderWithI18n(<PromptAssetGallery />, { language: "en" });
     await waitFor(() => expect(list).toHaveBeenCalled());
     expect(await screen.findByText("黑色长风衣")).toBeInTheDocument();
-    expect(screen.getByTestId("orchestrator-asset-kind-all")).toHaveTextContent("2");
+    await waitFor(() =>
+      expect(screen.getByTestId("orchestrator-asset-kind-all")).toHaveTextContent("2"),
+    );
     expect(screen.getByTestId("orchestrator-asset-kind-costume")).toHaveTextContent("2");
     expect(screen.getByTestId("orchestrator-asset-range")).toHaveTextContent("1–2 / 2");
   });
@@ -80,5 +87,32 @@ describe("PromptAssetGallery", () => {
     list.mockResolvedValueOnce({ ok: true as const, data: { items: [], total: 0 } });
     await renderWithI18n(<PromptAssetGallery />, { language: "en" });
     expect(await screen.findByTestId("orchestrator-asset-empty")).toBeInTheDocument();
+  });
+
+  it("indexes the default library once when the index is empty", async () => {
+    defaultRoot.mockResolvedValueOnce({ ok: true as const, data: "G:/library/GHIL" });
+    countByKind
+      .mockResolvedValueOnce({ ok: true as const, data: [] })
+      .mockResolvedValue({ ok: true as const, data: [{ kind: "costume", count: 2 }] });
+    importLibrary.mockResolvedValueOnce({
+      ok: true as const,
+      data: {
+        root: "G:/library/GHIL",
+        counts: { costume: 2 },
+        inserted: 2,
+        updated: 0,
+        skipped: 0,
+        conflicts: 0,
+      },
+    });
+    await renderWithI18n(<PromptAssetGallery />, { language: "en" });
+    await waitFor(() => expect(importLibrary).toHaveBeenCalledTimes(1));
+    expect(importLibrary).toHaveBeenCalledWith(undefined);
+    await waitFor(() =>
+      expect(screen.getByTestId("orchestrator-asset-root")).toHaveTextContent("2"),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("orchestrator-asset-kind-costume")).toHaveTextContent("2"),
+    );
   });
 });
